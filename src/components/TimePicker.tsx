@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,6 @@ import {
   StyleSheet,
   Modal,
   PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +16,9 @@ const CLOCK_SIZE = Math.min(Dimensions.get('window').width - 80, 280);
 const CLOCK_RADIUS = CLOCK_SIZE / 2;
 const NUMBER_RADIUS = CLOCK_RADIUS - 28;
 const HAND_LENGTH = NUMBER_RADIUS - 12;
+
+const HOUR_NUMBERS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const MINUTE_NUMBERS = [0, 15, 30, 45];
 
 interface TimePickerProps {
   value: string; // "HH:MM" in 24h
@@ -54,9 +55,8 @@ function angleForMinute(minute: number): number {
   return (minute / 60) * 360;
 }
 
-function angleFromTouch(x: number, y: number): number {
-  // x, y relative to center of clock
-  const rad = Math.atan2(x, -y); // 0 at 12 o'clock, clockwise positive
+function angleFromTouch(dx: number, dy: number): number {
+  const rad = Math.atan2(dx, -dy); // 0 at 12 o'clock, clockwise positive
   let deg = (rad * 180) / Math.PI;
   if (deg < 0) deg += 360;
   return deg;
@@ -68,8 +68,13 @@ function hourFromAngle(angle: number): number {
 }
 
 function minuteFromAngle(angle: number): number {
-  const m = Math.round(angle / 6) % 60;
-  return m;
+  // Snap to nearest 15 minutes
+  const slot = Math.round(angle / 90) % 4;
+  return slot * 15;
+}
+
+function buildManualText(h: number, m: number, p: string): string {
+  return `${h}:${String(m).padStart(2, '0')} ${p}`;
 }
 
 export function TimePicker({ value, onChange }: TimePickerProps) {
@@ -84,6 +89,18 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   const [manualText, setManualText] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
+  // Mutable refs so PanResponder always reads current values
+  const modeRef = useRef<ClockMode>(mode);
+  const tempHourRef = useRef(tempHour);
+  const tempMinuteRef = useRef(tempMinute);
+  const tempPeriodRef = useRef(tempPeriod);
+
+  // Keep refs in sync with state
+  modeRef.current = mode;
+  tempHourRef.current = tempHour;
+  tempMinuteRef.current = tempMinute;
+  tempPeriodRef.current = tempPeriod;
+
   const clockRef = useRef<View>(null);
   const clockCenter = useRef({ x: 0, y: 0 });
 
@@ -93,7 +110,11 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
     setTempMinute(parsed.minute);
     setTempPeriod(parsed.period);
     setMode('hour');
-    setManualText(`${parsed.hour}:${String(parsed.minute).padStart(2, '0')} ${parsed.period}`);
+    modeRef.current = 'hour';
+    tempHourRef.current = parsed.hour;
+    tempMinuteRef.current = parsed.minute;
+    tempPeriodRef.current = parsed.period;
+    setManualText(buildManualText(parsed.hour, parsed.minute, parsed.period));
     setIsEditing(false);
     setOpen(true);
   };
@@ -103,36 +124,40 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
     setOpen(false);
   };
 
-  const handleClockTouch = (pageX: number, pageY: number) => {
+  const handleClockTouch = useCallback((pageX: number, pageY: number) => {
     const dx = pageX - clockCenter.current.x;
     const dy = pageY - clockCenter.current.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 15) return; // too close to center
+    if (dist < 15) return;
 
     const angle = angleFromTouch(dx, dy);
-    if (mode === 'hour') {
+
+    if (modeRef.current === 'hour') {
       const h = hourFromAngle(angle);
+      tempHourRef.current = h;
       setTempHour(h);
-      setManualText(`${h}:${String(tempMinute).padStart(2, '0')} ${tempPeriod}`);
+      setManualText(buildManualText(h, tempMinuteRef.current, tempPeriodRef.current));
     } else {
       const m = minuteFromAngle(angle);
+      tempMinuteRef.current = m;
       setTempMinute(m);
-      setManualText(`${tempHour}:${String(m).padStart(2, '0')} ${tempPeriod}`);
+      setManualText(buildManualText(tempHourRef.current, m, tempPeriodRef.current));
     }
-  };
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e: GestureResponderEvent) => {
+      onPanResponderGrant: (e) => {
         handleClockTouch(e.nativeEvent.pageX, e.nativeEvent.pageY);
       },
-      onPanResponderMove: (e: GestureResponderEvent, _gs: PanResponderGestureState) => {
+      onPanResponderMove: (e) => {
         handleClockTouch(e.nativeEvent.pageX, e.nativeEvent.pageY);
       },
       onPanResponderRelease: () => {
-        if (mode === 'hour') {
+        if (modeRef.current === 'hour') {
+          modeRef.current = 'minute';
           setMode('minute');
         }
       },
@@ -147,10 +172,9 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
   const parseManualInput = (text: string) => {
     setManualText(text);
-    // Try to parse patterns like "8:30 AM", "8:30AM", "830AM", "8:30 pm"
     const match = text.match(/^(\d{1,2}):?(\d{2})\s*(AM|PM|am|pm|Am|Pm)$/);
     if (match) {
-      let h = parseInt(match[1], 10);
+      const h = parseInt(match[1], 10);
       const m = parseInt(match[2], 10);
       const p = match[3].toUpperCase() as 'AM' | 'PM';
       if (h >= 1 && h <= 12 && m >= 0 && m <= 59) {
@@ -163,10 +187,8 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
   const handAngle = mode === 'hour' ? angleForHour(tempHour) : angleForMinute(tempMinute);
 
-  const numbers = mode === 'hour'
-    ? [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    : [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-
+  const numbers = mode === 'hour' ? HOUR_NUMBERS : MINUTE_NUMBERS;
+  const numCount = numbers.length; // 12 for hours, 4 for minutes
   const selectedNumber = mode === 'hour' ? tempHour : tempMinute;
 
   return (
@@ -228,7 +250,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                 ]}
                 onPress={() => {
                   setTempPeriod('AM');
-                  setManualText(`${tempHour}:${String(tempMinute).padStart(2, '0')} AM`);
+                  setManualText(buildManualText(tempHour, tempMinute, 'AM'));
                 }}
               >
                 <Text style={{ color: tempPeriod === 'AM' ? '#FFF' : theme.colors.text, fontWeight: '700', fontSize: 15 }}>
@@ -246,7 +268,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                 ]}
                 onPress={() => {
                   setTempPeriod('PM');
-                  setManualText(`${tempHour}:${String(tempMinute).padStart(2, '0')} PM`);
+                  setManualText(buildManualText(tempHour, tempMinute, 'PM'));
                 }}
               >
                 <Text style={{ color: tempPeriod === 'PM' ? '#FFF' : theme.colors.text, fontWeight: '700', fontSize: 15 }}>
@@ -283,18 +305,14 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
               style={[styles.clock, { width: CLOCK_SIZE, height: CLOCK_SIZE, backgroundColor: theme.colors.inputBackground }]}
               {...panResponder.panHandlers}
             >
-              {/* Hand */}
+              {/* Hand — extends upward from center, rotates around bottom (center of clock) */}
               <View
                 style={[
                   styles.hand,
                   {
                     height: HAND_LENGTH,
                     backgroundColor: theme.colors.primary,
-                    transform: [
-                      { translateY: -HAND_LENGTH / 2 },
-                      { rotate: `${handAngle}deg` },
-                      { translateY: HAND_LENGTH / 2 },
-                    ],
+                    transform: [{ rotate: `${handAngle}deg` }],
                   },
                 ]}
               />
@@ -302,7 +320,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
               {/* Center dot */}
               <View style={[styles.centerDot, { backgroundColor: theme.colors.primary }]} />
 
-              {/* Selected indicator at end of hand */}
+              {/* Selected indicator circle at end of hand */}
               <View
                 style={[
                   styles.selectedDot,
@@ -311,13 +329,11 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                     transform: [
                       {
                         translateX:
-                          NUMBER_RADIUS *
-                          Math.sin((handAngle * Math.PI) / 180),
+                          NUMBER_RADIUS * Math.sin((handAngle * Math.PI) / 180),
                       },
                       {
                         translateY:
-                          -NUMBER_RADIUS *
-                          Math.cos((handAngle * Math.PI) / 180),
+                          -NUMBER_RADIUS * Math.cos((handAngle * Math.PI) / 180),
                       },
                     ],
                   },
@@ -326,11 +342,10 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
               {/* Numbers */}
               {numbers.map((num, i) => {
-                const angle = (i / 12) * 2 * Math.PI - Math.PI / 2 + Math.PI / 2;
-                // Position: 12 at top, going clockwise
-                const a = ((i * 30) * Math.PI) / 180;
-                const x = CLOCK_RADIUS + NUMBER_RADIUS * Math.sin(a) - 16;
-                const y = CLOCK_RADIUS - NUMBER_RADIUS * Math.cos(a) - 16;
+                const degreesPerItem = 360 / numCount;
+                const a = ((i * degreesPerItem) * Math.PI) / 180;
+                const x = CLOCK_RADIUS + NUMBER_RADIUS * Math.sin(a) - 18;
+                const y = CLOCK_RADIUS - NUMBER_RADIUS * Math.cos(a) - 18;
                 const isSelected = num === selectedNumber;
 
                 return (
@@ -340,11 +355,11 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                     onPress={() => {
                       if (mode === 'hour') {
                         setTempHour(num === 0 ? 12 : num);
-                        setManualText(`${num === 0 ? 12 : num}:${String(tempMinute).padStart(2, '0')} ${tempPeriod}`);
+                        setManualText(buildManualText(num === 0 ? 12 : num, tempMinute, tempPeriod));
                         setMode('minute');
                       } else {
                         setTempMinute(num);
-                        setManualText(`${tempHour}:${String(num).padStart(2, '0')} ${tempPeriod}`);
+                        setManualText(buildManualText(tempHour, num, tempPeriod));
                       }
                     }}
                     style={[
@@ -361,7 +376,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                         },
                       ]}
                     >
-                      {mode === 'minute' ? String(num).padStart(2, '0') : num}
+                      {mode === 'minute' ? String(num).padStart(2, '0') : String(num)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -476,8 +491,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 2,
     left: CLOCK_RADIUS - 1,
-    top: CLOCK_RADIUS,
-    transformOrigin: 'top',
+    top: CLOCK_RADIUS - HAND_LENGTH, // extends upward from center
+    transformOrigin: 'bottom',       // pivot at bottom edge = clock center
     borderRadius: 1,
   },
   centerDot: {
@@ -499,15 +514,15 @@ const styles = StyleSheet.create({
   },
   numberBtn: {
     position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
   },
   numberText: {
-    fontSize: 14,
+    fontSize: 15,
   },
   actions: {
     flexDirection: 'row',

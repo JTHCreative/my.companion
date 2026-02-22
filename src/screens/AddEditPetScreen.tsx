@@ -16,6 +16,7 @@ import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { FormInput } from '../components/FormInput';
+import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { PetType } from '../types';
 
@@ -350,11 +351,12 @@ export function AddEditPetScreen({ navigation, route }: any) {
         />
 
         {/* Birthday */}
-        <FormInput
+        <DatePicker
           label="Birthday"
           value={birthday}
-          onChangeText={setBirthday}
+          onChange={setBirthday}
           placeholder="MM/DD/YYYY"
+          optional
         />
 
         {/* Delete Button */}

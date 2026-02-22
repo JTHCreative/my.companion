@@ -17,6 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { FormInput } from '../components/FormInput';
+import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { PetSelector } from '../components/PetSelector';
@@ -601,17 +602,18 @@ export function MedicalScreen({ navigation }: any) {
               ))}
             </View>
 
-            <FormInput
+            <DatePicker
               label="Start Date"
               value={startDate}
-              onChangeText={setStartDate}
+              onChange={setStartDate}
               placeholder="MM/DD/YYYY"
             />
-            <FormInput
+            <DatePicker
               label="End Date (Optional)"
               value={endDate}
-              onChangeText={setEndDate}
-              placeholder="MM/DD/YYYY or ongoing"
+              onChange={setEndDate}
+              placeholder="MM/DD/YYYY"
+              optional
             />
             <FormInput
               label="Notes"

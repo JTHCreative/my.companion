@@ -16,6 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { FormInput } from '../components/FormInput';
+import { TimePicker } from '../components/TimePicker';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { PetSelector } from '../components/PetSelector';
@@ -55,7 +56,7 @@ export function ScheduleScreen({ navigation }: any) {
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [eventType, setEventType] = useState<ScheduleEventType>('feeding');
   const [title, setTitle] = useState('');
-  const [time, setTime] = useState('');
+  const [time, setTime] = useState('08:00');
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
   const [notes, setNotes] = useState('');
   const [linkedMealId, setLinkedMealId] = useState<string | undefined>(undefined);
@@ -69,7 +70,7 @@ export function ScheduleScreen({ navigation }: any) {
   const resetForm = () => {
     setEventType('feeding');
     setTitle('');
-    setTime('');
+    setTime('08:00');
     setSelectedDays(DAYS);
     setNotes('');
     setLinkedMealId(undefined);
@@ -101,11 +102,6 @@ export function ScheduleScreen({ navigation }: any) {
   };
 
   const handleSave = async () => {
-    if (!time.match(/^\d{1,2}:\d{2}$/)) {
-      Alert.alert('Invalid Time', 'Please enter time in HH:MM format (e.g., 08:30).');
-      return;
-    }
-
     try {
       const eventTitle =
         title.trim() ||
@@ -381,13 +377,7 @@ export function ScheduleScreen({ navigation }: any) {
               placeholder="e.g., Morning Feeding"
             />
 
-            <FormInput
-              label="Time (HH:MM)"
-              value={time}
-              onChangeText={setTime}
-              placeholder="08:30"
-              keyboardType="numbers-and-punctuation"
-            />
+            <TimePicker value={time} onChange={setTime} />
 
             {/* Days Selector */}
             <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>

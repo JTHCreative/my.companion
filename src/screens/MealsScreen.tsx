@@ -18,7 +18,7 @@ import { Card } from '../components/Card';
 import { FormInput } from '../components/FormInput';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
-import { PetSelector } from '../components/PetSelector';
+import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
 export function MealsScreen({ navigation }: any) {
   const { theme } = useTheme();
@@ -126,9 +126,10 @@ export function MealsScreen({ navigation }: any) {
   if (!selectedPet) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.screenHeader}>
-          <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Meals</Text>
-        </View>
+        <PetAvatarHeader
+          title="Meals"
+          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        />
         <EmptyState
           icon="restaurant"
           title="No Pet Selected"
@@ -142,14 +143,15 @@ export function MealsScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.screenHeader}>
-        <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Meals</Text>
-        <TouchableOpacity onPress={() => openAddModal()} style={styles.addButton}>
-          <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <PetSelector onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })} />
+      <PetAvatarHeader
+        title="Meals"
+        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        rightAccessory={
+          <TouchableOpacity onPress={() => openAddModal()} style={styles.addButton}>
+            <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       {petMeals.length === 0 ? (
         <EmptyState
@@ -451,19 +453,6 @@ export function MealsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 12,
-  },
-  screenTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
   },
   addButton: {
     padding: 4,

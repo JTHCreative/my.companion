@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,13 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
+import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   dog: 'paw',
@@ -71,9 +71,8 @@ function formatBirthday(birthday: string): string | null {
 }
 
 export function HomeScreen({ navigation }: any) {
-  const { theme, toggleTheme, isDark } = useTheme();
-  const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents, meals, medications, vetInfo } = useData();
-  const [selectorOpen, setSelectorOpen] = useState(false);
+  const { theme } = useTheme();
+  const { pets, selectedPet, scheduleEvents, meals, medications, vetInfo } = useData();
 
   const petSchedule = scheduleEvents.filter(
     (e) => e.petId === selectedPet?.id
@@ -100,179 +99,15 @@ export function HomeScreen({ navigation }: any) {
     ? formatBirthday(selectedPet.birthday)
     : null;
 
-  const renderHeaderAvatar = () => {
-    if (!selectedPet) return null;
-    return (
-      <TouchableOpacity
-        onPress={() => setSelectorOpen(!selectorOpen)}
-        activeOpacity={0.7}
-        style={[
-          styles.headerAvatar,
-          {
-            borderColor: selectorOpen
-              ? theme.colors.primary
-              : theme.colors.border,
-          },
-        ]}
-      >
-        {selectedPet.profileImage ? (
-          <Image
-            source={{ uri: selectedPet.profileImage }}
-            style={styles.headerAvatarImage}
-          />
-        ) : (
-          <View
-            style={[
-              styles.headerAvatarImage,
-              styles.headerAvatarPlaceholder,
-              { backgroundColor: theme.colors.primaryLight },
-            ]}
-          >
-            <Ionicons
-              name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-              size={18}
-              color={theme.colors.primary}
-            />
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderPetSelectorBar = () => {
-    if (!selectorOpen) return null;
-    return (
-      <View
-        style={[
-          styles.selectorBar,
-          {
-            backgroundColor: theme.colors.surface,
-            borderBottomColor: theme.colors.border,
-          },
-        ]}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.selectorScroll}
-          style={styles.selectorScrollView}
-        >
-          {pets.map((pet) => {
-            const isSelected = pet.id === selectedPetId;
-            return (
-              <TouchableOpacity
-                key={pet.id}
-                onPress={() => {
-                  selectPet(pet.id);
-                  setSelectorOpen(false);
-                }}
-                activeOpacity={0.7}
-                style={styles.selectorItem}
-              >
-                <View
-                  style={[
-                    styles.selectorAvatarRing,
-                    {
-                      borderColor: isSelected
-                        ? theme.colors.primary
-                        : 'transparent',
-                    },
-                  ]}
-                >
-                  {pet.profileImage ? (
-                    <Image
-                      source={{ uri: pet.profileImage }}
-                      style={styles.selectorAvatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.selectorAvatar,
-                        styles.selectorAvatarPlaceholder,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <Ionicons
-                        name={PET_TYPE_ICONS[pet.type] || 'paw'}
-                        size={18}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.selectorName,
-                    {
-                      color: isSelected
-                        ? theme.colors.primary
-                        : theme.colors.text,
-                      fontWeight: isSelected ? '700' : '500',
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {pet.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-          {/* Add New Pet */}
-          <TouchableOpacity
-            onPress={() => {
-              setSelectorOpen(false);
-              navigation.navigate('AddPet');
-            }}
-            activeOpacity={0.7}
-            style={styles.selectorItem}
-          >
-            <View
-              style={[
-                styles.selectorAddButton,
-                { borderColor: theme.colors.border },
-              ]}
-            >
-              <Ionicons name="add" size={22} color={theme.colors.primary} />
-            </View>
-            <Text
-              style={[styles.selectorName, { color: theme.colors.textSecondary }]}
-            >
-              Add
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-        {/* Settings button */}
-        <TouchableOpacity
-          onPress={() => {
-            setSelectorOpen(false);
-            toggleTheme();
-          }}
-          activeOpacity={0.7}
-          style={[
-            styles.settingsButton,
-            { borderLeftColor: theme.colors.border },
-          ]}
-        >
-          <Ionicons
-            name="settings-outline"
-            size={22}
-            color={theme.colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   if (pets.length === 0) {
     return (
       <View
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.headerBar}>
-          <Text style={[styles.appTitle, { color: theme.colors.primary }]}>
-            my.Companion
-          </Text>
-        </View>
+        <PetAvatarHeader
+          title="my.Companion"
+          onAddPet={() => navigation.navigate('AddPet')}
+        />
         <EmptyState
           icon="paw"
           title="Welcome to my.Companion"
@@ -288,16 +123,10 @@ export function HomeScreen({ navigation }: any) {
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* Header */}
-      <View style={styles.headerBar}>
-        <Text style={[styles.appTitle, { color: theme.colors.primary }]}>
-          my.Companion
-        </Text>
-        {renderHeaderAvatar()}
-      </View>
-
-      {/* Pet Selector Dropdown */}
-      {renderPetSelectorBar()}
+      <PetAvatarHeader
+        title="my.Companion"
+        onAddPet={() => navigation.navigate('AddPet')}
+      />
 
       {selectedPet && (
         <ScrollView
@@ -700,95 +529,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 12,
-  },
-  appTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    overflow: 'hidden',
-  },
-  headerAvatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 19,
-  },
-  headerAvatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  /* Pet selector bar */
-  selectorBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    paddingVertical: 10,
-  },
-  selectorScrollView: {
-    flex: 1,
-  },
-  selectorScroll: {
-    paddingHorizontal: 16,
-    gap: 16,
-    alignItems: 'center',
-  },
-  selectorItem: {
-    alignItems: 'center',
-    width: 56,
-  },
-  selectorAvatarRing: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectorAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  selectorAvatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectorName: {
-    fontSize: 11,
-    marginTop: 4,
-    maxWidth: 56,
-    textAlign: 'center',
-  },
-  selectorAddButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  settingsButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderLeftWidth: 1,
-    alignSelf: 'center',
-  },
-
-  /* Content */
   content: {
     flex: 1,
   },

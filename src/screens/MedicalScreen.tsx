@@ -20,7 +20,7 @@ import { FormInput } from '../components/FormInput';
 import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
-import { PetSelector } from '../components/PetSelector';
+import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
 type ModalMode = 'none' | 'vet' | 'medication';
 
@@ -212,9 +212,10 @@ export function MedicalScreen({ navigation }: any) {
   if (!selectedPet) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.screenHeader}>
-          <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Medical</Text>
-        </View>
+        <PetAvatarHeader
+          title="Medical"
+          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        />
         <EmptyState
           icon="medkit"
           title="No Pet Selected"
@@ -228,11 +229,10 @@ export function MedicalScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.screenHeader}>
-        <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Medical</Text>
-      </View>
-
-      <PetSelector onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })} />
+      <PetAvatarHeader
+        title="Medical"
+        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -649,19 +649,6 @@ export function MedicalScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 12,
-  },
-  screenTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
   },
   scrollContent: {
     paddingBottom: 20,

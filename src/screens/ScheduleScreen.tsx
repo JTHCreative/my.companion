@@ -290,7 +290,7 @@ export function ScheduleScreen({ navigation }: any) {
       )}
 
       {/* Add/Edit Modal */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modalVisible} animationType="slide" onRequestClose={() => { setModalVisible(false); resetForm(); }}>
         <KeyboardAvoidingView
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -420,7 +420,7 @@ export function MedicalScreen({ navigation }: any) {
       <Modal
         visible={modalMode === 'vet'}
         animationType="slide"
-        presentationStyle="pageSheet"
+        onRequestClose={() => { setModalMode('none'); resetForm(); }}
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
@@ -512,7 +512,7 @@ export function MedicalScreen({ navigation }: any) {
       <Modal
         visible={modalMode === 'medication'}
         animationType="slide"
-        presentationStyle="pageSheet"
+        onRequestClose={() => { setModalMode('none'); resetForm(); }}
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}

@@ -243,38 +243,49 @@ export function ScheduleScreen({ navigation }: any) {
               {/* Events area */}
               <View style={styles.slotEventsCol}>
                 {hasEvents ? (
-                  hourEvents.map((event) => {
-                    const typeInfo = getEventTypeInfo(event.type);
-                    return (
-                      <TouchableOpacity
-                        key={event.id}
-                        activeOpacity={0.7}
-                        onPress={() => openEditModal(event.id)}
-                        onLongPress={() => handleDelete(event.id)}
-                        style={[
-                          styles.eventChip,
-                          {
-                            backgroundColor: typeInfo.color + '18',
-                            borderLeftColor: typeInfo.color,
-                          },
-                        ]}
-                      >
-                        <Ionicons name={typeInfo.icon} size={14} color={typeInfo.color} />
-                        <View style={styles.eventChipText}>
-                          <Text
-                            style={[styles.eventChipTitle, { color: theme.colors.text }]}
-                            numberOfLines={1}
+                  <View style={styles.slotEventsRow}>
+                    <View style={{ flex: 1 }}>
+                      {hourEvents.map((event) => {
+                        const typeInfo = getEventTypeInfo(event.type);
+                        return (
+                          <TouchableOpacity
+                            key={event.id}
+                            activeOpacity={0.7}
+                            onPress={() => openEditModal(event.id)}
+                            onLongPress={() => handleDelete(event.id)}
+                            style={[
+                              styles.eventChip,
+                              {
+                                backgroundColor: typeInfo.color + '18',
+                                borderLeftColor: typeInfo.color,
+                              },
+                            ]}
                           >
-                            {event.title}
-                          </Text>
-                          <Text style={[styles.eventChipTime, { color: theme.colors.textSecondary }]}>
-                            {formatTime(event.time)}
-                            {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })
+                            <Ionicons name={typeInfo.icon} size={14} color={typeInfo.color} />
+                            <View style={styles.eventChipText}>
+                              <Text
+                                style={[styles.eventChipTitle, { color: theme.colors.text }]}
+                                numberOfLines={1}
+                              >
+                                {event.title}
+                              </Text>
+                              <Text style={[styles.eventChipTime, { color: theme.colors.textSecondary }]}>
+                                {formatTime(event.time)}
+                                {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.slotAddBtn, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}
+                      onPress={() => openAddModalAtHour(hour)}
+                      activeOpacity={0.6}
+                    >
+                      <Ionicons name="add" size={18} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                  </View>
                 ) : (
                   <View style={styles.emptySlot}>
                     <Ionicons name="add" size={16} color={theme.colors.textSecondary + '60'} />
@@ -644,6 +655,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     justifyContent: 'center',
     gap: 4,
+  },
+  slotEventsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slotAddBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptySlot: {
     flex: 1,

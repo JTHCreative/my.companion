@@ -93,155 +93,161 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Pet CRUD
   const addPet = useCallback(async (pet: Pet) => {
+    let next: Pet[] = [];
     setPets((prev) => {
-      const next = [...prev, pet];
-      saveData(KEYS.pets, next);
+      next = [...prev, pet];
       return next;
     });
+    await saveData(KEYS.pets, next);
     if (!selectedPetId) {
       setSelectedPetId(pet.id);
-      AsyncStorage.setItem(KEYS.selectedPetId, pet.id);
+      await AsyncStorage.setItem(KEYS.selectedPetId, pet.id);
     }
   }, [selectedPetId]);
 
   const updatePet = useCallback(async (pet: Pet) => {
+    let next: Pet[] = [];
     setPets((prev) => {
-      const next = prev.map((p) => (p.id === pet.id ? pet : p));
-      saveData(KEYS.pets, next);
+      next = prev.map((p) => (p.id === pet.id ? pet : p));
       return next;
     });
+    await saveData(KEYS.pets, next);
   }, []);
 
   const deletePet = useCallback(async (id: string) => {
-    setPets((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      saveData(KEYS.pets, next);
-      return next;
-    });
-    setScheduleEvents((prev) => {
-      const next = prev.filter((e) => e.petId !== id);
-      saveData(KEYS.scheduleEvents, next);
-      return next;
-    });
-    setMeals((prev) => {
-      const next = prev.filter((m) => m.petId !== id);
-      saveData(KEYS.meals, next);
-      return next;
-    });
-    setVetInfo((prev) => {
-      const next = prev.filter((v) => v.petId !== id);
-      saveData(KEYS.vetInfo, next);
-      return next;
-    });
-    setMedications((prev) => {
-      const next = prev.filter((m) => m.petId !== id);
-      saveData(KEYS.medications, next);
-      return next;
-    });
+    let nextPets: Pet[] = [];
+    let nextEvents: ScheduleEvent[] = [];
+    let nextMeals: Meal[] = [];
+    let nextVets: VetInfo[] = [];
+    let nextMeds: Medication[] = [];
+    setPets((prev) => { nextPets = prev.filter((p) => p.id !== id); return nextPets; });
+    setScheduleEvents((prev) => { nextEvents = prev.filter((e) => e.petId !== id); return nextEvents; });
+    setMeals((prev) => { nextMeals = prev.filter((m) => m.petId !== id); return nextMeals; });
+    setVetInfo((prev) => { nextVets = prev.filter((v) => v.petId !== id); return nextVets; });
+    setMedications((prev) => { nextMeds = prev.filter((m) => m.petId !== id); return nextMeds; });
+    await Promise.all([
+      saveData(KEYS.pets, nextPets),
+      saveData(KEYS.scheduleEvents, nextEvents),
+      saveData(KEYS.meals, nextMeals),
+      saveData(KEYS.vetInfo, nextVets),
+      saveData(KEYS.medications, nextMeds),
+    ]);
     if (selectedPetId === id) {
       setSelectedPetId(null);
-      AsyncStorage.removeItem(KEYS.selectedPetId);
+      await AsyncStorage.removeItem(KEYS.selectedPetId);
     }
   }, [selectedPetId]);
 
   // Schedule CRUD
   const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
+    let next: ScheduleEvent[] = [];
     setScheduleEvents((prev) => {
-      const next = [...prev, event];
-      saveData(KEYS.scheduleEvents, next);
+      next = [...prev, event];
       return next;
     });
+    await saveData(KEYS.scheduleEvents, next);
   }, []);
 
   const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
+    let next: ScheduleEvent[] = [];
     setScheduleEvents((prev) => {
-      const next = prev.map((e) => (e.id === event.id ? event : e));
-      saveData(KEYS.scheduleEvents, next);
+      next = prev.map((e) => (e.id === event.id ? event : e));
       return next;
     });
+    await saveData(KEYS.scheduleEvents, next);
   }, []);
 
   const deleteScheduleEvent = useCallback(async (id: string) => {
+    let next: ScheduleEvent[] = [];
     setScheduleEvents((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      saveData(KEYS.scheduleEvents, next);
+      next = prev.filter((e) => e.id !== id);
       return next;
     });
+    await saveData(KEYS.scheduleEvents, next);
   }, []);
 
   // Meal CRUD
   const addMeal = useCallback(async (meal: Meal) => {
+    let next: Meal[] = [];
     setMeals((prev) => {
-      const next = [...prev, meal];
-      saveData(KEYS.meals, next);
+      next = [...prev, meal];
       return next;
     });
+    await saveData(KEYS.meals, next);
   }, []);
 
   const updateMeal = useCallback(async (meal: Meal) => {
+    let next: Meal[] = [];
     setMeals((prev) => {
-      const next = prev.map((m) => (m.id === meal.id ? meal : m));
-      saveData(KEYS.meals, next);
+      next = prev.map((m) => (m.id === meal.id ? meal : m));
       return next;
     });
+    await saveData(KEYS.meals, next);
   }, []);
 
   const deleteMeal = useCallback(async (id: string) => {
+    let next: Meal[] = [];
     setMeals((prev) => {
-      const next = prev.filter((m) => m.id !== id);
-      saveData(KEYS.meals, next);
+      next = prev.filter((m) => m.id !== id);
       return next;
     });
+    await saveData(KEYS.meals, next);
   }, []);
 
   // Vet CRUD
   const addVetInfo = useCallback(async (vet: VetInfo) => {
+    let next: VetInfo[] = [];
     setVetInfo((prev) => {
-      const next = [...prev, vet];
-      saveData(KEYS.vetInfo, next);
+      next = [...prev, vet];
       return next;
     });
+    await saveData(KEYS.vetInfo, next);
   }, []);
 
   const updateVetInfo = useCallback(async (vet: VetInfo) => {
+    let next: VetInfo[] = [];
     setVetInfo((prev) => {
-      const next = prev.map((v) => (v.id === vet.id ? vet : v));
-      saveData(KEYS.vetInfo, next);
+      next = prev.map((v) => (v.id === vet.id ? vet : v));
       return next;
     });
+    await saveData(KEYS.vetInfo, next);
   }, []);
 
   const deleteVetInfo = useCallback(async (id: string) => {
+    let next: VetInfo[] = [];
     setVetInfo((prev) => {
-      const next = prev.filter((v) => v.id !== id);
-      saveData(KEYS.vetInfo, next);
+      next = prev.filter((v) => v.id !== id);
       return next;
     });
+    await saveData(KEYS.vetInfo, next);
   }, []);
 
   // Medication CRUD
   const addMedication = useCallback(async (med: Medication) => {
+    let next: Medication[] = [];
     setMedications((prev) => {
-      const next = [...prev, med];
-      saveData(KEYS.medications, next);
+      next = [...prev, med];
       return next;
     });
+    await saveData(KEYS.medications, next);
   }, []);
 
   const updateMedication = useCallback(async (med: Medication) => {
+    let next: Medication[] = [];
     setMedications((prev) => {
-      const next = prev.map((m) => (m.id === med.id ? med : m));
-      saveData(KEYS.medications, next);
+      next = prev.map((m) => (m.id === med.id ? med : m));
       return next;
     });
+    await saveData(KEYS.medications, next);
   }, []);
 
   const deleteMedication = useCallback(async (id: string) => {
+    let next: Medication[] = [];
     setMedications((prev) => {
-      const next = prev.filter((m) => m.id !== id);
-      saveData(KEYS.medications, next);
+      next = prev.filter((m) => m.id !== id);
       return next;
     });
+    await saveData(KEYS.medications, next);
   }, []);
 
   return (

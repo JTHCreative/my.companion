@@ -157,23 +157,28 @@ export function HomeScreen({ navigation }: any) {
                       {selectedPet.weight} {selectedPet.weightUnit}
                     </Text>
                   )}
-                  {selectedPet.personality && (
-                    <View
-                      style={[
-                        styles.personalityBadge,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.personalityText,
-                          { color: theme.colors.primary },
-                        ]}
-                      >
-                        {selectedPet.personality}
-                      </Text>
+                  {selectedPet.personality ? (
+                    <View style={styles.personalityRow}>
+                      {selectedPet.personality.split(',').map((tag) => tag.trim()).filter(Boolean).map((tag) => (
+                        <View
+                          key={tag}
+                          style={[
+                            styles.personalityBadge,
+                            { backgroundColor: theme.colors.primaryLight },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.personalityText,
+                              { color: theme.colors.primary },
+                            ]}
+                          >
+                            {tag}
+                          </Text>
+                        </View>
+                      ))}
                     </View>
-                  )}
+                  ) : null}
                 </View>
                 <Ionicons
                   name="chevron-forward"
@@ -421,12 +426,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
+  personalityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
   personalityBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    marginTop: 6,
   },
   personalityText: {
     fontSize: 12,

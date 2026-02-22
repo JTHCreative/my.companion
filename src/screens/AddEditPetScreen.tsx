@@ -17,6 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { FormInput } from '../components/FormInput';
 import { DatePicker } from '../components/DatePicker';
+import { PersonalityTagPicker } from '../components/PersonalityTagPicker';
 import { Button } from '../components/Button';
 import { PetType } from '../types';
 
@@ -343,11 +344,9 @@ export function AddEditPetScreen({ navigation, route }: any) {
         </View>
 
         {/* Personality */}
-        <FormInput
-          label="Personality"
+        <PersonalityTagPicker
           value={personality}
-          onChangeText={setPersonality}
-          placeholder="e.g., Playful, Friendly, Shy"
+          onChange={setPersonality}
         />
 
         {/* Birthday */}

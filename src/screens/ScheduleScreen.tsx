@@ -629,8 +629,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
-    width: '23%',
-    minWidth: 70,
+    minWidth: 75,
+    flexBasis: 75,
+    flexGrow: 1,
   },
   typeGridLabel: {
     fontSize: 12,

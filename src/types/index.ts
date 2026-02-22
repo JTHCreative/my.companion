@@ -21,6 +21,7 @@ export type ScheduleEventType =
   | 'sleep'
   | 'play'
   | 'walk'
+  | 'medication'
   | 'other';
 
 export interface ScheduleEvent {
@@ -32,6 +33,7 @@ export interface ScheduleEvent {
   days: string[]; // ['Mon', 'Tue', ...]
   notes?: string;
   linkedMealId?: string; // links feeding events to meals
+  linkedMedicationId?: string; // links medication events to medications
 }
 
 export interface Meal {

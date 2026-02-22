@@ -29,11 +29,12 @@ const EVENT_TYPES: {
 }[] = [
   { value: 'feeding', label: 'Feeding', icon: 'restaurant', color: '#F59E0B' },
   { value: 'potty', label: 'Potty', icon: 'leaf', color: '#22C55E' },
-  { value: 'nap', label: 'Nap', icon: 'moon', color: '#8B5CF6' },
+  { value: 'nap', label: 'Nap', icon: 'bed', color: '#8B5CF6' },
   { value: 'wake', label: 'Wake', icon: 'sunny', color: '#F97316' },
-  { value: 'sleep', label: 'Sleep', icon: 'bed', color: '#6366F1' },
+  { value: 'sleep', label: 'Bedtime', icon: 'moon', color: '#6366F1' },
   { value: 'play', label: 'Play', icon: 'football', color: '#EC4899' },
   { value: 'walk', label: 'Walk', icon: 'walk', color: '#14B8A6' },
+  { value: 'medication', label: 'Medication', icon: 'medkit', color: '#EF4444' },
   { value: 'other', label: 'Other', icon: 'ellipsis-horizontal', color: '#64748B' },
 ];
 
@@ -67,6 +68,7 @@ export function ScheduleScreen({ navigation }: any) {
     updateScheduleEvent,
     deleteScheduleEvent,
     meals,
+    medications,
   } = useData();
 
   const scrollRef = useRef<ScrollView>(null);
@@ -79,12 +81,14 @@ export function ScheduleScreen({ navigation }: any) {
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
   const [notes, setNotes] = useState('');
   const [linkedMealId, setLinkedMealId] = useState<string | undefined>(undefined);
+  const [linkedMedicationId, setLinkedMedicationId] = useState<string | undefined>(undefined);
 
   const petEvents = scheduleEvents
     .filter((e) => e.petId === selectedPetId)
     .sort((a, b) => a.time.localeCompare(b.time));
 
   const petMeals = meals.filter((m) => m.petId === selectedPetId);
+  const petMedications = medications.filter((m) => m.petId === selectedPetId);
 
   // Group events by hour for the timeline
   const eventsByHour = new Map<number, typeof petEvents>();
@@ -102,6 +106,7 @@ export function ScheduleScreen({ navigation }: any) {
     setSelectedDays(DAYS);
     setNotes('');
     setLinkedMealId(undefined);
+    setLinkedMedicationId(undefined);
     setEditingEvent(null);
   };
 
@@ -121,6 +126,7 @@ export function ScheduleScreen({ navigation }: any) {
     setSelectedDays(event.days);
     setNotes(event.notes || '');
     setLinkedMealId(event.linkedMealId);
+    setLinkedMedicationId(event.linkedMedicationId);
     setModalVisible(true);
   };
 
@@ -146,6 +152,7 @@ export function ScheduleScreen({ navigation }: any) {
         days: selectedDays,
         notes: notes.trim() || undefined,
         linkedMealId: eventType === 'feeding' ? linkedMealId : undefined,
+        linkedMedicationId: eventType === 'medication' ? linkedMedicationId : undefined,
       };
 
       if (editingEvent) {
@@ -470,6 +477,90 @@ export function ScheduleScreen({ navigation }: any) {
                       >
                         {meal.name}
                       </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {/* Linked Medication (for medication events) */}
+            {eventType === 'medication' && petMedications.length > 0 && (
+              <>
+                <Text
+                  style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}
+                >
+                  Link to Medication
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.mealLinkScroll}
+                  contentContainerStyle={styles.mealLinkContainer}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.mealLinkChip,
+                      {
+                        backgroundColor: !linkedMedicationId
+                          ? theme.colors.primary
+                          : theme.colors.inputBackground,
+                        borderColor: !linkedMedicationId
+                          ? theme.colors.primary
+                          : theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => setLinkedMedicationId(undefined)}
+                  >
+                    <Text
+                      style={{
+                        color: !linkedMedicationId ? '#FFFFFF' : theme.colors.text,
+                        fontSize: 14,
+                        fontWeight: '600',
+                      }}
+                    >
+                      None
+                    </Text>
+                  </TouchableOpacity>
+                  {petMedications.map((med) => (
+                    <TouchableOpacity
+                      key={med.id}
+                      style={[
+                        styles.mealLinkChip,
+                        {
+                          backgroundColor:
+                            linkedMedicationId === med.id
+                              ? theme.colors.primary
+                              : theme.colors.inputBackground,
+                          borderColor:
+                            linkedMedicationId === med.id
+                              ? theme.colors.primary
+                              : theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => setLinkedMedicationId(med.id)}
+                    >
+                      <Text
+                        style={{
+                          color:
+                            linkedMedicationId === med.id ? '#FFFFFF' : theme.colors.text,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {med.name}
+                      </Text>
+                      {med.dosage ? (
+                        <Text
+                          style={{
+                            color:
+                              linkedMedicationId === med.id ? '#FFFFFF99' : theme.colors.textSecondary,
+                            fontSize: 11,
+                            marginTop: 1,
+                          }}
+                        >
+                          {med.dosage}
+                        </Text>
+                      ) : null}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>

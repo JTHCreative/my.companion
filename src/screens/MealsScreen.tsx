@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
@@ -76,24 +77,28 @@ export function MealsScreen({ navigation }: any) {
       return;
     }
 
-    const mealData = {
-      id: editingMeal || crypto.randomUUID(),
-      petId: selectedPetId!,
-      name: name.trim(),
-      type: mealType,
-      brand: brand.trim() || undefined,
-      amount: amount.trim() || undefined,
-      notes: notes.trim() || undefined,
-    };
+    try {
+      const mealData = {
+        id: editingMeal || generateId(),
+        petId: selectedPetId!,
+        name: name.trim(),
+        type: mealType,
+        brand: brand.trim() || undefined,
+        amount: amount.trim() || undefined,
+        notes: notes.trim() || undefined,
+      };
 
-    if (editingMeal) {
-      await updateMeal(mealData);
-    } else {
-      await addMeal(mealData);
+      if (editingMeal) {
+        await updateMeal(mealData);
+      } else {
+        await addMeal(mealData);
+      }
+
+      setModalVisible(false);
+      resetForm();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save meal.');
     }
-
-    setModalVisible(false);
-    resetForm();
   };
 
   const handleDelete = (id: string) => {

@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
@@ -121,24 +122,28 @@ export function MedicalScreen({ navigation }: any) {
       return;
     }
 
-    const data = {
-      id: editingId || crypto.randomUUID(),
-      petId: selectedPetId!,
-      clinicName: clinicName.trim(),
-      vetName: vetName.trim(),
-      phone: phone.trim(),
-      address: address.trim() || undefined,
-      notes: vetNotes.trim() || undefined,
-    };
+    try {
+      const data = {
+        id: editingId || generateId(),
+        petId: selectedPetId!,
+        clinicName: clinicName.trim(),
+        vetName: vetName.trim(),
+        phone: phone.trim(),
+        address: address.trim() || undefined,
+        notes: vetNotes.trim() || undefined,
+      };
 
-    if (editingId) {
-      await updateVetInfo(data);
-    } else {
-      await addVetInfo(data);
+      if (editingId) {
+        await updateVetInfo(data);
+      } else {
+        await addVetInfo(data);
+      }
+
+      setModalMode('none');
+      resetForm();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save vet info.');
     }
-
-    setModalMode('none');
-    resetForm();
   };
 
   const handleSaveMed = async () => {
@@ -147,25 +152,29 @@ export function MedicalScreen({ navigation }: any) {
       return;
     }
 
-    const data = {
-      id: editingId || crypto.randomUUID(),
-      petId: selectedPetId!,
-      name: medName.trim(),
-      dosage: dosage.trim(),
-      frequency,
-      startDate: startDate.trim() || undefined,
-      endDate: endDate.trim() || undefined,
-      notes: medNotes.trim() || undefined,
-    };
+    try {
+      const data = {
+        id: editingId || generateId(),
+        petId: selectedPetId!,
+        name: medName.trim(),
+        dosage: dosage.trim(),
+        frequency,
+        startDate: startDate.trim() || undefined,
+        endDate: endDate.trim() || undefined,
+        notes: medNotes.trim() || undefined,
+      };
 
-    if (editingId) {
-      await updateMedication(data);
-    } else {
-      await addMedication(data);
+      if (editingId) {
+        await updateMedication(data);
+      } else {
+        await addMedication(data);
+      }
+
+      setModalMode('none');
+      resetForm();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save medication.');
     }
-
-    setModalMode('none');
-    resetForm();
   };
 
   const handleCallVet = (phoneNumber: string) => {

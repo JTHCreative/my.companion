@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { FormInput } from '../components/FormInput';
@@ -99,25 +100,29 @@ export function AddEditPetScreen({ navigation, route }: any) {
       return;
     }
 
-    const petData = {
-      id: existingPet?.id || crypto.randomUUID(),
-      name: name.trim(),
-      type: petType,
-      breed: breed.trim(),
-      weight: weight.trim(),
-      weightUnit,
-      personality: personality.trim(),
-      profileImage,
-      birthday: birthday.trim(),
-    };
+    try {
+      const petData = {
+        id: existingPet?.id || generateId(),
+        name: name.trim(),
+        type: petType,
+        breed: breed.trim(),
+        weight: weight.trim(),
+        weightUnit,
+        personality: personality.trim(),
+        profileImage,
+        birthday: birthday.trim(),
+      };
 
-    if (isEditing) {
-      await updatePet(petData);
-    } else {
-      await addPet(petData);
+      if (isEditing) {
+        await updatePet(petData);
+      } else {
+        await addPet(petData);
+      }
+
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save pet.');
     }
-
-    navigation.goBack();
   };
 
   const handleDelete = () => {

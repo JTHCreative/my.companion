@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
@@ -105,30 +106,34 @@ export function ScheduleScreen({ navigation }: any) {
       return;
     }
 
-    const eventTitle =
-      title.trim() ||
-      EVENT_TYPES.find((t) => t.value === eventType)?.label ||
-      'Event';
+    try {
+      const eventTitle =
+        title.trim() ||
+        EVENT_TYPES.find((t) => t.value === eventType)?.label ||
+        'Event';
 
-    const eventData = {
-      id: editingEvent || crypto.randomUUID(),
-      petId: selectedPetId!,
-      type: eventType,
-      title: eventTitle,
-      time: time.padStart(5, '0'),
-      days: selectedDays,
-      notes: notes.trim() || undefined,
-      linkedMealId: eventType === 'feeding' ? linkedMealId : undefined,
-    };
+      const eventData = {
+        id: editingEvent || generateId(),
+        petId: selectedPetId!,
+        type: eventType,
+        title: eventTitle,
+        time: time.padStart(5, '0'),
+        days: selectedDays,
+        notes: notes.trim() || undefined,
+        linkedMealId: eventType === 'feeding' ? linkedMealId : undefined,
+      };
 
-    if (editingEvent) {
-      await updateScheduleEvent(eventData);
-    } else {
-      await addScheduleEvent(eventData);
+      if (editingEvent) {
+        await updateScheduleEvent(eventData);
+      } else {
+        await addScheduleEvent(eventData);
+      }
+
+      setModalVisible(false);
+      resetForm();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save event.');
     }
-
-    setModalVisible(false);
-    resetForm();
   };
 
   const handleDelete = (id: string) => {

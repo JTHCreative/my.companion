@@ -122,7 +122,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',

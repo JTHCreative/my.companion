@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
-import { Card } from '../components/Card';
 import { FormInput } from '../components/FormInput';
 import { TimePicker } from '../components/TimePicker';
 import { Button } from '../components/Button';
@@ -40,6 +39,24 @@ const EVENT_TYPES: {
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+// Hours to show in the timeline (5 AM – 11 PM)
+const TIMELINE_HOURS = Array.from({ length: 19 }, (_, i) => i + 5);
+
+const SLOT_HEIGHT = 64;
+
+function formatHourLabel(hour24: number): string {
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  const h = hour24 % 12 || 12;
+  return `${h} ${period}`;
+}
+
+function formatTime(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 export function ScheduleScreen({ navigation }: any) {
   const { theme } = useTheme();
   const {
@@ -51,6 +68,8 @@ export function ScheduleScreen({ navigation }: any) {
     deleteScheduleEvent,
     meals,
   } = useData();
+
+  const scrollRef = useRef<ScrollView>(null);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
@@ -67,6 +86,15 @@ export function ScheduleScreen({ navigation }: any) {
 
   const petMeals = meals.filter((m) => m.petId === selectedPetId);
 
+  // Group events by hour for the timeline
+  const eventsByHour = new Map<number, typeof petEvents>();
+  for (const event of petEvents) {
+    const hour = parseInt(event.time.split(':')[0], 10);
+    const existing = eventsByHour.get(hour) || [];
+    existing.push(event);
+    eventsByHour.set(hour, existing);
+  }
+
   const resetForm = () => {
     setEventType('feeding');
     setTitle('');
@@ -77,8 +105,9 @@ export function ScheduleScreen({ navigation }: any) {
     setEditingEvent(null);
   };
 
-  const openAddModal = () => {
+  const openAddModalAtHour = (hour24: number) => {
     resetForm();
+    setTime(`${String(hour24).padStart(2, '0')}:00`);
     setModalVisible(true);
   };
 
@@ -146,13 +175,6 @@ export function ScheduleScreen({ navigation }: any) {
   const getEventTypeInfo = (type: string) =>
     EVENT_TYPES.find((t) => t.value === type) || EVENT_TYPES[EVENT_TYPES.length - 1];
 
-  const formatTime = (t: string): string => {
-    const [h, m] = t.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour = h % 12 || 12;
-    return `${hour}:${String(m).padStart(2, '0')} ${period}`;
-  };
-
   if (!selectedPet) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -174,120 +196,89 @@ export function ScheduleScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.screenHeader}>
         <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Schedule</Text>
-        <TouchableOpacity onPress={openAddModal} style={styles.addButton}>
-          <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
-        </TouchableOpacity>
       </View>
 
       <PetSelector onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })} />
 
-      {petEvents.length === 0 ? (
-        <EmptyState
-          icon="calendar-outline"
-          title="No Schedule Yet"
-          subtitle={`Add ${selectedPet.name}'s daily routine - feeding times, potty breaks, naps, and more.`}
-          actionLabel="Add Event"
-          onAction={openAddModal}
-        />
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {petEvents.map((event) => {
-            const typeInfo = getEventTypeInfo(event.type);
-            const linkedMeal = event.linkedMealId
-              ? meals.find((m) => m.id === event.linkedMealId)
-              : null;
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.timelineContent}
+      >
+        {TIMELINE_HOURS.map((hour) => {
+          const hourEvents = eventsByHour.get(hour) || [];
+          const hasEvents = hourEvents.length > 0;
 
-            return (
-              <TouchableOpacity
-                key={event.id}
-                activeOpacity={0.7}
-                onPress={() => openEditModal(event.id)}
-                onLongPress={() => handleDelete(event.id)}
-              >
-                <Card>
-                  <View style={styles.eventRow}>
-                    <View
-                      style={[
-                        styles.eventIcon,
-                        { backgroundColor: typeInfo.color + '20' },
-                      ]}
-                    >
-                      <Ionicons
-                        name={typeInfo.icon}
-                        size={20}
-                        color={typeInfo.color}
-                      />
-                    </View>
-                    <View style={styles.eventInfo}>
-                      <Text
-                        style={[styles.eventTitle, { color: theme.colors.text }]}
-                      >
-                        {event.title}
-                      </Text>
-                      <Text
+          return (
+            <TouchableOpacity
+              key={hour}
+              activeOpacity={0.6}
+              onPress={() => {
+                if (!hasEvents) {
+                  openAddModalAtHour(hour);
+                }
+              }}
+              style={[
+                styles.slotRow,
+                { borderBottomColor: theme.colors.border + '40' },
+              ]}
+            >
+              {/* Time label */}
+              <View style={styles.slotTimeCol}>
+                <Text style={[styles.slotTimeText, { color: theme.colors.textSecondary }]}>
+                  {formatHourLabel(hour)}
+                </Text>
+              </View>
+
+              {/* Divider line */}
+              <View style={[styles.slotDivider, { backgroundColor: theme.colors.border + '60' }]} />
+
+              {/* Events area */}
+              <View style={styles.slotEventsCol}>
+                {hasEvents ? (
+                  hourEvents.map((event) => {
+                    const typeInfo = getEventTypeInfo(event.type);
+                    return (
+                      <TouchableOpacity
+                        key={event.id}
+                        activeOpacity={0.7}
+                        onPress={() => openEditModal(event.id)}
+                        onLongPress={() => handleDelete(event.id)}
                         style={[
-                          styles.eventTime,
-                          { color: theme.colors.textSecondary },
+                          styles.eventChip,
+                          {
+                            backgroundColor: typeInfo.color + '18',
+                            borderLeftColor: typeInfo.color,
+                          },
                         ]}
                       >
-                        {formatTime(event.time)} \u2022{' '}
-                        {event.days.length === 7
-                          ? 'Every day'
-                          : event.days.join(', ')}
-                      </Text>
-                      {linkedMeal && (
-                        <TouchableOpacity
-                          onPress={() =>
-                            navigation.navigate('MealsTab')
-                          }
-                          style={[
-                            styles.linkedMealBadge,
-                            { backgroundColor: theme.colors.primaryLight },
-                          ]}
-                        >
-                          <Ionicons
-                            name="restaurant-outline"
-                            size={12}
-                            color={theme.colors.primary}
-                          />
+                        <Ionicons name={typeInfo.icon} size={14} color={typeInfo.color} />
+                        <View style={styles.eventChipText}>
                           <Text
-                            style={[
-                              styles.linkedMealText,
-                              { color: theme.colors.primary },
-                            ]}
+                            style={[styles.eventChipTitle, { color: theme.colors.text }]}
+                            numberOfLines={1}
                           >
-                            {linkedMeal.name}
+                            {event.title}
                           </Text>
-                        </TouchableOpacity>
-                      )}
-                      {event.notes && (
-                        <Text
-                          style={[
-                            styles.eventNotes,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {event.notes}
-                        </Text>
-                      )}
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={theme.colors.textSecondary}
-                    />
+                          <Text style={[styles.eventChipTime, { color: theme.colors.textSecondary }]}>
+                            {formatTime(event.time)}
+                            {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={styles.emptySlot}>
+                    <Ionicons name="add" size={16} color={theme.colors.textSecondary + '60'} />
                   </View>
-                </Card>
-              </TouchableOpacity>
-            );
-          })}
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      )}
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        <View style={{ height: 100 }} />
+      </ScrollView>
 
       {/* Add/Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" onRequestClose={() => { setModalVisible(false); resetForm(); }}>
@@ -533,54 +524,63 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  addButton: {
-    padding: 4,
+  // Timeline
+  timelineContent: {
+    paddingTop: 4,
   },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  eventRow: {
+  slotRow: {
     flexDirection: 'row',
+    minHeight: SLOT_HEIGHT,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  slotTimeCol: {
+    width: 60,
+    paddingTop: 12,
     alignItems: 'center',
   },
-  eventIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eventInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  eventTitle: {
-    fontSize: 16,
+  slotTimeText: {
+    fontSize: 12,
     fontWeight: '600',
   },
-  eventTime: {
-    fontSize: 13,
-    marginTop: 2,
+  slotDivider: {
+    width: 1,
+    marginTop: 8,
+    marginBottom: 8,
   },
-  eventNotes: {
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  linkedMealBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: 4,
+  slotEventsCol: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
     gap: 4,
   },
-  linkedMealText: {
-    fontSize: 12,
+  emptySlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: SLOT_HEIGHT - 12,
+  },
+  eventChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    gap: 8,
+  },
+  eventChipText: {
+    flex: 1,
+  },
+  eventChipTitle: {
+    fontSize: 14,
     fontWeight: '600',
   },
+  eventChipTime: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  // Modal
   modalContainer: {
     flex: 1,
   },

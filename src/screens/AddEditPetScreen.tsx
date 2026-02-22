@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { v4 as uuidv4 } from 'uuid';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { FormInput } from '../components/FormInput';
@@ -101,7 +100,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
     }
 
     const petData = {
-      id: existingPet?.id || uuidv4(),
+      id: existingPet?.id || crypto.randomUUID(),
       name: name.trim(),
       type: petType,
       breed: breed.trim(),

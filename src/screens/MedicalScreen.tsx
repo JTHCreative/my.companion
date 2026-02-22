@@ -12,7 +12,6 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { v4 as uuidv4 } from 'uuid';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
@@ -123,7 +122,7 @@ export function MedicalScreen({ navigation }: any) {
     }
 
     const data = {
-      id: editingId || uuidv4(),
+      id: editingId || crypto.randomUUID(),
       petId: selectedPetId!,
       clinicName: clinicName.trim(),
       vetName: vetName.trim(),
@@ -149,7 +148,7 @@ export function MedicalScreen({ navigation }: any) {
     }
 
     const data = {
-      id: editingId || uuidv4(),
+      id: editingId || crypto.randomUUID(),
       petId: selectedPetId!,
       name: medName.trim(),
       dosage: dosage.trim(),

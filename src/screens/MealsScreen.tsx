@@ -11,7 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { v4 as uuidv4 } from 'uuid';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
@@ -78,7 +77,7 @@ export function MealsScreen({ navigation }: any) {
     }
 
     const mealData = {
-      id: editingMeal || uuidv4(),
+      id: editingMeal || crypto.randomUUID(),
       petId: selectedPetId!,
       name: name.trim(),
       type: mealType,

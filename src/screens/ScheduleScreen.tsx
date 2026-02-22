@@ -11,7 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { v4 as uuidv4 } from 'uuid';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
@@ -112,7 +111,7 @@ export function ScheduleScreen({ navigation }: any) {
       'Event';
 
     const eventData = {
-      id: editingEvent || uuidv4(),
+      id: editingEvent || crypto.randomUUID(),
       petId: selectedPetId!,
       type: eventType,
       title: eventTitle,

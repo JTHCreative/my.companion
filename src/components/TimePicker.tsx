@@ -18,7 +18,7 @@ const NUMBER_RADIUS = CLOCK_RADIUS - 28;
 const HAND_LENGTH = NUMBER_RADIUS - 12;
 
 const HOUR_NUMBERS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-const MINUTE_NUMBERS = [0, 15, 30, 45];
+const MINUTE_NUMBERS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
 interface TimePickerProps {
   value: string; // "HH:MM" in 24h
@@ -68,13 +68,13 @@ function hourFromAngle(angle: number): number {
 }
 
 function minuteFromAngle(angle: number): number {
-  // Snap to nearest 15 minutes
-  const slot = Math.round(angle / 90) % 4;
-  return slot * 15;
+  // Snap to nearest 5 minutes
+  const slot = Math.round(angle / 30) % 12;
+  return slot * 5;
 }
 
-function buildManualText(h: number, m: number, p: string): string {
-  return `${h}:${String(m).padStart(2, '0')} ${p}`;
+function buildManualText(h: number, m: number): string {
+  return `${h}:${String(m).padStart(2, '0')}`;
 }
 
 export function TimePicker({ value, onChange }: TimePickerProps) {
@@ -114,7 +114,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
     tempHourRef.current = parsed.hour;
     tempMinuteRef.current = parsed.minute;
     tempPeriodRef.current = parsed.period;
-    setManualText(buildManualText(parsed.hour, parsed.minute, parsed.period));
+    setManualText(buildManualText(parsed.hour, parsed.minute));
     setIsEditing(false);
     setOpen(true);
   };
@@ -136,12 +136,12 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
       const h = hourFromAngle(angle);
       tempHourRef.current = h;
       setTempHour(h);
-      setManualText(buildManualText(h, tempMinuteRef.current, tempPeriodRef.current));
+      setManualText(buildManualText(h, tempMinuteRef.current));
     } else {
       const m = minuteFromAngle(angle);
       tempMinuteRef.current = m;
       setTempMinute(m);
-      setManualText(buildManualText(tempHourRef.current, m, tempPeriodRef.current));
+      setManualText(buildManualText(tempHourRef.current, m));
     }
   }, []);
 
@@ -171,16 +171,16 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   };
 
   const parseManualInput = (text: string) => {
-    setManualText(text);
-    const match = text.match(/^(\d{1,2}):?(\d{2})\s*(AM|PM|am|pm|Am|Pm)$/);
+    // Only allow digits and colon
+    const cleaned = text.replace(/[^0-9:]/g, '');
+    setManualText(cleaned);
+    const match = cleaned.match(/^(\d{1,2}):(\d{2})$/);
     if (match) {
       const h = parseInt(match[1], 10);
       const m = parseInt(match[2], 10);
-      const p = match[3].toUpperCase() as 'AM' | 'PM';
       if (h >= 1 && h <= 12 && m >= 0 && m <= 59) {
         setTempHour(h);
         setTempMinute(m);
-        setTempPeriod(p);
       }
     }
   };
@@ -230,11 +230,14 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                 onChangeText={parseManualInput}
                 onFocus={() => setIsEditing(true)}
                 onBlur={() => setIsEditing(false)}
-                placeholder="8:00 AM"
+                placeholder="8:00"
                 placeholderTextColor={theme.colors.textSecondary + '80'}
-                autoCapitalize="characters"
+                keyboardType="numbers-and-punctuation"
                 returnKeyType="done"
               />
+              <Text style={[styles.manualPeriod, { color: theme.colors.textSecondary }]}>
+                {tempPeriod}
+              </Text>
             </View>
 
             {/* AM/PM toggle */}
@@ -250,7 +253,6 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                 ]}
                 onPress={() => {
                   setTempPeriod('AM');
-                  setManualText(buildManualText(tempHour, tempMinute, 'AM'));
                 }}
               >
                 <Text style={{ color: tempPeriod === 'AM' ? '#FFF' : theme.colors.text, fontWeight: '700', fontSize: 15 }}>
@@ -268,7 +270,6 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                 ]}
                 onPress={() => {
                   setTempPeriod('PM');
-                  setManualText(buildManualText(tempHour, tempMinute, 'PM'));
                 }}
               >
                 <Text style={{ color: tempPeriod === 'PM' ? '#FFF' : theme.colors.text, fontWeight: '700', fontSize: 15 }}>
@@ -355,11 +356,11 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
                     onPress={() => {
                       if (mode === 'hour') {
                         setTempHour(num === 0 ? 12 : num);
-                        setManualText(buildManualText(num === 0 ? 12 : num, tempMinute, tempPeriod));
+                        setManualText(buildManualText(num === 0 ? 12 : num, tempMinute));
                         setMode('minute');
                       } else {
                         setTempMinute(num);
-                        setManualText(buildManualText(tempHour, num, tempPeriod));
+                        setManualText(buildManualText(tempHour, num));
                       }
                     }}
                     style={[
@@ -441,11 +442,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   manualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     width: '100%',
     marginBottom: 12,
+    gap: 8,
   },
   manualInput: {
+    flex: 1,
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -454,6 +459,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: 1,
+  },
+  manualPeriod: {
+    fontSize: 18,
+    fontWeight: '700',
+    width: 30,
   },
   periodRow: {
     flexDirection: 'row',

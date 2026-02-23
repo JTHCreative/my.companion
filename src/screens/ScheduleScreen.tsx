@@ -82,6 +82,7 @@ export function ScheduleScreen({ navigation }: any) {
   const [notes, setNotes] = useState('');
   const [linkedMealId, setLinkedMealId] = useState<string | undefined>(undefined);
   const [linkedMedicationId, setLinkedMedicationId] = useState<string | undefined>(undefined);
+  const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
   const petEvents = scheduleEvents
     .filter((e) => e.petId === selectedPetId)
@@ -247,12 +248,14 @@ export function ScheduleScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       {hourEvents.map((event) => {
                         const typeInfo = getEventTypeInfo(event.type);
+                        const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
+                        const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
                         return (
                           <TouchableOpacity
                             key={event.id}
                             activeOpacity={0.7}
-                            onPress={() => openEditModal(event.id)}
-                            onLongPress={() => handleDelete(event.id)}
+                            onPress={() => setDetailEvent(event.id)}
+                            onLongPress={() => openEditModal(event.id)}
                             style={[
                               styles.eventChip,
                               {
@@ -269,6 +272,16 @@ export function ScheduleScreen({ navigation }: any) {
                               >
                                 {event.title}
                               </Text>
+                              {linkedMeal && (
+                                <Text style={[styles.eventChipLinked, { color: typeInfo.color }]} numberOfLines={1}>
+                                  {linkedMeal.name}
+                                </Text>
+                              )}
+                              {linkedMed && (
+                                <Text style={[styles.eventChipLinked, { color: typeInfo.color }]} numberOfLines={1}>
+                                  {linkedMed.name}{linkedMed.dosage ? ` \u2022 ${linkedMed.dosage}` : ''}
+                                </Text>
+                              )}
                               <Text style={[styles.eventChipTime, { color: theme.colors.textSecondary }]}>
                                 {formatTime(event.time)}
                                 {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
@@ -605,6 +618,163 @@ export function ScheduleScreen({ navigation }: any) {
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Event Detail Modal */}
+      <Modal
+        visible={detailEvent !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDetailEvent(null)}
+      >
+        <TouchableOpacity
+          style={styles.detailOverlay}
+          activeOpacity={1}
+          onPress={() => setDetailEvent(null)}
+        >
+          <View
+            style={[styles.detailSheet, { backgroundColor: theme.colors.background }]}
+            onStartShouldSetResponder={() => true}
+          >
+            {(() => {
+              const event = scheduleEvents.find((e) => e.id === detailEvent);
+              if (!event) return null;
+              const typeInfo = getEventTypeInfo(event.type);
+              const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
+              const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
+
+              return (
+                <>
+                  {/* Header */}
+                  <View style={styles.detailHeader}>
+                    <View style={[styles.detailIconBadge, { backgroundColor: typeInfo.color + '20' }]}>
+                      <Ionicons name={typeInfo.icon} size={22} color={typeInfo.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.detailTitle, { color: theme.colors.text }]}>
+                        {event.title}
+                      </Text>
+                      <Text style={[styles.detailSubtitle, { color: theme.colors.textSecondary }]}>
+                        {formatTime(event.time)}
+                        {event.days.length < 7 ? `  •  ${event.days.join(', ')}` : '  •  Every day'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {event.notes ? (
+                    <Text style={[styles.detailNotes, { color: theme.colors.textSecondary }]}>
+                      {event.notes}
+                    </Text>
+                  ) : null}
+
+                  {/* Linked Meal Info */}
+                  {linkedMeal && (
+                    <View style={[styles.detailLinkedCard, { backgroundColor: typeInfo.color + '10', borderColor: typeInfo.color + '30' }]}>
+                      <View style={styles.detailLinkedHeader}>
+                        <Ionicons name="link" size={14} color={typeInfo.color} />
+                        <Text style={[styles.detailLinkedLabel, { color: typeInfo.color }]}>
+                          Linked {linkedMeal.type === 'treat' ? 'Treat' : 'Meal'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.detailLinkedName, { color: theme.colors.text }]}>
+                        {linkedMeal.name}
+                      </Text>
+                      {linkedMeal.ingredients && linkedMeal.ingredients.length > 0 && (
+                        <View style={styles.detailIngredients}>
+                          <Text style={[styles.detailSectionLabel, { color: theme.colors.textSecondary }]}>
+                            Ingredients
+                          </Text>
+                          {linkedMeal.ingredients.map((ing, i) => (
+                            <Text key={i} style={[styles.detailIngredientItem, { color: theme.colors.text }]}>
+                              •  {ing.name}{ing.quantity ? ` — ${ing.quantity}` : ''}{ing.brand ? ` (${ing.brand})` : ''}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                      {linkedMeal.notes ? (
+                        <Text style={[styles.detailLinkedNotes, { color: theme.colors.textSecondary }]}>
+                          {linkedMeal.notes}
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* Linked Medication Info */}
+                  {linkedMed && (
+                    <View style={[styles.detailLinkedCard, { backgroundColor: typeInfo.color + '10', borderColor: typeInfo.color + '30' }]}>
+                      <View style={styles.detailLinkedHeader}>
+                        <Ionicons name="link" size={14} color={typeInfo.color} />
+                        <Text style={[styles.detailLinkedLabel, { color: typeInfo.color }]}>
+                          Linked Medication
+                        </Text>
+                      </View>
+                      <Text style={[styles.detailLinkedName, { color: theme.colors.text }]}>
+                        {linkedMed.name}
+                      </Text>
+                      {linkedMed.dosage ? (
+                        <View style={styles.detailMedRow}>
+                          <Text style={[styles.detailSectionLabel, { color: theme.colors.textSecondary }]}>Dosage</Text>
+                          <Text style={[styles.detailMedValue, { color: theme.colors.text }]}>{linkedMed.dosage}</Text>
+                        </View>
+                      ) : null}
+                      {linkedMed.frequency ? (
+                        <View style={styles.detailMedRow}>
+                          <Text style={[styles.detailSectionLabel, { color: theme.colors.textSecondary }]}>Frequency</Text>
+                          <Text style={[styles.detailMedValue, { color: theme.colors.text }]}>{linkedMed.frequency}</Text>
+                        </View>
+                      ) : null}
+                      {(linkedMed.startDate || linkedMed.endDate) ? (
+                        <View style={styles.detailMedRow}>
+                          <Text style={[styles.detailSectionLabel, { color: theme.colors.textSecondary }]}>Period</Text>
+                          <Text style={[styles.detailMedValue, { color: theme.colors.text }]}>
+                            {linkedMed.startDate || '—'} → {linkedMed.endDate || 'Ongoing'}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {linkedMed.notes ? (
+                        <Text style={[styles.detailLinkedNotes, { color: theme.colors.textSecondary }]}>
+                          {linkedMed.notes}
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* No linked item message for feeding/medication without links */}
+                  {event.type === 'feeding' && !linkedMeal && (
+                    <Text style={[styles.detailNoLink, { color: theme.colors.textSecondary }]}>
+                      No meal linked to this event.
+                    </Text>
+                  )}
+                  {event.type === 'medication' && !linkedMed && (
+                    <Text style={[styles.detailNoLink, { color: theme.colors.textSecondary }]}>
+                      No medication linked to this event.
+                    </Text>
+                  )}
+
+                  {/* Action buttons */}
+                  <View style={styles.detailActions}>
+                    <TouchableOpacity
+                      style={[styles.detailEditBtn, { backgroundColor: theme.colors.primary }]}
+                      onPress={() => {
+                        setDetailEvent(null);
+                        openEditModal(event.id);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.detailEditBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.detailCloseBtn, { backgroundColor: theme.colors.inputBackground }]}
+                      onPress={() => setDetailEvent(null)}
+                    >
+                      <Text style={[styles.detailCloseBtnText, { color: theme.colors.text }]}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -677,6 +847,11 @@ const styles = StyleSheet.create({
   eventChipTitle: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  eventChipLinked: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
   eventChipTime: {
     fontSize: 11,
@@ -760,5 +935,128 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     marginTop: 16,
+  },
+  // Detail modal
+  detailOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  detailSheet: {
+    width: '100%',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  detailIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  detailSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  detailNotes: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  detailLinkedCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  detailLinkedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  detailLinkedLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailLinkedName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  detailIngredients: {
+    gap: 3,
+    marginBottom: 6,
+  },
+  detailSectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  detailIngredientItem: {
+    fontSize: 14,
+    paddingLeft: 4,
+  },
+  detailMedRow: {
+    marginBottom: 6,
+  },
+  detailMedValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  detailLinkedNotes: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  detailNoLink: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  detailEditBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  detailEditBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  detailCloseBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  detailCloseBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

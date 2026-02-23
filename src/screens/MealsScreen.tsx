@@ -431,36 +431,72 @@ export function MealsScreen({ navigation }: any) {
               Ingredients
             </Text>
             {ingredients.map((ing, index) => (
-              <View key={index} style={styles.ingredientRow}>
-                <View style={styles.ingredientInputs}>
+              <View
+                key={index}
+                style={[
+                  styles.ingredientCard,
+                  {
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.ingredientCardHeader}>
+                  <View
+                    style={[
+                      styles.ingredientNumber,
+                      { backgroundColor: theme.colors.primary + '18' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.ingredientNumberText,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.ingredientCardTitle,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Ingredient {index + 1}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => removeIngredient(index)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={22} color={theme.colors.danger} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.ingredientCardBody}>
+                  <View style={styles.ingredientInputs}>
+                    <FormInput
+                      label="Name"
+                      value={ing.name}
+                      onChangeText={(val: string) => updateIngredient(index, 'name', val)}
+                      placeholder="e.g., Chicken Breast"
+                      containerStyle={styles.ingredientNameInput}
+                    />
+                    <FormInput
+                      label="Quantity"
+                      value={ing.quantity}
+                      onChangeText={(val: string) => updateIngredient(index, 'quantity', val)}
+                      placeholder="e.g., 2/3 cup"
+                      containerStyle={styles.ingredientQtyInput}
+                    />
+                  </View>
                   <FormInput
-                    label="Name"
-                    value={ing.name}
-                    onChangeText={(val: string) => updateIngredient(index, 'name', val)}
-                    placeholder="e.g., Chicken Breast"
-                    containerStyle={styles.ingredientNameInput}
-                  />
-                  <FormInput
-                    label="Quantity"
-                    value={ing.quantity}
-                    onChangeText={(val: string) => updateIngredient(index, 'quantity', val)}
-                    placeholder="e.g., 2/3 cup"
-                    containerStyle={styles.ingredientQtyInput}
+                    label="Brand"
+                    value={ing.brand || ''}
+                    onChangeText={(val: string) => updateIngredient(index, 'brand', val)}
+                    placeholder="e.g., Blue Buffalo"
+                    containerStyle={styles.ingredientBrandInput}
                   />
                 </View>
-                <TouchableOpacity
-                  onPress={() => removeIngredient(index)}
-                  style={styles.removeIngredientBtn}
-                >
-                  <Ionicons name="close-circle" size={22} color={theme.colors.danger} />
-                </TouchableOpacity>
-                <FormInput
-                  label="Brand"
-                  value={ing.brand || ''}
-                  onChangeText={(val: string) => updateIngredient(index, 'brand', val)}
-                  placeholder="e.g., Blue Buffalo"
-                  containerStyle={styles.ingredientBrandInput}
-                />
               </View>
             ))}
             <TouchableOpacity
@@ -629,14 +665,36 @@ const styles = StyleSheet.create({
   ingredientChipText: {
     fontSize: 13,
   },
-  ingredientRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
+  ingredientCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 12,
   },
-  ingredientInputs: {
+  ingredientCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  ingredientNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  ingredientNumberText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  ingredientCardTitle: {
     flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  ingredientCardBody: {},
+  ingredientInputs: {
     flexDirection: 'row',
     gap: 8,
   },
@@ -649,12 +707,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   ingredientBrandInput: {
-    width: '100%',
     marginBottom: 0,
-  },
-  removeIngredientBtn: {
-    paddingTop: 30,
-    paddingLeft: 8,
   },
   addIngredientBtn: {
     flexDirection: 'row',

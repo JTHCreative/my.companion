@@ -115,6 +115,20 @@ export function HomeScreen({ navigation }: any) {
           actionLabel="Add Your Pet"
           onAction={() => navigation.navigate('AddPet')}
         />
+        <TouchableOpacity
+          style={styles.importLink}
+          onPress={() => navigation.navigate('ImportPet')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="cloud-download-outline"
+            size={16}
+            color={theme.colors.primary}
+          />
+          <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
+            Import a shared pet
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -191,12 +205,23 @@ export function HomeScreen({ navigation }: any) {
                     </Text>
                   )}
                 </View>
-                <Ionicons
-                  name="create-outline"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                  style={styles.editIcon}
-                />
+                <View style={styles.profileActions}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('SharePet')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name="share-outline"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <Ionicons
+                    name="create-outline"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </View>
               </View>
 
               {/* Detail rows */}
@@ -497,6 +522,24 @@ export function HomeScreen({ navigation }: any) {
             )}
           </Card>
 
+          {/* Import Pet Link */}
+          <TouchableOpacity
+            style={styles.importLink}
+            onPress={() => navigation.navigate('ImportPet')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="cloud-download-outline"
+              size={16}
+              color={theme.colors.primary}
+            />
+            <Text
+              style={[styles.importLinkText, { color: theme.colors.primary }]}
+            >
+              Import a shared pet
+            </Text>
+          </TouchableOpacity>
+
           <View style={{ height: 24 }} />
         </ScrollView>
       )}
@@ -569,8 +612,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
-  editIcon: {
+  profileActions: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
     padding: 4,
   },
   profileDetails: {
@@ -690,5 +735,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     paddingVertical: 16,
+  },
+  importLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+  },
+  importLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

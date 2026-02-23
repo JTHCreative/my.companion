@@ -11,6 +11,8 @@ import { AddEditPetScreen } from '../screens/AddEditPetScreen';
 import { ScheduleScreen } from '../screens/ScheduleScreen';
 import { MealsScreen } from '../screens/MealsScreen';
 import { MedicalScreen } from '../screens/MedicalScreen';
+import { SharePetScreen } from '../screens/SharePetScreen';
+import { ImportPetScreen } from '../screens/ImportPetScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
@@ -27,6 +29,16 @@ function HomeStackNavigator() {
       <HomeStack.Screen
         name="EditPet"
         component={AddEditPetScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <HomeStack.Screen
+        name="SharePet"
+        component={SharePetScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <HomeStack.Screen
+        name="ImportPet"
+        component={ImportPetScreen}
         options={{ presentation: 'modal' }}
       />
     </HomeStack.Navigator>

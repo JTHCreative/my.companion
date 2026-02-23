@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Pet, ScheduleEvent, Meal, VetInfo, Medication } from '../types';
+import { Pet, ScheduleEvent, Meal, VetInfo, Medication, SharedPetData } from '../types';
+import { generateId } from '../utils/generateId';
 
 interface DataContextValue {
   pets: Pet[];
@@ -30,6 +31,8 @@ interface DataContextValue {
   addMedication: (med: Medication) => Promise<void>;
   updateMedication: (med: Medication) => Promise<void>;
   deleteMedication: (id: string) => Promise<void>;
+
+  importPetData: (data: SharedPetData) => Promise<string>;
 
   loading: boolean;
 }
@@ -250,6 +253,66 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await saveData(KEYS.medications, next);
   }, []);
 
+  // Import a shared pet's full data
+  const importPetData = useCallback(async (data: SharedPetData): Promise<string> => {
+    const petId = generateId();
+    const newPet: Pet = {
+      ...data.pet,
+      id: petId,
+      profileImage: null,
+    };
+
+    const newEvents: ScheduleEvent[] = data.scheduleEvents.map((e) => ({
+      ...e,
+      id: generateId(),
+      petId,
+    }));
+
+    const newMeals: Meal[] = data.meals.map((m) => ({
+      ...m,
+      id: generateId(),
+      petId,
+    }));
+
+    const newVets: VetInfo[] = data.vetInfo.map((v) => ({
+      ...v,
+      id: generateId(),
+      petId,
+    }));
+
+    const newMeds: Medication[] = data.medications.map((med) => ({
+      ...med,
+      id: generateId(),
+      petId,
+    }));
+
+    let nextPets: Pet[] = [];
+    let nextEvents: ScheduleEvent[] = [];
+    let nextMeals: Meal[] = [];
+    let nextVets: VetInfo[] = [];
+    let nextMeds: Medication[] = [];
+
+    setPets((prev) => { nextPets = [...prev, newPet]; return nextPets; });
+    setScheduleEvents((prev) => { nextEvents = [...prev, ...newEvents]; return nextEvents; });
+    setMeals((prev) => { nextMeals = [...prev, ...newMeals]; return nextMeals; });
+    setVetInfo((prev) => { nextVets = [...prev, ...newVets]; return nextVets; });
+    setMedications((prev) => { nextMeds = [...prev, ...newMeds]; return nextMeds; });
+
+    await Promise.all([
+      saveData(KEYS.pets, nextPets),
+      saveData(KEYS.scheduleEvents, nextEvents),
+      saveData(KEYS.meals, nextMeals),
+      saveData(KEYS.vetInfo, nextVets),
+      saveData(KEYS.medications, nextMeds),
+    ]);
+
+    // Auto-select the newly imported pet
+    setSelectedPetId(petId);
+    await AsyncStorage.setItem(KEYS.selectedPetId, petId);
+
+    return petId;
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -276,6 +339,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addMedication,
         updateMedication,
         deleteMedication,
+        importPetData,
         loading,
       }}
     >

@@ -71,3 +71,12 @@ export interface Medication {
   endDate?: string;
   notes?: string;
 }
+
+export interface SharedPetData {
+  version: 1;
+  pet: Omit<Pet, 'id' | 'profileImage'>;
+  scheduleEvents: Omit<ScheduleEvent, 'id' | 'petId'>[];
+  meals: Omit<Meal, 'id' | 'petId'>[];
+  vetInfo: Omit<VetInfo, 'id' | 'petId'>[];
+  medications: Omit<Medication, 'id' | 'petId'>[];
+}

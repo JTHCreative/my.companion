@@ -39,6 +39,7 @@ export interface ScheduleEvent {
 export interface Ingredient {
   name: string;
   quantity: string;
+  brand?: string;
 }
 
 export interface Meal {
@@ -46,7 +47,6 @@ export interface Meal {
   petId: string;
   name: string;
   type: 'meal' | 'treat';
-  brand?: string;
   ingredients?: Ingredient[];
   notes?: string;
 }

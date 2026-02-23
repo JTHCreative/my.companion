@@ -17,6 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { FormInput } from '../components/FormInput';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
 import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
@@ -461,6 +462,7 @@ export function MedicalScreen({ navigation }: any) {
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.modalBodyContent}
+            keyboardShouldPersistTaps="handled"
           >
             <FormInput
               label="Clinic Name"
@@ -481,13 +483,11 @@ export function MedicalScreen({ navigation }: any) {
               placeholder="(555) 123-4567"
               keyboardType="phone-pad"
             />
-            <FormInput
+            <AddressAutocomplete
               label="Address"
               value={address}
-              onChangeText={setAddress}
-              placeholder="123 Main St, City, State"
-              multiline
-              style={{ height: 60 }}
+              onChange={setAddress}
+              placeholder="Search address..."
             />
             <FormInput
               label="Notes"

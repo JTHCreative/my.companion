@@ -203,7 +203,7 @@ export function PetAvatarHeader({
 
   return (
     <>
-      <View style={styles.headerBar}>
+      <View style={[styles.headerBar, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
           {title}
         </Text>
@@ -221,6 +221,7 @@ const styles = StyleSheet.create({
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 60,

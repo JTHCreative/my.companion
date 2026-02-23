@@ -131,6 +131,22 @@ export function MealsScreen({ navigation }: any) {
     ]);
   };
 
+  const handleCopyMeal = async (mealId: string) => {
+    const meal = meals.find((m) => m.id === mealId);
+    if (!meal) return;
+    try {
+      const copiedMeal = {
+        ...meal,
+        id: generateId(),
+        name: `${meal.name} (Copy)`,
+        ingredients: meal.ingredients?.map((ing) => ({ ...ing })),
+      };
+      await addMeal(copiedMeal);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to copy meal.');
+    }
+  };
+
   // Find schedule events linked to each meal
   const getLinkedEvents = (mealId: string) =>
     scheduleEvents.filter((e) => e.linkedMealId === mealId);
@@ -206,9 +222,18 @@ export function MealsScreen({ navigation }: any) {
                     onLongPress={() => handleDelete(meal.id)}
                   >
                     <Card>
-                      <Text style={[styles.mealName, { color: theme.colors.text }]}>
-                        {meal.name}
-                      </Text>
+                      <View style={styles.mealCardHeader}>
+                        <Text style={[styles.mealName, styles.mealNameFlex, { color: theme.colors.text }]}>
+                          {meal.name}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => handleCopyMeal(meal.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={styles.copyBtn}
+                        >
+                          <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
                       {meal.ingredients && meal.ingredients.length > 0 && (
                         <View style={styles.ingredientsList}>
                           {meal.ingredients.map((ing, idx) => (
@@ -271,9 +296,18 @@ export function MealsScreen({ navigation }: any) {
                   onLongPress={() => handleDelete(treat.id)}
                 >
                   <Card>
-                    <Text style={[styles.mealName, { color: theme.colors.text }]}>
-                      {treat.name}
-                    </Text>
+                    <View style={styles.mealCardHeader}>
+                      <Text style={[styles.mealName, styles.mealNameFlex, { color: theme.colors.text }]}>
+                        {treat.name}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleCopyMeal(treat.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.copyBtn}
+                      >
+                        <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
                     {treat.ingredients && treat.ingredients.length > 0 && (
                       <View style={styles.ingredientsList}>
                         {treat.ingredients.map((ing, idx) => (
@@ -569,10 +603,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  mealCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   mealName: {
     fontSize: 17,
     fontWeight: '700',
-    marginBottom: 4,
+  },
+  mealNameFlex: {
+    flex: 1,
+  },
+  copyBtn: {
+    padding: 4,
+    marginLeft: 8,
   },
   mealNotes: {
     fontSize: 13,

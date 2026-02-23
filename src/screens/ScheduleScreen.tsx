@@ -247,6 +247,8 @@ export function ScheduleScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       {hourEvents.map((event) => {
                         const typeInfo = getEventTypeInfo(event.type);
+                        const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
+                        const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
                         return (
                           <TouchableOpacity
                             key={event.id}
@@ -269,6 +271,16 @@ export function ScheduleScreen({ navigation }: any) {
                               >
                                 {event.title}
                               </Text>
+                              {linkedMeal && (
+                                <Text style={[styles.eventChipLinked, { color: typeInfo.color }]} numberOfLines={1}>
+                                  {linkedMeal.name}
+                                </Text>
+                              )}
+                              {linkedMed && (
+                                <Text style={[styles.eventChipLinked, { color: typeInfo.color }]} numberOfLines={1}>
+                                  {linkedMed.name}{linkedMed.dosage ? ` \u2022 ${linkedMed.dosage}` : ''}
+                                </Text>
+                              )}
                               <Text style={[styles.eventChipTime, { color: theme.colors.textSecondary }]}>
                                 {formatTime(event.time)}
                                 {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
@@ -677,6 +689,11 @@ const styles = StyleSheet.create({
   eventChipTitle: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  eventChipLinked: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
   eventChipTime: {
     fontSize: 11,

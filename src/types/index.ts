@@ -36,13 +36,18 @@ export interface ScheduleEvent {
   linkedMedicationId?: string; // links medication events to medications
 }
 
+export interface Ingredient {
+  name: string;
+  quantity: string;
+}
+
 export interface Meal {
   id: string;
   petId: string;
   name: string;
   type: 'meal' | 'treat';
   brand?: string;
-  amount?: string;
+  ingredients?: Ingredient[];
   notes?: string;
 }
 

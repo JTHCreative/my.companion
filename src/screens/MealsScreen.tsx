@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { Ingredient } from '../types';
 import { Card } from '../components/Card';
 import { FormInput } from '../components/FormInput';
 import { Button } from '../components/Button';
@@ -37,7 +38,7 @@ export function MealsScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [mealType, setMealType] = useState<'meal' | 'treat'>('meal');
   const [brand, setBrand] = useState('');
-  const [amount, setAmount] = useState('');
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [notes, setNotes] = useState('');
 
   const petMeals = meals.filter((m) => m.petId === selectedPetId);
@@ -48,9 +49,23 @@ export function MealsScreen({ navigation }: any) {
     setName('');
     setMealType('meal');
     setBrand('');
-    setAmount('');
+    setIngredients([]);
     setNotes('');
     setEditingMeal(null);
+  };
+
+  const addIngredient = () => {
+    setIngredients((prev) => [...prev, { name: '', quantity: '' }]);
+  };
+
+  const updateIngredient = (index: number, field: keyof Ingredient, value: string) => {
+    setIngredients((prev) =>
+      prev.map((ing, i) => (i === index ? { ...ing, [field]: value } : ing))
+    );
+  };
+
+  const removeIngredient = (index: number) => {
+    setIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
   const openAddModal = (type: 'meal' | 'treat' = 'meal') => {
@@ -66,7 +81,7 @@ export function MealsScreen({ navigation }: any) {
     setName(meal.name);
     setMealType(meal.type);
     setBrand(meal.brand || '');
-    setAmount(meal.amount || '');
+    setIngredients(meal.ingredients || []);
     setNotes(meal.notes || '');
     setModalVisible(true);
   };
@@ -78,13 +93,17 @@ export function MealsScreen({ navigation }: any) {
     }
 
     try {
+      const filteredIngredients = ingredients
+        .filter((ing) => ing.name.trim())
+        .map((ing) => ({ name: ing.name.trim(), quantity: ing.quantity.trim() }));
+
       const mealData = {
         id: editingMeal || generateId(),
         petId: selectedPetId!,
         name: name.trim(),
         type: mealType,
         brand: brand.trim() || undefined,
-        amount: amount.trim() || undefined,
+        ingredients: filteredIngredients.length > 0 ? filteredIngredients : undefined,
         notes: notes.trim() || undefined,
       };
 
@@ -195,10 +214,16 @@ export function MealsScreen({ navigation }: any) {
                           Brand: {meal.brand}
                         </Text>
                       )}
-                      {meal.amount && (
-                        <Text style={[styles.mealDetail, { color: theme.colors.textSecondary }]}>
-                          Amount: {meal.amount}
-                        </Text>
+                      {meal.ingredients && meal.ingredients.length > 0 && (
+                        <View style={styles.ingredientsList}>
+                          {meal.ingredients.map((ing, idx) => (
+                            <View key={idx} style={[styles.ingredientChip, { backgroundColor: theme.colors.inputBackground }]}>
+                              <Text style={[styles.ingredientChipText, { color: theme.colors.text }]}>
+                                {ing.name}{ing.quantity ? ` (${ing.quantity})` : ''}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       )}
                       {linked.length > 0 && (
                         <View style={styles.linkedTimes}>
@@ -259,10 +284,16 @@ export function MealsScreen({ navigation }: any) {
                         Brand: {treat.brand}
                       </Text>
                     )}
-                    {treat.amount && (
-                      <Text style={[styles.mealDetail, { color: theme.colors.textSecondary }]}>
-                        Amount: {treat.amount}
-                      </Text>
+                    {treat.ingredients && treat.ingredients.length > 0 && (
+                      <View style={styles.ingredientsList}>
+                        {treat.ingredients.map((ing, idx) => (
+                          <View key={idx} style={[styles.ingredientChip, { backgroundColor: theme.colors.inputBackground }]}>
+                            <Text style={[styles.ingredientChipText, { color: theme.colors.text }]}>
+                              {ing.name}{ing.quantity ? ` (${ing.quantity})` : ''}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
                     )}
                     {treat.notes && (
                       <Text
@@ -412,12 +443,45 @@ export function MealsScreen({ navigation }: any) {
               placeholder="e.g., Blue Buffalo"
             />
 
-            <FormInput
-              label="Amount / Serving Size"
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="e.g., 1 cup, 2 pieces"
-            />
+            {/* Ingredients Section */}
+            <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
+              Ingredients
+            </Text>
+            {ingredients.map((ing, index) => (
+              <View key={index} style={styles.ingredientRow}>
+                <View style={styles.ingredientInputs}>
+                  <FormInput
+                    label="Name"
+                    value={ing.name}
+                    onChangeText={(val: string) => updateIngredient(index, 'name', val)}
+                    placeholder="e.g., Chicken Breast"
+                    style={styles.ingredientNameInput}
+                  />
+                  <FormInput
+                    label="Quantity"
+                    value={ing.quantity}
+                    onChangeText={(val: string) => updateIngredient(index, 'quantity', val)}
+                    placeholder="e.g., 2/3 cup"
+                    style={styles.ingredientQtyInput}
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={() => removeIngredient(index)}
+                  style={styles.removeIngredientBtn}
+                >
+                  <Ionicons name="close-circle" size={22} color={theme.colors.danger} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity
+              onPress={addIngredient}
+              style={[styles.addIngredientBtn, { borderColor: theme.colors.border }]}
+            >
+              <Ionicons name="add" size={18} color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.primary, fontWeight: '600', marginLeft: 4 }}>
+                Add Ingredient
+              </Text>
+            </TouchableOpacity>
 
             <FormInput
               label="Notes"
@@ -564,5 +628,49 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     marginTop: 16,
+  },
+  ingredientsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  ingredientChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  ingredientChipText: {
+    fontSize: 13,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  ingredientInputs: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ingredientNameInput: {
+    flex: 2,
+  },
+  ingredientQtyInput: {
+    flex: 1,
+  },
+  removeIngredientBtn: {
+    paddingTop: 30,
+    paddingLeft: 8,
+  },
+  addIngredientBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    marginBottom: 16,
   },
 });

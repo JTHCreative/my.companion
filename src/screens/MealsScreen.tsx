@@ -438,14 +438,14 @@ export function MealsScreen({ navigation }: any) {
                     value={ing.name}
                     onChangeText={(val: string) => updateIngredient(index, 'name', val)}
                     placeholder="e.g., Chicken Breast"
-                    style={styles.ingredientNameInput}
+                    containerStyle={styles.ingredientNameInput}
                   />
                   <FormInput
                     label="Quantity"
                     value={ing.quantity}
                     onChangeText={(val: string) => updateIngredient(index, 'quantity', val)}
                     placeholder="e.g., 2/3 cup"
-                    style={styles.ingredientQtyInput}
+                    containerStyle={styles.ingredientQtyInput}
                   />
                 </View>
                 <TouchableOpacity
@@ -459,7 +459,7 @@ export function MealsScreen({ navigation }: any) {
                   value={ing.brand || ''}
                   onChangeText={(val: string) => updateIngredient(index, 'brand', val)}
                   placeholder="e.g., Blue Buffalo"
-                  style={styles.ingredientBrandInput}
+                  containerStyle={styles.ingredientBrandInput}
                 />
               </View>
             ))}
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'flex-start',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   ingredientInputs: {
     flex: 1,
@@ -642,12 +642,15 @@ const styles = StyleSheet.create({
   },
   ingredientNameInput: {
     flex: 2,
+    marginBottom: 8,
   },
   ingredientQtyInput: {
     flex: 1,
+    marginBottom: 8,
   },
   ingredientBrandInput: {
     width: '100%',
+    marginBottom: 0,
   },
   removeIngredientBtn: {
     paddingTop: 30,

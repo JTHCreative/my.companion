@@ -402,74 +402,76 @@ export function HomeScreen({ navigation }: any) {
                     </TouchableOpacity>
                   ) : null}
                   {petVets.length > 0 && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.detailRow}
-                        activeOpacity={0.6}
-                        onPress={() => navigation.navigate('MedicalTab')}
+                    <TouchableOpacity
+                      style={styles.detailRow}
+                      activeOpacity={0.6}
+                      onPress={() => navigation.navigate('MedicalTab')}
+                    >
+                      <View
+                        style={[
+                          styles.detailIcon,
+                          { backgroundColor: detailColors.vet.bg },
+                        ]}
                       >
-                        <View
-                          style={[
-                            styles.detailIcon,
-                            { backgroundColor: detailColors.vet.bg },
-                          ]}
-                        >
+                        <Ionicons
+                          name="medkit-outline"
+                          size={16}
+                          color={detailColors.vet.icon}
+                        />
+                      </View>
+                      <View style={styles.vetDetailContent}>
+                        <View style={styles.vetNameRow}>
+                          <Text
+                            style={[
+                              styles.detailLabel,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
+                            Vet
+                          </Text>
+                          <Text
+                            style={[
+                              styles.detailValue,
+                              { color: theme.colors.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {petVets[0].vetName || petVets[0].clinicName}
+                          </Text>
                           <Ionicons
-                            name="medkit-outline"
+                            name="chevron-forward"
                             size={16}
-                            color={detailColors.vet.icon}
+                            color={theme.colors.textSecondary}
                           />
                         </View>
-                        <Text
-                          style={[
-                            styles.detailLabel,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                        >
-                          Vet
-                        </Text>
-                        <Text
-                          style={[
-                            styles.detailValue,
-                            { color: theme.colors.text },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {petVets[0].vetName || petVets[0].clinicName}
-                        </Text>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color={theme.colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                      <View style={styles.vetActions}>
-                        {petVets[0].phone ? (
-                          <TouchableOpacity
-                            style={[styles.vetActionButton, { backgroundColor: theme.colors.success + '18' }]}
-                            activeOpacity={0.7}
-                            onPress={() => handleCallVet(petVets[0].phone)}
-                          >
-                            <Ionicons name="call" size={16} color={theme.colors.success} />
-                            <Text style={[styles.vetActionText, { color: theme.colors.success }]}>
-                              {formatPhoneNumber(petVets[0].phone)}
-                            </Text>
-                          </TouchableOpacity>
-                        ) : null}
-                        {petVets[0].address ? (
-                          <TouchableOpacity
-                            style={[styles.vetActionButton, { backgroundColor: theme.colors.primary + '18' }]}
-                            activeOpacity={0.7}
-                            onPress={() => handleDirections(petVets[0].address!)}
-                          >
-                            <Ionicons name="navigate" size={16} color={theme.colors.primary} />
-                            <Text style={[styles.vetActionText, { color: theme.colors.primary }]}>
-                              Directions
-                            </Text>
-                          </TouchableOpacity>
-                        ) : null}
+                        <View style={styles.vetActions}>
+                          {petVets[0].phone ? (
+                            <TouchableOpacity
+                              style={[styles.vetActionButton, { backgroundColor: theme.colors.success + '18' }]}
+                              activeOpacity={0.7}
+                              onPress={(e) => { e.stopPropagation(); handleCallVet(petVets[0].phone); }}
+                            >
+                              <Ionicons name="call" size={16} color={theme.colors.success} />
+                              <Text style={[styles.vetActionText, { color: theme.colors.success }]}>
+                                {formatPhoneNumber(petVets[0].phone)}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          {petVets[0].address ? (
+                            <TouchableOpacity
+                              style={[styles.vetActionButton, { backgroundColor: theme.colors.primary + '18' }]}
+                              activeOpacity={0.7}
+                              onPress={(e) => { e.stopPropagation(); handleDirections(petVets[0].address!); }}
+                            >
+                              <Ionicons name="navigate" size={16} color={theme.colors.primary} />
+                              <Text style={[styles.vetActionText, { color: theme.colors.primary }]}>
+                                Directions
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
                       </View>
-                    </>
+                    </TouchableOpacity>
                   )}
                 </View>
 
@@ -1148,11 +1150,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  vetDetailContent: {
+    flex: 1,
+  },
+  vetNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   vetActions: {
     flexDirection: 'row',
     gap: 8,
-    marginLeft: 42,
-    marginBottom: 4,
+    marginTop: 8,
   },
   vetActionButton: {
     flexDirection: 'row',

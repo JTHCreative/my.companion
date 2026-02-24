@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  Linking,
+  Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -53,6 +56,30 @@ const DETAIL_ROW_COLORS: Record<string, { bg: string; icon: string }> = {
   weight: { bg: '#558A42', icon: '#FFFFFF' },
   vet: { bg: '#558A42', icon: '#FFFFFF' },
 };
+
+const DETAIL_ROW_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
+  birthday: { bg: '#3A5230', icon: '#C8DCC0' },
+  weight: { bg: '#3A5230', icon: '#C8DCC0' },
+  vet: { bg: '#3A5230', icon: '#C8DCC0' },
+};
+
+function handleCallVet(phone: string) {
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  if (cleaned) {
+    Linking.openURL(`tel:${cleaned}`);
+  } else {
+    Alert.alert('No Phone Number', 'No phone number is available for this vet.');
+  }
+}
+
+function handleDirections(address: string) {
+  const encoded = encodeURIComponent(address);
+  const url = Platform.select({
+    ios: `maps:0,0?q=${encoded}`,
+    android: `geo:0,0?q=${encoded}`,
+  }) || `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+  Linking.openURL(url);
+}
 
 function calculateAge(birthday: string): string | null {
   if (!birthday) return null;
@@ -183,6 +210,7 @@ export function HomeScreen({ navigation }: any) {
           {(() => {
             const colorMap = theme.dark ? PET_TYPE_COLORS_DARK : PET_TYPE_COLORS;
             const typeColor = colorMap[selectedPet.type] || colorMap.other;
+            const detailColors = theme.dark ? DETAIL_ROW_COLORS_DARK : DETAIL_ROW_COLORS;
             return (
                 <Card style={styles.profileCard}>
                   {/* Pet type triangle – top left */}
@@ -203,7 +231,7 @@ export function HomeScreen({ navigation }: any) {
                       navigation.navigate('EditPet', { petId: selectedPet.id })
                     }
                   >
-                    <View style={[styles.cornerTriangleRight, { backgroundColor: theme.colors.primary }]} />
+                    <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
                     <View style={styles.cornerIconRight}>
                       <Ionicons name="create-outline" size={25} color="#FFFFFF" />
                     </View>
@@ -287,13 +315,13 @@ export function HomeScreen({ navigation }: any) {
                       <View
                         style={[
                           styles.detailIcon,
-                          { backgroundColor: DETAIL_ROW_COLORS.birthday.bg },
+                          { backgroundColor: detailColors.birthday.bg },
                         ]}
                       >
                         <Ionicons
                           name="calendar-outline"
                           size={16}
-                          color={DETAIL_ROW_COLORS.birthday.icon}
+                          color={detailColors.birthday.icon}
                         />
                       </View>
                       <Text
@@ -330,13 +358,13 @@ export function HomeScreen({ navigation }: any) {
                       <View
                         style={[
                           styles.detailIcon,
-                          { backgroundColor: DETAIL_ROW_COLORS.weight.bg },
+                          { backgroundColor: detailColors.weight.bg },
                         ]}
                       >
                         <Ionicons
                           name="scale-outline"
                           size={16}
-                          color={DETAIL_ROW_COLORS.weight.icon}
+                          color={detailColors.weight.icon}
                         />
                       </View>
                       <Text
@@ -363,46 +391,74 @@ export function HomeScreen({ navigation }: any) {
                     </TouchableOpacity>
                   ) : null}
                   {petVets.length > 0 && (
-                    <TouchableOpacity
-                      style={styles.detailRow}
-                      activeOpacity={0.6}
-                      onPress={() => navigation.navigate('MedicalTab')}
-                    >
-                      <View
-                        style={[
-                          styles.detailIcon,
-                          { backgroundColor: DETAIL_ROW_COLORS.vet.bg },
-                        ]}
+                    <>
+                      <TouchableOpacity
+                        style={styles.detailRow}
+                        activeOpacity={0.6}
+                        onPress={() => navigation.navigate('MedicalTab')}
                       >
+                        <View
+                          style={[
+                            styles.detailIcon,
+                            { backgroundColor: detailColors.vet.bg },
+                          ]}
+                        >
+                          <Ionicons
+                            name="medkit-outline"
+                            size={16}
+                            color={detailColors.vet.icon}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          Vet
+                        </Text>
+                        <Text
+                          style={[
+                            styles.detailValue,
+                            { color: theme.colors.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {petVets[0].vetName || petVets[0].clinicName}
+                        </Text>
                         <Ionicons
-                          name="medkit-outline"
+                          name="chevron-forward"
                           size={16}
-                          color={DETAIL_ROW_COLORS.vet.icon}
+                          color={theme.colors.textSecondary}
                         />
+                      </TouchableOpacity>
+                      <View style={styles.vetActions}>
+                        {petVets[0].phone ? (
+                          <TouchableOpacity
+                            style={[styles.vetActionButton, { backgroundColor: theme.colors.success + '18' }]}
+                            activeOpacity={0.7}
+                            onPress={() => handleCallVet(petVets[0].phone)}
+                          >
+                            <Ionicons name="call" size={16} color={theme.colors.success} />
+                            <Text style={[styles.vetActionText, { color: theme.colors.success }]}>
+                              Call
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        {petVets[0].address ? (
+                          <TouchableOpacity
+                            style={[styles.vetActionButton, { backgroundColor: theme.colors.primary + '18' }]}
+                            activeOpacity={0.7}
+                            onPress={() => handleDirections(petVets[0].address!)}
+                          >
+                            <Ionicons name="navigate" size={16} color={theme.colors.primary} />
+                            <Text style={[styles.vetActionText, { color: theme.colors.primary }]}>
+                              Directions
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        Vet
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          { color: theme.colors.text },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {petVets[0].vetName || petVets[0].clinicName}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={theme.colors.textSecondary}
-                      />
-                    </TouchableOpacity>
+                    </>
                   )}
                 </View>
 
@@ -1079,6 +1135,24 @@ const styles = StyleSheet.create({
   detailValue: {
     flex: 1,
     fontSize: 14,
+    fontWeight: '600',
+  },
+  vetActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: 42,
+    marginBottom: 4,
+  },
+  vetActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  vetActionText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   personalitySection: {

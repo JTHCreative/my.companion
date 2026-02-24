@@ -7,18 +7,18 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 
-const PET_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  dog: 'paw',
-  cat: 'paw',
-  bird: 'leaf',
-  fish: 'water',
-  reptile: 'bug',
-  rabbit: 'paw',
-  hamster: 'paw',
+const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  dog: 'dog',
+  cat: 'cat',
+  bird: 'bird',
+  fish: 'fish',
+  reptile: 'snake',
+  rabbit: 'rabbit',
+  hamster: 'rodent',
   other: 'paw',
 };
 
@@ -66,7 +66,7 @@ export function PetAvatarHeader({
               { backgroundColor: theme.colors.primaryLight },
             ]}
           >
-            <Ionicons
+            <MaterialCommunityIcons
               name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
               size={18}
               color={theme.colors.primary}
@@ -130,7 +130,7 @@ export function PetAvatarHeader({
                         { backgroundColor: theme.colors.primaryLight },
                       ]}
                     >
-                      <Ionicons
+                      <MaterialCommunityIcons
                         name={PET_TYPE_ICONS[pet.type] || 'paw'}
                         size={18}
                         color={theme.colors.primary}

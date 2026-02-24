@@ -8,21 +8,21 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
-const PET_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  dog: 'paw',
-  cat: 'paw',
-  bird: 'leaf',
-  fish: 'water',
-  reptile: 'bug',
-  rabbit: 'paw',
-  hamster: 'paw',
+const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  dog: 'dog',
+  cat: 'cat',
+  bird: 'bird',
+  fish: 'fish',
+  reptile: 'snake',
+  rabbit: 'rabbit',
+  hamster: 'rodent',
   other: 'paw',
 };
 
@@ -176,7 +176,7 @@ export function HomeScreen({ navigation }: any) {
                   {/* Pet type triangle – top left */}
                   <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
                   <View style={styles.cornerIconLeft}>
-                    <Ionicons
+                    <MaterialCommunityIcons
                       name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
                       size={20}
                       color={typeColor.icon}
@@ -214,7 +214,7 @@ export function HomeScreen({ navigation }: any) {
                           { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
                         ]}
                       >
-                        <Ionicons
+                        <MaterialCommunityIcons
                           name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
                           size={44}
                           color={typeColor.icon}

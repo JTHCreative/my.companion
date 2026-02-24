@@ -419,58 +419,28 @@ export function HomeScreen({ navigation }: any) {
                           color={detailColors.vet.icon}
                         />
                       </View>
-                      <View style={styles.vetDetailContent}>
-                        <View style={styles.vetNameRow}>
-                          <Text
-                            style={[
-                              styles.detailLabel,
-                              { color: theme.colors.textSecondary },
-                            ]}
-                          >
-                            Vet
-                          </Text>
-                          <Text
-                            style={[
-                              styles.detailValue,
-                              { color: theme.colors.text },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {petVets[0].vetName || petVets[0].clinicName}
-                          </Text>
-                          <Ionicons
-                            name="chevron-forward"
-                            size={16}
-                            color={theme.colors.textSecondary}
-                          />
-                        </View>
-                        <View style={styles.vetActions}>
-                          {petVets[0].phone ? (
-                            <TouchableOpacity
-                              style={[styles.vetActionButton, { backgroundColor: theme.colors.success + '18' }]}
-                              activeOpacity={0.7}
-                              onPress={(e) => { e.stopPropagation(); handleCallVet(petVets[0].phone); }}
-                            >
-                              <Ionicons name="call" size={16} color={theme.colors.success} />
-                              <Text style={[styles.vetActionText, { color: theme.colors.success }]}>
-                                {formatPhoneNumber(petVets[0].phone)}
-                              </Text>
-                            </TouchableOpacity>
-                          ) : null}
-                          {petVets[0].address ? (
-                            <TouchableOpacity
-                              style={[styles.vetActionButton, { backgroundColor: theme.colors.primary + '18' }]}
-                              activeOpacity={0.7}
-                              onPress={(e) => { e.stopPropagation(); handleDirections(petVets[0].address!); }}
-                            >
-                              <Ionicons name="navigate" size={16} color={theme.colors.primary} />
-                              <Text style={[styles.vetActionText, { color: theme.colors.primary }]}>
-                                Directions
-                              </Text>
-                            </TouchableOpacity>
-                          ) : null}
-                        </View>
-                      </View>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Vet
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailValue,
+                          { color: theme.colors.text, flex: 1 },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {petVets[0].vetName || petVets[0].clinicName}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -483,6 +453,14 @@ export function HomeScreen({ navigation }: any) {
                       { borderTopColor: theme.colors.border },
                     ]}
                   >
+                    <Text
+                      style={[
+                        styles.personalitySectionTitle,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Personality
+                    </Text>
                     <View style={styles.personalityRow}>
                       {selectedPet.personality
                         .split(',')
@@ -1150,36 +1128,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  vetDetailContent: {
-    flex: 1,
-  },
-  vetNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  vetActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  vetActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  vetActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   personalitySection: {
     marginTop: 14,
     marginHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
     borderTopWidth: 1,
+  },
+  personalitySectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   personalityRow: {
     flexDirection: 'row',

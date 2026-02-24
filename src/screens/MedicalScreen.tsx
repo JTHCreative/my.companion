@@ -188,6 +188,15 @@ export function MedicalScreen({ navigation }: any) {
     }
   };
 
+  const handleDirections = (address: string) => {
+    const encoded = encodeURIComponent(address);
+    const url = Platform.select({
+      ios: `maps:0,0?q=${encoded}`,
+      android: `geo:0,0?q=${encoded}`,
+    }) || `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    Linking.openURL(url);
+  };
+
   const handleDeleteVet = (id: string) => {
     Alert.alert('Delete Vet', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
@@ -290,15 +299,26 @@ export function MedicalScreen({ navigation }: any) {
                       </Text>
                     )}
                   </View>
-                  {vet.phone && (
-                    <TouchableOpacity
-                      style={[styles.callButton, { backgroundColor: theme.colors.success }]}
-                      onPress={() => handleCallVet(vet.phone)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="call" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  )}
+                  <View style={styles.vetActions}>
+                    {vet.address && (
+                      <TouchableOpacity
+                        style={[styles.callButton, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => handleDirections(vet.address!)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="navigate" size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
+                    {vet.phone && (
+                      <TouchableOpacity
+                        style={[styles.callButton, { backgroundColor: theme.colors.success }]}
+                        onPress={() => handleCallVet(vet.phone)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="call" size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
                 {vet.phone && (
                   <View style={styles.detailRow}>
@@ -703,13 +723,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 8,
   },
+  vetActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 12,
+  },
   callButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
   },
   detailRow: {
     flexDirection: 'row',

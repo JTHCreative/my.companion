@@ -172,28 +172,15 @@ export function HomeScreen({ navigation }: any) {
           {(() => {
             const typeColor = PET_TYPE_COLORS[selectedPet.type] || PET_TYPE_COLORS.other;
             return (
-              <View style={styles.profileCardWrapper}>
-                {/* Floating pet type icon on top center border */}
-                <View style={styles.floatingIconWrapper}>
-                  <View
-                    style={[
-                      styles.floatingIconCircle,
-                      { backgroundColor: typeColor.bg, borderColor: theme.colors.card },
-                    ]}
-                  >
+                <Card style={styles.profileCard}>
+                  {/* Triangular pet type corner – top right */}
+                  <View style={[styles.cornerTriangle, { backgroundColor: typeColor.bg }]} />
+                  <View style={styles.cornerIconWrap}>
                     <Ionicons
                       name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                      size={26}
+                      size={16}
                       color={typeColor.icon}
                     />
-                  </View>
-                </View>
-
-                <Card style={styles.profileCard}>
-                  {/* Wavy header background */}
-                  <View style={[styles.wavyHeader, { backgroundColor: typeColor.bg }]}>
-                    <View style={styles.wavySpacer} />
-                    <View style={[styles.waveCurve, { backgroundColor: theme.colors.card }]} />
                   </View>
 
                   {/* Centered profile content */}
@@ -446,7 +433,6 @@ export function HomeScreen({ navigation }: any) {
                   </View>
                 ) : null}
                 </Card>
-              </View>
             );
           })()}
 
@@ -958,45 +944,29 @@ const styles = StyleSheet.create({
   },
 
   /* Expanded profile card */
-  profileCardWrapper: {
-    position: 'relative',
-    marginTop: 24,
-  },
-  floatingIconWrapper: {
-    position: 'absolute',
-    top: -20,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  floatingIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   profileCard: {
-    padding: 0,
+    marginTop: 8,
     overflow: 'hidden',
   },
-  wavyHeader: {
-    height: 48,
+  cornerTriangle: {
+    position: 'absolute',
+    top: -36,
+    right: -36,
+    width: 72,
+    height: 72,
+    transform: [{ rotate: '45deg' }],
+    zIndex: 2,
   },
-  wavySpacer: {
-    height: 28,
-  },
-  waveCurve: {
-    flex: 1,
-    borderTopLeftRadius: 999,
-    borderTopRightRadius: 999,
+  cornerIconWrap: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 3,
   },
   profileContent: {
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: -4,
+    paddingTop: 16,
   },
   profileActions: {
     flexDirection: 'row',

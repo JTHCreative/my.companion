@@ -240,7 +240,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
             >
               <MaterialCommunityIcons
                 name={type.icon}
-                size={16}
+                size={20}
                 color={
                   petType === type.value
                     ? '#FFFFFF'
@@ -439,14 +439,14 @@ const styles = StyleSheet.create({
   typeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 6,
+    gap: 8,
   },
   typeLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   weightRow: {

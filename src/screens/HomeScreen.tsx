@@ -37,6 +37,17 @@ const PET_TYPE_COLORS: Record<string, { bg: string; icon: string }> = {
   other: { bg: '#F1F5F9', icon: '#475569' },
 };
 
+const PET_TYPE_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
+  dog: { bg: '#3A3425', icon: '#D4A84A' },
+  cat: { bg: '#3A2E25', icon: '#D8874A' },
+  bird: { bg: '#2E2A3A', icon: '#9B72D4' },
+  fish: { bg: '#1F3335', icon: '#3AB8D4' },
+  reptile: { bg: '#1F3325', icon: '#3DB864' },
+  rabbit: { bg: '#3A2530', icon: '#E06A9C' },
+  hamster: { bg: '#3A2525', icon: '#D45555' },
+  other: { bg: '#2A2E32', icon: '#7A8899' },
+};
+
 const DETAIL_ROW_COLORS: Record<string, { bg: string; icon: string }> = {
   birthday: { bg: '#558A42', icon: '#FFFFFF' },
   weight: { bg: '#558A42', icon: '#FFFFFF' },
@@ -170,7 +181,8 @@ export function HomeScreen({ navigation }: any) {
         >
           {/* Expanded Pet Profile Card */}
           {(() => {
-            const typeColor = PET_TYPE_COLORS[selectedPet.type] || PET_TYPE_COLORS.other;
+            const colorMap = theme.dark ? PET_TYPE_COLORS_DARK : PET_TYPE_COLORS;
+            const typeColor = colorMap[selectedPet.type] || colorMap.other;
             return (
                 <Card style={styles.profileCard}>
                   {/* Pet type triangle – top left */}
@@ -178,7 +190,7 @@ export function HomeScreen({ navigation }: any) {
                   <View style={styles.cornerIconLeft}>
                     <MaterialCommunityIcons
                       name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                      size={20}
+                      size={25}
                       color={typeColor.icon}
                     />
                   </View>
@@ -193,7 +205,7 @@ export function HomeScreen({ navigation }: any) {
                   >
                     <View style={[styles.cornerTriangleRight, { backgroundColor: theme.colors.primary }]} />
                     <View style={styles.cornerIconRight}>
-                      <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                      <Ionicons name="create-outline" size={25} color="#FFFFFF" />
                     </View>
                   </TouchableOpacity>
 
@@ -946,39 +958,39 @@ const styles = StyleSheet.create({
   },
   cornerTriangleLeft: {
     position: 'absolute',
-    top: -48,
-    left: -48,
-    width: 96,
-    height: 96,
+    top: -60,
+    left: -60,
+    width: 120,
+    height: 120,
     transform: [{ rotate: '45deg' }],
     zIndex: 2,
   },
   cornerIconLeft: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 12,
+    left: 12,
     zIndex: 3,
   },
   editCornerWrap: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 60,
-    height: 60,
+    width: 75,
+    height: 75,
     zIndex: 4,
   },
   cornerTriangleRight: {
     position: 'absolute',
-    top: -48,
-    right: -48,
-    width: 96,
-    height: 96,
+    top: -60,
+    right: -60,
+    width: 120,
+    height: 120,
     transform: [{ rotate: '45deg' }],
   },
   cornerIconRight: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 12,
+    right: 12,
   },
   profileContent: {
     alignItems: 'center',

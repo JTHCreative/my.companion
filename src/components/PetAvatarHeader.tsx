@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 
@@ -34,8 +35,9 @@ export function PetAvatarHeader({
   onAddPet,
   rightAccessory,
 }: PetAvatarHeaderProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet } = useData();
+  const navigation = useNavigation<any>();
   const [selectorOpen, setSelectorOpen] = useState(false);
 
   const renderHeaderAvatar = () => {
@@ -183,7 +185,7 @@ export function PetAvatarHeader({
         <TouchableOpacity
           onPress={() => {
             setSelectorOpen(false);
-            toggleTheme();
+            navigation.navigate('Settings');
           }}
           activeOpacity={0.7}
           style={[

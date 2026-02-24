@@ -38,9 +38,9 @@ const PET_TYPE_COLORS: Record<string, { bg: string; icon: string }> = {
 };
 
 const DETAIL_ROW_COLORS: Record<string, { bg: string; icon: string }> = {
-  birthday: { bg: '#E4F0DF', icon: '#6FA85C' },
-  weight: { bg: '#E4F0DF', icon: '#558A42' },
-  vet: { bg: '#E4F0DF', icon: '#6FA85C' },
+  birthday: { bg: '#558A42', icon: '#FFFFFF' },
+  weight: { bg: '#558A42', icon: '#FFFFFF' },
+  vet: { bg: '#558A42', icon: '#FFFFFF' },
 };
 
 function calculateAge(birthday: string): string | null {
@@ -196,32 +196,6 @@ export function HomeScreen({ navigation }: any) {
                     <View style={[styles.waveCurve, { backgroundColor: theme.colors.card }]} />
                   </View>
 
-                  {/* Action buttons – top right over wave */}
-                  <View style={styles.profileActions}>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('SharePet')}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name="share-outline"
-                        size={18}
-                        color={typeColor.icon}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() =>
-                        navigation.navigate('EditPet', { petId: selectedPet.id })
-                      }
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name="create-outline"
-                        size={18}
-                        color={typeColor.icon}
-                      />
-                    </TouchableOpacity>
-                  </View>
-
                   {/* Centered profile content */}
                   <View style={styles.profileContent}>
                     {selectedPet.profileImage ? (
@@ -264,6 +238,40 @@ export function HomeScreen({ navigation }: any) {
                         </Text>
                       </View>
                     )}
+
+                    {/* Action buttons */}
+                    <View style={styles.profileActions}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: theme.colors.inputBackground }]}
+                        onPress={() => navigation.navigate('SharePet')}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="share-outline"
+                          size={16}
+                          color={theme.colors.textSecondary}
+                        />
+                        <Text style={[styles.actionButtonText, { color: theme.colors.textSecondary }]}>
+                          Share
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: theme.colors.inputBackground }]}
+                        onPress={() =>
+                          navigation.navigate('EditPet', { petId: selectedPet.id })
+                        }
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="create-outline"
+                          size={16}
+                          color={theme.colors.textSecondary}
+                        />
+                        <Text style={[styles.actionButtonText, { color: theme.colors.textSecondary }]}>
+                          Edit
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Detail rows — each row is independently clickable */}
@@ -952,11 +960,11 @@ const styles = StyleSheet.create({
   /* Expanded profile card */
   profileCardWrapper: {
     position: 'relative',
-    marginTop: 28,
+    marginTop: 24,
   },
   floatingIconWrapper: {
     position: 'absolute',
-    top: -22,
+    top: -20,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -975,28 +983,37 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   wavyHeader: {
-    height: 80,
+    height: 48,
   },
   wavySpacer: {
-    height: 50,
+    height: 28,
   },
   waveCurve: {
     flex: 1,
     borderTopLeftRadius: 999,
     borderTopRightRadius: 999,
   },
-  profileActions: {
-    position: 'absolute',
-    top: 12,
-    right: 14,
-    flexDirection: 'row',
-    gap: 14,
-    zIndex: 5,
-  },
   profileContent: {
     alignItems: 'center',
     paddingHorizontal: 16,
     marginTop: -4,
+  },
+  profileActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   profileImageRing: {
     width: 92,

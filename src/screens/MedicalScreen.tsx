@@ -721,6 +721,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
   vetInfo: {
     flex: 1,
@@ -728,16 +729,16 @@ const styles = StyleSheet.create({
   vetClinic: {
     fontSize: 17,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   vetName: {
     fontSize: 15,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   vetActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     marginLeft: 12,
   },
   callButton: {
@@ -750,7 +751,7 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 8,
     gap: 8,
   },
   detailText: {
@@ -759,7 +760,7 @@ const styles = StyleSheet.create({
   },
   notesText: {
     fontSize: 13,
-    marginTop: 8,
+    marginTop: 12,
     fontStyle: 'italic',
   },
   medHeader: {

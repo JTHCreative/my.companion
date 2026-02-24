@@ -197,6 +197,17 @@ export function MedicalScreen({ navigation }: any) {
     Linking.openURL(url);
   };
 
+  const formatPhoneNumber = (phone: string): string => {
+    const digits = phone.replace(/[^\d]/g, '');
+    if (digits.length === 10) {
+      return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    if (digits.length === 11 && digits[0] === '1') {
+      return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+    }
+    return phone;
+  };
+
   const handleDeleteVet = (id: string) => {
     Alert.alert('Delete Vet', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
@@ -324,7 +335,7 @@ export function MedicalScreen({ navigation }: any) {
                   <View style={styles.detailRow}>
                     <Ionicons name="call-outline" size={16} color={theme.colors.textSecondary} />
                     <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
-                      {vet.phone}
+                      {formatPhoneNumber(vet.phone)}
                     </Text>
                   </View>
                 )}

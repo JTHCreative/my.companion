@@ -81,6 +81,17 @@ function handleDirections(address: string) {
   Linking.openURL(url);
 }
 
+function formatPhoneNumber(phone: string): string {
+  const digits = phone.replace(/[^\d]/g, '');
+  if (digits.length === 10) {
+    return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+}
+
 function calculateAge(birthday: string): string | null {
   if (!birthday) return null;
   // Expect MM/DD/YYYY
@@ -441,7 +452,7 @@ export function HomeScreen({ navigation }: any) {
                           >
                             <Ionicons name="call" size={16} color={theme.colors.success} />
                             <Text style={[styles.vetActionText, { color: theme.colors.success }]}>
-                              Call
+                              {formatPhoneNumber(petVets[0].phone)}
                             </Text>
                           </TouchableOpacity>
                         ) : null}

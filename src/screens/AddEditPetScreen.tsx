@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
@@ -21,15 +21,15 @@ import { PersonalityTagPicker } from '../components/PersonalityTagPicker';
 import { Button } from '../components/Button';
 import { PetType } from '../types';
 
-const PET_TYPES: { value: PetType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { value: 'dog', label: 'Dog', icon: 'paw' },
-  { value: 'cat', label: 'Cat', icon: 'paw' },
-  { value: 'bird', label: 'Bird', icon: 'leaf' },
-  { value: 'fish', label: 'Fish', icon: 'water' },
-  { value: 'reptile', label: 'Reptile', icon: 'bug' },
-  { value: 'rabbit', label: 'Rabbit', icon: 'paw' },
-  { value: 'hamster', label: 'Hamster', icon: 'paw' },
-  { value: 'other', label: 'Other', icon: 'ellipsis-horizontal' },
+const PET_TYPES: { value: PetType; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  { value: 'dog', label: 'Dog', icon: 'dog' },
+  { value: 'cat', label: 'Cat', icon: 'cat' },
+  { value: 'bird', label: 'Bird', icon: 'bird' },
+  { value: 'fish', label: 'Fish', icon: 'fish' },
+  { value: 'reptile', label: 'Reptile', icon: 'snake' },
+  { value: 'rabbit', label: 'Rabbit', icon: 'rabbit' },
+  { value: 'hamster', label: 'Hamster', icon: 'rodent' },
+  { value: 'other', label: 'Other', icon: 'paw' },
 ];
 
 export function AddEditPetScreen({ navigation, route }: any) {
@@ -238,9 +238,9 @@ export function AddEditPetScreen({ navigation, route }: any) {
               onPress={() => setPetType(type.value)}
               activeOpacity={0.7}
             >
-              <Ionicons
+              <MaterialCommunityIcons
                 name={type.icon}
-                size={16}
+                size={20}
                 color={
                   petType === type.value
                     ? '#FFFFFF'
@@ -439,14 +439,14 @@ const styles = StyleSheet.create({
   typeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 6,
+    gap: 8,
   },
   typeLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   weightRow: {

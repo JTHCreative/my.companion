@@ -7,54 +7,121 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  Linking,
+  Platform,
+  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
-const PET_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  dog: 'paw',
-  cat: 'paw',
-  bird: 'leaf',
-  fish: 'water',
-  reptile: 'bug',
-  rabbit: 'paw',
-  hamster: 'paw',
+const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  dog: 'dog',
+  cat: 'cat',
+  bird: 'bird',
+  fish: 'fish',
+  reptile: 'snake',
+  rabbit: 'rabbit',
+  hamster: 'rodent',
   other: 'paw',
 };
+
+const PET_TYPE_COLORS: Record<string, { bg: string; icon: string }> = {
+  dog: { bg: '#FFF7E0', icon: '#C8962E' },
+  cat: { bg: '#FFF0E5', icon: '#D4732A' },
+  bird: { bg: '#F0EAFF', icon: '#7B4EC2' },
+  fish: { bg: '#CFFAFE', icon: '#0891B2' },
+  reptile: { bg: '#DCFCE7', icon: '#16A34A' },
+  rabbit: { bg: '#FDE8F0', icon: '#D94688' },
+  hamster: { bg: '#FFE5E5', icon: '#CC3333' },
+  other: { bg: '#F1F5F9', icon: '#475569' },
+};
+
+const PET_TYPE_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
+  dog: { bg: '#3A3425', icon: '#D4A84A' },
+  cat: { bg: '#3A2E25', icon: '#D8874A' },
+  bird: { bg: '#2E2A3A', icon: '#9B72D4' },
+  fish: { bg: '#1F3335', icon: '#3AB8D4' },
+  reptile: { bg: '#1F3325', icon: '#3DB864' },
+  rabbit: { bg: '#3A2530', icon: '#E06A9C' },
+  hamster: { bg: '#3A2525', icon: '#D45555' },
+  other: { bg: '#2A2E32', icon: '#7A8899' },
+};
+
+const DETAIL_ROW_COLORS: Record<string, { bg: string; icon: string }> = {
+  birthday: { bg: '#558A42', icon: '#FFFFFF' },
+  weight: { bg: '#558A42', icon: '#FFFFFF' },
+  vet: { bg: '#558A42', icon: '#FFFFFF' },
+};
+
+const DETAIL_ROW_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
+  birthday: { bg: '#3A5230', icon: '#C8DCC0' },
+  weight: { bg: '#3A5230', icon: '#C8DCC0' },
+  vet: { bg: '#3A5230', icon: '#C8DCC0' },
+};
+
+function handleCallVet(phone: string) {
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  if (cleaned) {
+    Linking.openURL(`tel:${cleaned}`);
+  } else {
+    Alert.alert('No Phone Number', 'No phone number is available for this vet.');
+  }
+}
+
+function handleDirections(address: string) {
+  const encoded = encodeURIComponent(address);
+  const url = Platform.select({
+    ios: `maps:0,0?q=${encoded}`,
+    android: `geo:0,0?q=${encoded}`,
+  }) || `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+  Linking.openURL(url);
+}
+
+function formatPhoneNumber(phone: string): string {
+  const digits = phone.replace(/[^\d]/g, '');
+  if (digits.length === 10) {
+    return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+}
 
 function calculateAge(birthday: string): string | null {
   if (!birthday) return null;
   // Expect MM/DD/YYYY
-  const parts = birthday.split('/');
-  if (parts.length !== 3) return null;
-  const [mm, dd, yyyy] = parts.map(Number);
+  const dateParts = birthday.split('/');
+  if (dateParts.length !== 3) return null;
+  const [mm, dd, yyyy] = dateParts.map(Number);
   const birth = new Date(yyyy, mm - 1, dd);
   if (isNaN(birth.getTime())) return null;
 
   const now = new Date();
   let years = now.getFullYear() - birth.getFullYear();
   let months = now.getMonth() - birth.getMonth();
-  if (now.getDate() < birth.getDate()) months--;
+  let days = now.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months--;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
   if (months < 0) {
     years--;
     months += 12;
   }
-  if (years >= 1) {
-    return years === 1
-      ? months > 0
-        ? `1 yr ${months} mo`
-        : '1 yr'
-      : months > 0
-        ? `${years} yrs ${months} mo`
-        : `${years} yrs`;
-  }
-  if (months >= 1) return months === 1 ? '1 month' : `${months} months`;
-  const days = Math.floor((now.getTime() - birth.getTime()) / 86400000);
-  return days <= 1 ? '< 1 month' : `${days} days`;
+
+  const segments: string[] = [];
+  if (years >= 1) segments.push(years === 1 ? '1 yr' : `${years} yrs`);
+  if (months >= 1) segments.push(months === 1 ? '1 mo' : `${months} mo`);
+  if (days >= 1) segments.push(days === 1 ? '1 day' : `${days} days`);
+
+  return segments.length > 0 ? segments.join(' ') : '< 1 day';
 }
 
 function formatBirthday(birthday: string): string | null {
@@ -151,223 +218,278 @@ export function HomeScreen({ navigation }: any) {
           contentContainerStyle={styles.scrollContent}
         >
           {/* Expanded Pet Profile Card */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate('EditPet', { petId: selectedPet.id })
-            }
-          >
-            <Card style={styles.profileCard}>
-              {/* Top section: image + name */}
-              <View style={styles.profileHeader}>
-                {selectedPet.profileImage ? (
-                  <Image
-                    source={{ uri: selectedPet.profileImage }}
-                    style={styles.profileImage}
-                  />
-                ) : (
+          {(() => {
+            const colorMap = theme.dark ? PET_TYPE_COLORS_DARK : PET_TYPE_COLORS;
+            const typeColor = colorMap[selectedPet.type] || colorMap.other;
+            const detailColors = theme.dark ? DETAIL_ROW_COLORS_DARK : DETAIL_ROW_COLORS;
+            return (
+                <Card style={styles.profileCard}>
+                  {/* Pet type triangle – top left */}
+                  <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
+                  <View style={styles.cornerIconLeft}>
+                    <MaterialCommunityIcons
+                      name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
+                      size={25}
+                      color={typeColor.icon}
+                    />
+                  </View>
+
+                  {/* Edit triangle – top right */}
+                  <TouchableOpacity
+                    style={styles.editCornerWrap}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      navigation.navigate('EditPet', { petId: selectedPet.id })
+                    }
+                  >
+                    <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
+                    <View style={styles.cornerIconRight}>
+                      <Ionicons name="create-outline" size={25} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Centered profile content */}
+                  <View style={styles.profileContent}>
+                    {selectedPet.profileImage ? (
+                      <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
+                        <Image
+                          source={{ uri: selectedPet.profileImage }}
+                          style={styles.profileImage}
+                        />
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.profileImageRing,
+                          styles.profilePlaceholder,
+                          { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
+                          size={44}
+                          color={typeColor.icon}
+                        />
+                      </View>
+                    )}
+
+                    <Text style={[styles.petName, { color: theme.colors.text }]}>
+                      {selectedPet.name}
+                    </Text>
+
+                    {selectedPet.breed ? (
+                      <Text style={[styles.petBreed, { color: theme.colors.textSecondary }]}>
+                        {selectedPet.breed}
+                      </Text>
+                    ) : null}
+
+                    {age && (
+                      <View style={[styles.ageBadge, { backgroundColor: typeColor.bg }]}>
+                        <Text style={[styles.petAge, { color: typeColor.icon }]}>
+                          {age} old
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Share button */}
+                    <TouchableOpacity
+                      style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
+                      onPress={() => navigation.navigate('SharePet')}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="share-outline"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                      <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
+                        Share
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Detail rows — each row is independently clickable */}
                   <View
                     style={[
-                      styles.profileImage,
-                      styles.profilePlaceholder,
-                      { backgroundColor: theme.colors.primaryLight },
+                      styles.profileDetails,
+                      { borderTopColor: theme.colors.border },
                     ]}
                   >
-                    <Ionicons
-                      name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                      size={44}
-                      color={theme.colors.primary}
-                    />
-                  </View>
-                )}
-                <View style={styles.profileHeaderInfo}>
-                  <Text
-                    style={[styles.petName, { color: theme.colors.text }]}
-                  >
-                    {selectedPet.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.petSubtitle,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    {selectedPet.type.charAt(0).toUpperCase() +
-                      selectedPet.type.slice(1)}
-                    {selectedPet.breed ? ` \u2022 ${selectedPet.breed}` : ''}
-                  </Text>
-                  {age && (
-                    <Text
-                      style={[
-                        styles.petAge,
-                        { color: theme.colors.textSecondary },
-                      ]}
+                  {birthdayFormatted && (
+                    <TouchableOpacity
+                      style={styles.detailRow}
+                      activeOpacity={0.6}
+                      onPress={() =>
+                        navigation.navigate('EditPet', { petId: selectedPet.id })
+                      }
                     >
-                      {age} old
-                    </Text>
+                      <View
+                        style={[
+                          styles.detailIcon,
+                          { backgroundColor: detailColors.birthday.bg },
+                        ]}
+                      >
+                        <Ionicons
+                          name="calendar-outline"
+                          size={16}
+                          color={detailColors.birthday.icon}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Birthday
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailValue,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {birthdayFormatted}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {selectedPet.weight ? (
+                    <TouchableOpacity
+                      style={styles.detailRow}
+                      activeOpacity={0.6}
+                      onPress={() =>
+                        navigation.navigate('EditPet', { petId: selectedPet.id })
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.detailIcon,
+                          { backgroundColor: detailColors.weight.bg },
+                        ]}
+                      >
+                        <Ionicons
+                          name="scale-outline"
+                          size={16}
+                          color={detailColors.weight.icon}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Weight
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailValue,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {selectedPet.weight} {selectedPet.weightUnit}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                  {petVets.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.detailRow}
+                      activeOpacity={0.6}
+                      onPress={() => navigation.navigate('MedicalTab')}
+                    >
+                      <View
+                        style={[
+                          styles.detailIcon,
+                          { backgroundColor: detailColors.vet.bg },
+                        ]}
+                      >
+                        <Ionicons
+                          name="medkit-outline"
+                          size={16}
+                          color={detailColors.vet.icon}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Vet
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailValue,
+                          { color: theme.colors.text, flex: 1 },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {petVets[0].vetName || petVets[0].clinicName}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
                   )}
                 </View>
-                <View style={styles.profileActions}>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('SharePet')}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+
+                {/* Personality tags — colored by pet type */}
+                {selectedPet.personality ? (
+                  <View
+                    style={[
+                      styles.personalitySection,
+                      { borderTopColor: theme.colors.border },
+                    ]}
                   >
-                    <Ionicons
-                      name="share-outline"
-                      size={20}
-                      color={theme.colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                  <Ionicons
-                    name="create-outline"
-                    size={20}
-                    color={theme.colors.textSecondary}
-                  />
-                </View>
-              </View>
-
-              {/* Detail rows */}
-              <View
-                style={[
-                  styles.profileDetails,
-                  { borderTopColor: theme.colors.border },
-                ]}
-              >
-                {birthdayFormatted && (
-                  <View style={styles.detailRow}>
-                    <View
-                      style={[
-                        styles.detailIcon,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <Ionicons
-                        name="calendar-outline"
-                        size={16}
-                        color={theme.colors.primary}
-                      />
-                    </View>
                     <Text
                       style={[
-                        styles.detailLabel,
+                        styles.personalitySectionTitle,
                         { color: theme.colors.textSecondary },
                       ]}
                     >
-                      Birthday
+                      Personality
                     </Text>
-                    <Text
-                      style={[
-                        styles.detailValue,
-                        { color: theme.colors.text },
-                      ]}
-                    >
-                      {birthdayFormatted}
-                    </Text>
-                  </View>
-                )}
-                {selectedPet.weight ? (
-                  <View style={styles.detailRow}>
-                    <View
-                      style={[
-                        styles.detailIcon,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <Ionicons
-                        name="scale-outline"
-                        size={16}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.detailLabel,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
-                      Weight
-                    </Text>
-                    <Text
-                      style={[
-                        styles.detailValue,
-                        { color: theme.colors.text },
-                      ]}
-                    >
-                      {selectedPet.weight} {selectedPet.weightUnit}
-                    </Text>
-                  </View>
-                ) : null}
-                {petVets.length > 0 && (
-                  <View style={styles.detailRow}>
-                    <View
-                      style={[
-                        styles.detailIcon,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <Ionicons
-                        name="medkit-outline"
-                        size={16}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.detailLabel,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
-                      Vet
-                    </Text>
-                    <Text
-                      style={[
-                        styles.detailValue,
-                        { color: theme.colors.text },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {petVets[0].vetName || petVets[0].clinicName}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Personality tags */}
-              {selectedPet.personality ? (
-                <View
-                  style={[
-                    styles.personalitySection,
-                    { borderTopColor: theme.colors.border },
-                  ]}
-                >
-                  <View style={styles.personalityRow}>
-                    {selectedPet.personality
-                      .split(',')
-                      .map((tag) => tag.trim())
-                      .filter(Boolean)
-                      .map((tag) => (
-                        <View
-                          key={tag}
-                          style={[
-                            styles.personalityBadge,
-                            { backgroundColor: theme.colors.primaryLight },
-                          ]}
-                        >
-                          <Text
+                    <View style={styles.personalityRow}>
+                      {selectedPet.personality
+                        .split(',')
+                        .map((tag) => tag.trim())
+                        .filter(Boolean)
+                        .map((tag) => (
+                          <View
+                            key={tag}
                             style={[
-                              styles.personalityText,
-                              { color: theme.colors.primary },
+                              styles.personalityBadge,
+                              { backgroundColor: typeColor.bg },
                             ]}
                           >
-                            {tag}
-                          </Text>
-                        </View>
-                      ))}
+                            <Text
+                              style={[
+                                styles.personalityText,
+                                { color: typeColor.icon },
+                              ]}
+                            >
+                              {tag}
+                            </Text>
+                          </View>
+                        ))}
+                    </View>
                   </View>
-                </View>
-              ) : null}
-            </Card>
-          </TouchableOpacity>
+                ) : null}
+                </Card>
+            );
+          })()}
 
           {/* Quick Stats */}
           <View style={styles.statsRow}>
@@ -879,56 +1001,119 @@ const styles = StyleSheet.create({
   /* Expanded profile card */
   profileCard: {
     marginTop: 8,
+    overflow: 'hidden',
   },
-  profileHeader: {
+  cornerTriangleLeft: {
+    position: 'absolute',
+    top: -60,
+    left: -60,
+    width: 120,
+    height: 120,
+    transform: [{ rotate: '45deg' }],
+    zIndex: 2,
+  },
+  cornerIconLeft: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 3,
+  },
+  editCornerWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 75,
+    height: 75,
+    zIndex: 4,
+  },
+  cornerTriangleRight: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: 120,
+    height: 120,
+    transform: [{ rotate: '45deg' }],
+  },
+  cornerIconRight: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  profileContent: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  shareButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  profileImageRing: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 3,
+    overflow: 'hidden',
   },
   profileImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: '100%',
+    height: '100%',
+    borderRadius: 46,
   },
   profilePlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileHeaderInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
   petName: {
     fontSize: 24,
     fontWeight: '700',
+    marginTop: 10,
+    textAlign: 'center',
   },
-  petSubtitle: {
-    fontSize: 15,
-    marginTop: 2,
+  petBreed: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  ageBadge: {
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   petAge: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  profileActions: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    gap: 12,
-    padding: 4,
+    fontSize: 13,
+    fontWeight: '600',
   },
   profileDetails: {
     marginTop: 14,
+    marginHorizontal: 16,
     paddingTop: 14,
+    paddingBottom: 6,
     borderTopWidth: 1,
-    gap: 10,
+    gap: 6,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 10,
   },
   detailIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -945,8 +1130,15 @@ const styles = StyleSheet.create({
   },
   personalitySection: {
     marginTop: 14,
+    marginHorizontal: 16,
     paddingTop: 14,
+    paddingBottom: 16,
     borderTopWidth: 1,
+  },
+  personalitySectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   personalityRow: {
     flexDirection: 'row',
@@ -954,9 +1146,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   personalityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   personalityText: {
     fontSize: 12,

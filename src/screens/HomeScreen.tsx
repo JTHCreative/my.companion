@@ -27,13 +27,13 @@ const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMa
 };
 
 const PET_TYPE_COLORS: Record<string, { bg: string; icon: string }> = {
-  dog: { bg: '#FEF3C7', icon: '#D97706' },
-  cat: { bg: '#EDE9FE', icon: '#7C3AED' },
-  bird: { bg: '#DBEAFE', icon: '#2563EB' },
+  dog: { bg: '#FFF7E0', icon: '#C8962E' },
+  cat: { bg: '#FFF0E5', icon: '#D4732A' },
+  bird: { bg: '#F0EAFF', icon: '#7B4EC2' },
   fish: { bg: '#CFFAFE', icon: '#0891B2' },
   reptile: { bg: '#DCFCE7', icon: '#16A34A' },
-  rabbit: { bg: '#FCE7F3', icon: '#DB2777' },
-  hamster: { bg: '#FFEDD5', icon: '#EA580C' },
+  rabbit: { bg: '#FDE8F0', icon: '#D94688' },
+  hamster: { bg: '#FFE5E5', icon: '#CC3333' },
   other: { bg: '#F1F5F9', icon: '#475569' },
 };
 

@@ -173,15 +173,29 @@ export function HomeScreen({ navigation }: any) {
             const typeColor = PET_TYPE_COLORS[selectedPet.type] || PET_TYPE_COLORS.other;
             return (
                 <Card style={styles.profileCard}>
-                  {/* Triangular pet type corner – top right */}
-                  <View style={[styles.cornerTriangle, { backgroundColor: typeColor.bg }]} />
-                  <View style={styles.cornerIconWrap}>
+                  {/* Pet type triangle – top left */}
+                  <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
+                  <View style={styles.cornerIconLeft}>
                     <Ionicons
                       name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                      size={16}
+                      size={20}
                       color={typeColor.icon}
                     />
                   </View>
+
+                  {/* Edit triangle – top right */}
+                  <TouchableOpacity
+                    style={styles.editCornerWrap}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      navigation.navigate('EditPet', { petId: selectedPet.id })
+                    }
+                  >
+                    <View style={[styles.cornerTriangleRight, { backgroundColor: theme.colors.primary }]} />
+                    <View style={styles.cornerIconRight}>
+                      <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
 
                   {/* Centered profile content */}
                   <View style={styles.profileContent}>
@@ -226,39 +240,21 @@ export function HomeScreen({ navigation }: any) {
                       </View>
                     )}
 
-                    {/* Action buttons */}
-                    <View style={styles.profileActions}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: theme.colors.inputBackground }]}
-                        onPress={() => navigation.navigate('SharePet')}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name="share-outline"
-                          size={16}
-                          color={theme.colors.textSecondary}
-                        />
-                        <Text style={[styles.actionButtonText, { color: theme.colors.textSecondary }]}>
-                          Share
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: theme.colors.inputBackground }]}
-                        onPress={() =>
-                          navigation.navigate('EditPet', { petId: selectedPet.id })
-                        }
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name="create-outline"
-                          size={16}
-                          color={theme.colors.textSecondary}
-                        />
-                        <Text style={[styles.actionButtonText, { color: theme.colors.textSecondary }]}>
-                          Edit
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    {/* Share button */}
+                    <TouchableOpacity
+                      style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
+                      onPress={() => navigation.navigate('SharePet')}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="share-outline"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                      <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
+                        Share
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   {/* Detail rows — each row is independently clickable */}
@@ -948,40 +944,57 @@ const styles = StyleSheet.create({
     marginTop: 8,
     overflow: 'hidden',
   },
-  cornerTriangle: {
+  cornerTriangleLeft: {
     position: 'absolute',
-    top: -36,
-    right: -36,
-    width: 72,
-    height: 72,
+    top: -48,
+    left: -48,
+    width: 96,
+    height: 96,
     transform: [{ rotate: '45deg' }],
     zIndex: 2,
   },
-  cornerIconWrap: {
+  cornerIconLeft: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    left: 10,
     zIndex: 3,
+  },
+  editCornerWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 60,
+    height: 60,
+    zIndex: 4,
+  },
+  cornerTriangleRight: {
+    position: 'absolute',
+    top: -48,
+    right: -48,
+    width: 96,
+    height: 96,
+    transform: [{ rotate: '45deg' }],
+  },
+  cornerIconRight: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
   },
   profileContent: {
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  profileActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  actionButton: {
+  shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: 12,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
   },
-  actionButtonText: {
+  shareButtonText: {
     fontSize: 13,
     fontWeight: '500',
   },

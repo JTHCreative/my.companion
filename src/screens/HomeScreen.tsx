@@ -38,40 +38,41 @@ const PET_TYPE_COLORS: Record<string, { bg: string; icon: string }> = {
 };
 
 const DETAIL_ROW_COLORS: Record<string, { bg: string; icon: string }> = {
-  birthday: { bg: '#FEF3C7', icon: '#D97706' },
-  weight: { bg: '#CFFAFE', icon: '#0891B2' },
-  vet: { bg: '#FEE2E2', icon: '#DC2626' },
+  birthday: { bg: '#E4F0DF', icon: '#6FA85C' },
+  weight: { bg: '#E4F0DF', icon: '#558A42' },
+  vet: { bg: '#E4F0DF', icon: '#6FA85C' },
 };
 
 function calculateAge(birthday: string): string | null {
   if (!birthday) return null;
   // Expect MM/DD/YYYY
-  const parts = birthday.split('/');
-  if (parts.length !== 3) return null;
-  const [mm, dd, yyyy] = parts.map(Number);
+  const dateParts = birthday.split('/');
+  if (dateParts.length !== 3) return null;
+  const [mm, dd, yyyy] = dateParts.map(Number);
   const birth = new Date(yyyy, mm - 1, dd);
   if (isNaN(birth.getTime())) return null;
 
   const now = new Date();
   let years = now.getFullYear() - birth.getFullYear();
   let months = now.getMonth() - birth.getMonth();
-  if (now.getDate() < birth.getDate()) months--;
+  let days = now.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months--;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
   if (months < 0) {
     years--;
     months += 12;
   }
-  if (years >= 1) {
-    return years === 1
-      ? months > 0
-        ? `1 yr ${months} mo`
-        : '1 yr'
-      : months > 0
-        ? `${years} yrs ${months} mo`
-        : `${years} yrs`;
-  }
-  if (months >= 1) return months === 1 ? '1 month' : `${months} months`;
-  const days = Math.floor((now.getTime() - birth.getTime()) / 86400000);
-  return days <= 1 ? '< 1 month' : `${days} days`;
+
+  const segments: string[] = [];
+  if (years >= 1) segments.push(years === 1 ? '1 yr' : `${years} yrs`);
+  if (months >= 1) segments.push(months === 1 ? '1 mo' : `${months} mo`);
+  if (days >= 1) segments.push(days === 1 ? '1 day' : `${days} days`);
+
+  return segments.length > 0 ? segments.join(' ') : '< 1 day';
 }
 
 function formatBirthday(birthday: string): string | null {
@@ -171,81 +172,31 @@ export function HomeScreen({ navigation }: any) {
           {(() => {
             const typeColor = PET_TYPE_COLORS[selectedPet.type] || PET_TYPE_COLORS.other;
             return (
-              <Card style={styles.profileCard}>
-                {/* Top section: type badge + image + name */}
-                <View style={styles.profileHeader}>
-                  {selectedPet.profileImage ? (
-                    <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
-                      <Image
-                        source={{ uri: selectedPet.profileImage }}
-                        style={styles.profileImage}
-                      />
-                    </View>
-                  ) : (
-                    <View
-                      style={[
-                        styles.profileImageRing,
-                        styles.profilePlaceholder,
-                        { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
-                      ]}
-                    >
-                      <Ionicons
-                        name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                        size={44}
-                        color={typeColor.icon}
-                      />
-                    </View>
-                  )}
-                  <View style={styles.profileHeaderInfo}>
-                    <Text
-                      style={[styles.petName, { color: theme.colors.text }]}
-                    >
-                      {selectedPet.name}
-                    </Text>
-                    <View style={styles.petTypeBadge}>
-                      <View
-                        style={[
-                          styles.petTypeIconCircle,
-                          { backgroundColor: typeColor.bg },
-                        ]}
-                      >
-                        <Ionicons
-                          name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                          size={12}
-                          color={typeColor.icon}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.petSubtitle,
-                          { color: typeColor.icon },
-                        ]}
-                      >
-                        {selectedPet.type.charAt(0).toUpperCase() +
-                          selectedPet.type.slice(1)}
-                      </Text>
-                      {selectedPet.breed ? (
-                        <Text
-                          style={[
-                            styles.petBreed,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                        >
-                          {selectedPet.breed}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {age && (
-                      <Text
-                        style={[
-                          styles.petAge,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        {age} old
-                      </Text>
-                    )}
+              <View style={styles.profileCardWrapper}>
+                {/* Floating pet type icon on top center border */}
+                <View style={styles.floatingIconWrapper}>
+                  <View
+                    style={[
+                      styles.floatingIconCircle,
+                      { backgroundColor: typeColor.bg, borderColor: theme.colors.card },
+                    ]}
+                  >
+                    <Ionicons
+                      name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
+                      size={26}
+                      color={typeColor.icon}
+                    />
                   </View>
+                </View>
+
+                <Card style={styles.profileCard}>
+                  {/* Wavy header background */}
+                  <View style={[styles.wavyHeader, { backgroundColor: typeColor.bg }]}>
+                    <View style={styles.wavySpacer} />
+                    <View style={[styles.waveCurve, { backgroundColor: theme.colors.card }]} />
+                  </View>
+
+                  {/* Action buttons – top right over wave */}
                   <View style={styles.profileActions}>
                     <TouchableOpacity
                       onPress={() => navigation.navigate('SharePet')}
@@ -253,8 +204,8 @@ export function HomeScreen({ navigation }: any) {
                     >
                       <Ionicons
                         name="share-outline"
-                        size={20}
-                        color={theme.colors.textSecondary}
+                        size={18}
+                        color={typeColor.icon}
                       />
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -265,20 +216,63 @@ export function HomeScreen({ navigation }: any) {
                     >
                       <Ionicons
                         name="create-outline"
-                        size={20}
-                        color={theme.colors.textSecondary}
+                        size={18}
+                        color={typeColor.icon}
                       />
                     </TouchableOpacity>
                   </View>
-                </View>
 
-                {/* Detail rows — each row is independently clickable */}
-                <View
-                  style={[
-                    styles.profileDetails,
-                    { borderTopColor: theme.colors.border },
-                  ]}
-                >
+                  {/* Centered profile content */}
+                  <View style={styles.profileContent}>
+                    {selectedPet.profileImage ? (
+                      <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
+                        <Image
+                          source={{ uri: selectedPet.profileImage }}
+                          style={styles.profileImage}
+                        />
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.profileImageRing,
+                          styles.profilePlaceholder,
+                          { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
+                        ]}
+                      >
+                        <Ionicons
+                          name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
+                          size={44}
+                          color={typeColor.icon}
+                        />
+                      </View>
+                    )}
+
+                    <Text style={[styles.petName, { color: theme.colors.text }]}>
+                      {selectedPet.name}
+                    </Text>
+
+                    {selectedPet.breed ? (
+                      <Text style={[styles.petBreed, { color: theme.colors.textSecondary }]}>
+                        {selectedPet.breed}
+                      </Text>
+                    ) : null}
+
+                    {age && (
+                      <View style={[styles.ageBadge, { backgroundColor: typeColor.bg }]}>
+                        <Text style={[styles.petAge, { color: typeColor.icon }]}>
+                          {age} old
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Detail rows — each row is independently clickable */}
+                  <View
+                    style={[
+                      styles.profileDetails,
+                      { borderTopColor: theme.colors.border },
+                    ]}
+                  >
                   {birthdayFormatted && (
                     <TouchableOpacity
                       style={styles.detailRow}
@@ -443,7 +437,8 @@ export function HomeScreen({ navigation }: any) {
                     </View>
                   </View>
                 ) : null}
-              </Card>
+                </Card>
+              </View>
             );
           })()}
 
@@ -955,12 +950,53 @@ const styles = StyleSheet.create({
   },
 
   /* Expanded profile card */
-  profileCard: {
-    marginTop: 8,
+  profileCardWrapper: {
+    position: 'relative',
+    marginTop: 28,
   },
-  profileHeader: {
-    flexDirection: 'row',
+  floatingIconWrapper: {
+    position: 'absolute',
+    top: -22,
+    left: 0,
+    right: 0,
     alignItems: 'center',
+    zIndex: 10,
+  },
+  floatingIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  wavyHeader: {
+    height: 80,
+  },
+  wavySpacer: {
+    height: 50,
+  },
+  waveCurve: {
+    flex: 1,
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+  },
+  profileActions: {
+    position: 'absolute',
+    top: 12,
+    right: 14,
+    flexDirection: 'row',
+    gap: 14,
+    zIndex: 5,
+  },
+  profileContent: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: -4,
   },
   profileImageRing: {
     width: 92,
@@ -978,48 +1014,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileHeaderInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
   petName: {
     fontSize: 24,
     fontWeight: '700',
-  },
-  petTypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 6,
-  },
-  petTypeIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  petSubtitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    marginTop: 10,
+    textAlign: 'center',
   },
   petBreed: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  ageBadge: {
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   petAge: {
     fontSize: 13,
-    marginTop: 3,
-  },
-  profileActions: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    gap: 12,
-    padding: 4,
+    fontWeight: '600',
   },
   profileDetails: {
     marginTop: 14,
+    marginHorizontal: 16,
     paddingTop: 14,
+    paddingBottom: 6,
     borderTopWidth: 1,
     gap: 6,
   },
@@ -1050,7 +1071,9 @@ const styles = StyleSheet.create({
   },
   personalitySection: {
     marginTop: 14,
+    marginHorizontal: 16,
     paddingTop: 14,
+    paddingBottom: 16,
     borderTopWidth: 1,
   },
   personalityRow: {

@@ -124,6 +124,40 @@ function calculateAge(birthday: string): string | null {
   return segments.length > 0 ? segments.join(' ') : '< 1 day';
 }
 
+function calculatePetYears(birthday: string, petType: string): string | null {
+  if (!birthday) return null;
+  const dateParts = birthday.split('/');
+  if (dateParts.length !== 3) return null;
+  const [mm, dd, yyyy] = dateParts.map(Number);
+  const birth = new Date(yyyy, mm - 1, dd);
+  if (isNaN(birth.getTime())) return null;
+
+  const now = new Date();
+  const ageInMs = now.getTime() - birth.getTime();
+  const ageInYears = ageInMs / (365.25 * 24 * 60 * 60 * 1000);
+  if (ageInYears < 0) return null;
+
+  // Dogs: 15 + 9 + 5/yr, Cats: 15 + 9 + 4/yr
+  const yearlyRate = petType === 'cat' ? 4 : 5;
+  let petYears: number;
+  if (ageInYears <= 1) {
+    petYears = ageInYears * 15;
+  } else if (ageInYears <= 2) {
+    petYears = 15 + (ageInYears - 1) * 9;
+  } else {
+    petYears = 15 + 9 + (ageInYears - 2) * yearlyRate;
+  }
+
+  const wholeYears = Math.floor(petYears);
+  const months = Math.round((petYears - wholeYears) * 12);
+
+  const segments: string[] = [];
+  if (wholeYears >= 1) segments.push(wholeYears === 1 ? '1 yr' : `${wholeYears} yrs`);
+  if (months >= 1) segments.push(months === 1 ? '1 mo' : `${months} mo`);
+
+  return segments.length > 0 ? segments.join(' ') : '< 1 yr';
+}
+
 function formatBirthday(birthday: string): string | null {
   if (!birthday) return null;
   const parts = birthday.split('/');
@@ -142,6 +176,7 @@ export function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
   const { pets, selectedPet, scheduleEvents, meals, medications, vetInfo } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
+  const [showPetYears, setShowPetYears] = useState(false);
 
   const petSchedule = scheduleEvents.filter(
     (e) => e.petId === selectedPet?.id
@@ -164,6 +199,11 @@ export function HomeScreen({ navigation }: any) {
   const nextEvents = upcomingEvents.slice(0, 3);
 
   const age = selectedPet?.birthday ? calculateAge(selectedPet.birthday) : null;
+  const supportsPetYears = selectedPet?.type === 'dog' || selectedPet?.type === 'cat';
+  const petYearsAge = selectedPet?.birthday && supportsPetYears
+    ? calculatePetYears(selectedPet.birthday, selectedPet.type)
+    : null;
+  const petYearsLabel = selectedPet?.type === 'cat' ? 'cat years' : 'dog years';
   const birthdayFormatted = selectedPet?.birthday
     ? formatBirthday(selectedPet.birthday)
     : null;
@@ -284,11 +324,19 @@ export function HomeScreen({ navigation }: any) {
                     ) : null}
 
                     {age && (
-                      <View style={[styles.ageBadge, { backgroundColor: typeColor.bg }]}>
+                      <TouchableOpacity
+                        style={[styles.ageBadge, { backgroundColor: typeColor.bg }]}
+                        activeOpacity={supportsPetYears ? 0.6 : 1}
+                        onPress={() => {
+                          if (supportsPetYears) setShowPetYears((v) => !v);
+                        }}
+                      >
                         <Text style={[styles.petAge, { color: typeColor.icon }]}>
-                          {age} old
+                          {showPetYears && petYearsAge
+                            ? `${petYearsAge} in ${petYearsLabel}`
+                            : `${age} old`}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     )}
 
                     {/* Share button */}

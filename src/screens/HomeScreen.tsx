@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,9 @@ import {
   Platform,
   Alert,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -191,8 +186,8 @@ export function HomeScreen({ navigation }: any) {
   const [showPetYears, setShowPetYears] = useState(false);
 
   // Swipe navigation between pets
-  const translateX = useSharedValue(0);
-  const animatingRef = React.useRef(false);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const animatingRef = useRef(false);
 
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
   const hasPrev = currentIndex > 0;
@@ -203,12 +198,20 @@ export function HomeScreen({ navigation }: any) {
     const targetIdx = direction === 'next' ? idx + 1 : idx - 1;
     if (targetIdx >= 0 && targetIdx < pets.length) {
       // Position new content off-screen on the incoming side
-      translateX.value = direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH;
+      translateX.setValue(direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH);
       selectPet(pets[targetIdx].id);
       // Animate new content sliding in
-      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+      Animated.spring(translateX, {
+        toValue: 0,
+        damping: 20,
+        stiffness: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        animatingRef.current = false;
+      });
+    } else {
+      animatingRef.current = false;
     }
-    animatingRef.current = false;
   }, [pets, selectedPetId, selectPet]);
 
   const panGesture = Gesture.Pan()
@@ -220,11 +223,11 @@ export function HomeScreen({ navigation }: any) {
       const tx = event.translationX;
       // At edges, apply resistance — only slide up to 30% of screen
       if (tx > 0 && !hasPrev) {
-        translateX.value = Math.min(tx * 0.3, EDGE_MAX);
+        translateX.setValue(Math.min(tx * 0.3, EDGE_MAX));
       } else if (tx < 0 && !hasNext) {
-        translateX.value = Math.max(tx * 0.3, -EDGE_MAX);
+        translateX.setValue(Math.max(tx * 0.3, -EDGE_MAX));
       } else {
-        translateX.value = tx;
+        translateX.setValue(tx);
       }
     })
     .onEnd((event) => {
@@ -236,25 +239,35 @@ export function HomeScreen({ navigation }: any) {
       // Swipe right → previous pet (threshold or fast flick)
       if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 500)) && hasPrev) {
         animatingRef.current = true;
-        translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 });
-        // Small delay to let exit animation play, then switch pet
-        setTimeout(() => navigateToPet('prev'), 220);
+        Animated.timing(translateX, {
+          toValue: SCREEN_WIDTH,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => navigateToPet('prev'));
       }
       // Swipe left → next pet
       else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -500)) && hasNext) {
         animatingRef.current = true;
-        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 });
-        setTimeout(() => navigateToPet('next'), 220);
+        Animated.timing(translateX, {
+          toValue: -SCREEN_WIDTH,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => navigateToPet('next'));
       }
       // Bounce back
       else {
-        translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
+        Animated.spring(translateX, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 300,
+          useNativeDriver: true,
+        }).start();
       }
     });
 
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const animatedContentStyle = {
+    transform: [{ translateX }],
+  };
 
   const petSchedule = scheduleEvents.filter(
     (e) => e.petId === selectedPet?.id

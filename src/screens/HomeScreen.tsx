@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,16 @@ import {
   Linking,
   Platform,
   Alert,
+  Dimensions,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -62,6 +71,10 @@ const DETAIL_ROW_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
   weight: { bg: '#3A5230', icon: '#C8DCC0' },
   vet: { bg: '#3A5230', icon: '#C8DCC0' },
 };
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+const EDGE_MAX = SCREEN_WIDTH * 0.3;
 
 function handleCallVet(phone: string) {
   const cleaned = phone.replace(/[^\d+]/g, '');
@@ -174,9 +187,86 @@ function formatBirthday(birthday: string): string | null {
 
 export function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { pets, selectedPet, scheduleEvents, meals, medications, vetInfo } = useData();
+  const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents, meals, medications, vetInfo } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
   const [showPetYears, setShowPetYears] = useState(false);
+
+  // Swipe navigation between pets
+  const translateX = useSharedValue(0);
+  const isAnimating = useSharedValue(false);
+
+  const currentIndex = pets.findIndex(p => p.id === selectedPetId);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < pets.length - 1;
+
+  const hasPrevSV = useSharedValue(hasPrev);
+  const hasNextSV = useSharedValue(hasNext);
+
+  useEffect(() => {
+    hasPrevSV.value = hasPrev;
+    hasNextSV.value = hasNext;
+  }, [hasPrev, hasNext]);
+
+  const navigateToPet = useCallback((direction: 'next' | 'prev') => {
+    const idx = pets.findIndex(p => p.id === selectedPetId);
+    const targetIdx = direction === 'next' ? idx + 1 : idx - 1;
+    if (targetIdx >= 0 && targetIdx < pets.length) {
+      // Position new content off-screen on the incoming side
+      translateX.value = direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH;
+      selectPet(pets[targetIdx].id);
+      // Animate new content sliding in
+      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    }
+    isAnimating.value = false;
+  }, [pets, selectedPetId, selectPet]);
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
+    .onUpdate((event) => {
+      'worklet';
+      if (isAnimating.value) return;
+
+      const tx = event.translationX;
+      // At edges, apply resistance — only slide up to 30% of screen
+      if (tx > 0 && !hasPrevSV.value) {
+        translateX.value = Math.min(tx * 0.3, EDGE_MAX);
+      } else if (tx < 0 && !hasNextSV.value) {
+        translateX.value = Math.max(tx * 0.3, -EDGE_MAX);
+      } else {
+        translateX.value = tx;
+      }
+    })
+    .onEnd((event) => {
+      'worklet';
+      if (isAnimating.value) return;
+
+      const tx = event.translationX;
+      const vx = event.velocityX;
+
+      // Swipe right → previous pet (threshold or fast flick)
+      if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 500)) && hasPrevSV.value) {
+        isAnimating.value = true;
+        translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
+          runOnJS(navigateToPet)('prev');
+        });
+      }
+      // Swipe left → next pet
+      else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -500)) && hasNextSV.value) {
+        isAnimating.value = true;
+        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
+          runOnJS(navigateToPet)('next');
+        });
+      }
+      // Bounce back
+      else {
+        translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
+      }
+    });
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   const petSchedule = scheduleEvents.filter(
     (e) => e.petId === selectedPet?.id
@@ -252,6 +342,8 @@ export function HomeScreen({ navigation }: any) {
       />
 
       {selectedPet && (
+        <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.swipeContainer, animatedContentStyle]}>
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
@@ -724,6 +816,8 @@ export function HomeScreen({ navigation }: any) {
 
           <View style={{ height: 24 }} />
         </ScrollView>
+        </Animated.View>
+        </GestureDetector>
       )}
 
       {/* Event Detail Modal */}
@@ -1037,6 +1131,10 @@ function formatTime(time: string): string {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  swipeContainer: {
     flex: 1,
   },
   content: {

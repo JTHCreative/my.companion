@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -193,19 +192,11 @@ export function HomeScreen({ navigation }: any) {
 
   // Swipe navigation between pets
   const translateX = useSharedValue(0);
-  const isAnimating = useSharedValue(false);
+  const animatingRef = React.useRef(false);
 
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < pets.length - 1;
-
-  const hasPrevSV = useSharedValue(hasPrev);
-  const hasNextSV = useSharedValue(hasNext);
-
-  useEffect(() => {
-    hasPrevSV.value = hasPrev;
-    hasNextSV.value = hasNext;
-  }, [hasPrev, hasNext]);
 
   const navigateToPet = useCallback((direction: 'next' | 'prev') => {
     const idx = pets.findIndex(p => p.id === selectedPetId);
@@ -217,46 +208,43 @@ export function HomeScreen({ navigation }: any) {
       // Animate new content sliding in
       translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
     }
-    isAnimating.value = false;
+    animatingRef.current = false;
   }, [pets, selectedPetId, selectPet]);
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-20, 20])
     .failOffsetY([-15, 15])
     .onUpdate((event) => {
-      'worklet';
-      if (isAnimating.value) return;
+      if (animatingRef.current) return;
 
       const tx = event.translationX;
       // At edges, apply resistance — only slide up to 30% of screen
-      if (tx > 0 && !hasPrevSV.value) {
+      if (tx > 0 && !hasPrev) {
         translateX.value = Math.min(tx * 0.3, EDGE_MAX);
-      } else if (tx < 0 && !hasNextSV.value) {
+      } else if (tx < 0 && !hasNext) {
         translateX.value = Math.max(tx * 0.3, -EDGE_MAX);
       } else {
         translateX.value = tx;
       }
     })
     .onEnd((event) => {
-      'worklet';
-      if (isAnimating.value) return;
+      if (animatingRef.current) return;
 
       const tx = event.translationX;
       const vx = event.velocityX;
 
       // Swipe right → previous pet (threshold or fast flick)
-      if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 500)) && hasPrevSV.value) {
-        isAnimating.value = true;
-        translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
-          runOnJS(navigateToPet)('prev');
-        });
+      if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 500)) && hasPrev) {
+        animatingRef.current = true;
+        translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 });
+        // Small delay to let exit animation play, then switch pet
+        setTimeout(() => navigateToPet('prev'), 220);
       }
       // Swipe left → next pet
-      else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -500)) && hasNextSV.value) {
-        isAnimating.value = true;
-        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
-          runOnJS(navigateToPet)('next');
-        });
+      else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -500)) && hasNext) {
+        animatingRef.current = true;
+        translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 });
+        setTimeout(() => navigateToPet('next'), 220);
       }
       // Bounce back
       else {

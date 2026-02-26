@@ -588,15 +588,12 @@ export function HomeScreen({ navigation }: any) {
                 styles.carouselPage,
                 i === pets.length - 1 && { marginRight: 0 },
               ]}
-              pointerEvents={pet.id === selectedPetId ? 'auto' : 'none'}
             >
-              <View style={{ opacity: pet.id === selectedPetId ? 1 : 0.5, flex: 1 }}>
-                <PetPageContent
-                  pet={pet}
-                  navigation={navigation}
-                  onDetailEvent={setDetailEvent}
-                />
-              </View>
+              <PetPageContent
+                pet={pet}
+                navigation={navigation}
+                onDetailEvent={setDetailEvent}
+              />
             </View>
           ))}
         </Animated.View>

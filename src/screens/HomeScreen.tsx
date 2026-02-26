@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -67,12 +67,12 @@ const DETAIL_ROW_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
 };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const PAGE_PEEK = 24;
-const PAGE_GAP = 12;
+const PAGE_PEEK = 10;
+const PAGE_GAP = 8;
 const PAGE_WIDTH = SCREEN_WIDTH - PAGE_PEEK * 2;
 const SNAP_OFFSET = PAGE_WIDTH + PAGE_GAP;
 const SWIPE_THRESHOLD = PAGE_WIDTH * 0.25;
-const EDGE_MAX = SCREEN_WIDTH * 0.3;
+const EDGE_MAX = SCREEN_WIDTH * 0.15;
 
 function handleCallVet(phone: string) {
   const cleaned = phone.replace(/[^\d+]/g, '');
@@ -183,163 +183,352 @@ function formatBirthday(birthday: string): string | null {
   });
 }
 
-function PetPreviewCard({ pet, theme }: { pet: any; theme: any }) {
+function PetPageContent({ pet, navigation, onDetailEvent }: { pet: any; navigation: any; onDetailEvent: (id: string) => void }) {
+  const { theme } = useTheme();
+  const { scheduleEvents, meals, medications, vetInfo } = useData();
+  const [showPetYears, setShowPetYears] = useState(false);
+
+  const petSchedule = scheduleEvents.filter((e) => e.petId === pet.id);
+  const petMeals = meals.filter((m) => m.petId === pet.id);
+  const petMeds = medications.filter((m) => m.petId === pet.id);
+  const petVets = vetInfo.filter((v) => v.petId === pet.id);
+
+  const sortedSchedule = [...petSchedule].sort((a, b) => a.time.localeCompare(b.time));
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const upcomingEvents = sortedSchedule.filter((e) => e.time >= currentTime);
+  const nextEvents = upcomingEvents.slice(0, 3);
+
+  const age = pet.birthday ? calculateAge(pet.birthday) : null;
+  const supportsPetYears = pet.type === 'dog' || pet.type === 'cat';
+  const petYearsAge = pet.birthday && supportsPetYears ? calculatePetYears(pet.birthday, pet.type) : null;
+  const petYearsLabel = pet.type === 'cat' ? 'cat years' : 'dog years';
+  const birthdayFormatted = pet.birthday ? formatBirthday(pet.birthday) : null;
+
   const colorMap = theme.dark ? PET_TYPE_COLORS_DARK : PET_TYPE_COLORS;
   const typeColor = colorMap[pet.type] || colorMap.other;
+  const detailColors = theme.dark ? DETAIL_ROW_COLORS_DARK : DETAIL_ROW_COLORS;
+
   return (
-    <Card style={styles.profileCard}>
-      <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
-      <View style={styles.cornerIconLeft}>
-        <MaterialCommunityIcons
-          name={PET_TYPE_ICONS[pet.type] || 'paw'}
-          size={25}
-          color={typeColor.icon}
-        />
-      </View>
-      <View style={styles.profileContent}>
-        {pet.profileImage ? (
-          <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
-            <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <Card style={styles.profileCard}>
+        {/* Pet type triangle – top left */}
+        <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
+        <View style={styles.cornerIconLeft}>
+          <MaterialCommunityIcons
+            name={PET_TYPE_ICONS[pet.type] || 'paw'}
+            size={25}
+            color={typeColor.icon}
+          />
+        </View>
+
+        {/* Edit triangle – top right */}
+        <TouchableOpacity
+          style={styles.editCornerWrap}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+        >
+          <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
+          <View style={styles.cornerIconRight}>
+            <Ionicons name="create-outline" size={25} color="#FFFFFF" />
           </View>
-        ) : (
-          <View
-            style={[
-              styles.profileImageRing,
-              styles.profilePlaceholder,
-              { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={PET_TYPE_ICONS[pet.type] || 'paw'}
-              size={44}
-              color={typeColor.icon}
-            />
-          </View>
-        )}
-        <Text style={[styles.petName, { color: theme.colors.text }]}>
-          {pet.name}
-        </Text>
-        {pet.breed ? (
-          <Text style={[styles.petBreed, { color: theme.colors.textSecondary }]}>
-            {pet.breed}
+        </TouchableOpacity>
+
+        {/* Centered profile content */}
+        <View style={styles.profileContent}>
+          {pet.profileImage ? (
+            <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
+              <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.profileImageRing,
+                styles.profilePlaceholder,
+                { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={PET_TYPE_ICONS[pet.type] || 'paw'}
+                size={44}
+                color={typeColor.icon}
+              />
+            </View>
+          )}
+
+          <Text style={[styles.petName, { color: theme.colors.text }]}>
+            {pet.name}
           </Text>
+
+          {pet.breed ? (
+            <Text style={[styles.petBreed, { color: theme.colors.textSecondary }]}>
+              {pet.breed}
+            </Text>
+          ) : null}
+
+          {age && (
+            <TouchableOpacity
+              style={[styles.ageBadge, { backgroundColor: typeColor.bg }]}
+              activeOpacity={supportsPetYears ? 0.6 : 1}
+              onPress={() => {
+                if (supportsPetYears) setShowPetYears((v) => !v);
+              }}
+            >
+              <Text style={[styles.petAge, { color: typeColor.icon }]}>
+                {showPetYears && petYearsAge
+                  ? `${petYearsAge} in ${petYearsLabel}`
+                  : `${age} old`}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Share button */}
+          <TouchableOpacity
+            style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
+            onPress={() => navigation.navigate('SharePet')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-outline" size={16} color={theme.colors.textSecondary} />
+            <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
+              Share
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Detail rows */}
+        <View style={[styles.profileDetails, { borderTopColor: theme.colors.border }]}>
+          {birthdayFormatted && (
+            <TouchableOpacity
+              style={styles.detailRow}
+              activeOpacity={0.6}
+              onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+            >
+              <View style={[styles.detailIcon, { backgroundColor: detailColors.birthday.bg }]}>
+                <Ionicons name="calendar-outline" size={16} color={detailColors.birthday.icon} />
+              </View>
+              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Birthday</Text>
+              <Text style={[styles.detailValue, { color: theme.colors.text }]}>{birthdayFormatted}</Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+          {pet.weight ? (
+            <TouchableOpacity
+              style={styles.detailRow}
+              activeOpacity={0.6}
+              onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+            >
+              <View style={[styles.detailIcon, { backgroundColor: detailColors.weight.bg }]}>
+                <Ionicons name="scale-outline" size={16} color={detailColors.weight.icon} />
+              </View>
+              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Weight</Text>
+              <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                {pet.weight} {pet.weightUnit}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+          {petVets.length > 0 && (
+            <TouchableOpacity
+              style={styles.detailRow}
+              activeOpacity={0.6}
+              onPress={() => navigation.navigate('MedicalTab')}
+            >
+              <View style={[styles.detailIcon, { backgroundColor: detailColors.vet.bg }]}>
+                <Ionicons name="medkit-outline" size={16} color={detailColors.vet.icon} />
+              </View>
+              <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Vet</Text>
+              <Text
+                style={[styles.detailValue, { color: theme.colors.text, flex: 1 }]}
+                numberOfLines={1}
+              >
+                {petVets[0].vetName || petVets[0].clinicName}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Personality tags */}
+        {pet.personality ? (
+          <View style={[styles.personalitySection, { borderTopColor: theme.colors.border }]}>
+            <Text style={[styles.personalitySectionTitle, { color: theme.colors.textSecondary }]}>
+              Personality
+            </Text>
+            <View style={styles.personalityRow}>
+              {pet.personality
+                .split(',')
+                .map((tag: string) => tag.trim())
+                .filter(Boolean)
+                .map((tag: string) => (
+                  <View key={tag} style={[styles.personalityBadge, { backgroundColor: typeColor.bg }]}>
+                    <Text style={[styles.personalityText, { color: typeColor.icon }]}>{tag}</Text>
+                  </View>
+                ))}
+            </View>
+          </View>
         ) : null}
+      </Card>
+
+      {/* Quick Stats */}
+      <View style={styles.statsRow}>
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+          onPress={() => navigation.navigate('ScheduleTab')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar" size={24} color={theme.colors.primary} />
+          <Text style={[styles.statNumber, { color: theme.colors.text }]}>{petSchedule.length}</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Events</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+          onPress={() => navigation.navigate('MealsTab')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="restaurant" size={24} color={theme.colors.warning} />
+          <Text style={[styles.statNumber, { color: theme.colors.text }]}>{petMeals.length}</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Meals</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+          onPress={() => navigation.navigate('MedicalTab')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="medkit" size={24} color={theme.colors.danger} />
+          <Text style={[styles.statNumber, { color: theme.colors.text }]}>{petMeds.length}</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Meds</Text>
+        </TouchableOpacity>
       </View>
-    </Card>
+
+      {/* Upcoming Schedule */}
+      <Card>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Upcoming Today</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('ScheduleTab')}>
+            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        {nextEvents.length > 0 ? (
+          nextEvents.map((event) => {
+            const typeInfo = EVENT_TYPE_INFO[event.type] || EVENT_TYPE_INFO.other;
+            return (
+              <TouchableOpacity
+                key={event.id}
+                activeOpacity={0.6}
+                onPress={() => onDetailEvent(event.id)}
+                style={[styles.eventRow, { borderBottomColor: theme.colors.border }]}
+              >
+                <View style={[styles.eventIcon, { backgroundColor: typeInfo.color + '18' }]}>
+                  <Ionicons name={typeInfo.icon} size={18} color={typeInfo.color} />
+                </View>
+                <View style={styles.eventInfo}>
+                  <Text style={[styles.eventTitle, { color: theme.colors.text }]}>{event.title}</Text>
+                  <Text style={[styles.eventTime, { color: theme.colors.textSecondary }]}>
+                    {formatTime(event.time)}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            );
+          })
+        ) : (
+          <Text style={[styles.noEventsText, { color: theme.colors.textSecondary }]}>
+            No more events today
+          </Text>
+        )}
+      </Card>
+
+      {/* Import Pet Link */}
+      <TouchableOpacity
+        style={styles.importLink}
+        onPress={() => navigation.navigate('ImportPet')}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="cloud-download-outline" size={16} color={theme.colors.primary} />
+        <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
+          Import a shared pet
+        </Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 24 }} />
+    </ScrollView>
   );
 }
 
 export function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents, meals, medications, vetInfo } = useData();
+  const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
-  const [showPetYears, setShowPetYears] = useState(false);
 
-  // Swipe carousel navigation between pets
-  const translateX = useRef(new Animated.Value(0)).current;
+  // Swipe carousel — all pets rendered in a row, strip position animated
+  const currentIndex = pets.findIndex(p => p.id === selectedPetId);
+  const getRestingPos = (idx: number) => PAGE_PEEK - idx * SNAP_OFFSET;
+
+  const stripX = useRef(new Animated.Value(getRestingPos(currentIndex))).current;
+  const restingPos = useRef(getRestingPos(currentIndex));
   const animatingRef = useRef(false);
 
-  const currentIndex = pets.findIndex(p => p.id === selectedPetId);
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < pets.length - 1;
-  const prevPet = hasPrev ? pets[currentIndex - 1] : null;
-  const nextPet = hasNext ? pets[currentIndex + 1] : null;
+  // Refs for PanResponder (stable across renders)
+  const petsRef = useRef(pets);
+  petsRef.current = pets;
+  const currentIndexRef = useRef(currentIndex);
+  currentIndexRef.current = currentIndex;
+  const selectPetRef = useRef(selectPet);
+  selectPetRef.current = selectPet;
 
-  // Current page is always slot 1 in [prev, current, next]
-  const baseOffset = PAGE_PEEK - SNAP_OFFSET;
-
-  // Store latest values in refs so PanResponder always sees current state
-  const hasPrevRef = useRef(hasPrev);
-  const hasNextRef = useRef(hasNext);
-  hasPrevRef.current = hasPrev;
-  hasNextRef.current = hasNext;
-
-  const navigateToPet = useCallback((direction: 'next' | 'prev') => {
-    const idx = pets.findIndex(p => p.id === selectedPetId);
-    const targetIdx = direction === 'next' ? idx + 1 : idx - 1;
-    if (targetIdx >= 0 && targetIdx < pets.length) {
-      selectPet(pets[targetIdx].id);
+  // Sync strip position when pet changes externally (e.g. header tap)
+  useEffect(() => {
+    const target = getRestingPos(currentIndex);
+    if (target !== restingPos.current) {
+      restingPos.current = target;
+      stripX.setValue(target);
     }
-    translateX.setValue(0);
-    animatingRef.current = false;
-  }, [pets, selectedPetId, selectPet]);
-  const navigateRef = useRef(navigateToPet);
-  navigateRef.current = navigateToPet;
+  }, [currentIndex]);
 
   const panResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_, gs) => {
-      return Math.abs(gs.dx) > 15 && Math.abs(gs.dy) < 15;
+      return !animatingRef.current && Math.abs(gs.dx) > 15 && Math.abs(gs.dy) < 15;
     },
     onPanResponderMove: (_, gs) => {
       if (animatingRef.current) return;
-      const tx = gs.dx;
-      if (tx > 0 && !hasPrevRef.current) {
-        translateX.setValue(Math.min(tx * 0.3, EDGE_MAX));
-      } else if (tx < 0 && !hasNextRef.current) {
-        translateX.setValue(Math.max(tx * 0.3, -EDGE_MAX));
-      } else {
-        translateX.setValue(tx);
+      let targetX = restingPos.current + gs.dx;
+      const maxX = PAGE_PEEK; // first pet centered
+      const minX = PAGE_PEEK - (petsRef.current.length - 1) * SNAP_OFFSET; // last pet
+      if (targetX > maxX) {
+        targetX = maxX + (targetX - maxX) * 0.3;
+      } else if (targetX < minX) {
+        targetX = minX + (targetX - minX) * 0.3;
       }
+      stripX.setValue(targetX);
     },
     onPanResponderRelease: (_, gs) => {
       if (animatingRef.current) return;
-      const tx = gs.dx;
-      const vx = gs.vx;
 
-      if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 1)) && hasPrevRef.current) {
-        animatingRef.current = true;
-        Animated.timing(translateX, {
-          toValue: SNAP_OFFSET,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => navigateRef.current('prev'));
-      } else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -1)) && hasNextRef.current) {
-        animatingRef.current = true;
-        Animated.timing(translateX, {
-          toValue: -SNAP_OFFSET,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => navigateRef.current('next'));
-      } else {
-        Animated.spring(translateX, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 300,
-          useNativeDriver: true,
-        }).start();
+      let targetIndex = currentIndexRef.current;
+      if (gs.dx < -SWIPE_THRESHOLD || (gs.dx < -30 && gs.vx < -1)) {
+        targetIndex = Math.min(petsRef.current.length - 1, currentIndexRef.current + 1);
+      } else if (gs.dx > SWIPE_THRESHOLD || (gs.dx > 30 && gs.vx > 1)) {
+        targetIndex = Math.max(0, currentIndexRef.current - 1);
       }
+
+      const targetPos = PAGE_PEEK - targetIndex * SNAP_OFFSET;
+      animatingRef.current = true;
+      Animated.spring(stripX, {
+        toValue: targetPos,
+        damping: 20,
+        stiffness: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        restingPos.current = targetPos;
+        animatingRef.current = false;
+        if (targetIndex !== currentIndexRef.current) {
+          selectPetRef.current(petsRef.current[targetIndex].id);
+        }
+      });
     },
   }), []);
-
-  const petSchedule = scheduleEvents.filter(
-    (e) => e.petId === selectedPet?.id
-  );
-  const petMeals = meals.filter((m) => m.petId === selectedPet?.id);
-  const petMeds = medications.filter((m) => m.petId === selectedPet?.id);
-  const petVets = vetInfo.filter((v) => v.petId === selectedPet?.id);
-
-  // Sort schedule by time
-  const sortedSchedule = [...petSchedule].sort((a, b) =>
-    a.time.localeCompare(b.time)
-  );
-
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(
-    now.getMinutes()
-  ).padStart(2, '0')}`;
-
-  const upcomingEvents = sortedSchedule.filter((e) => e.time >= currentTime);
-  const nextEvents = upcomingEvents.slice(0, 3);
-
-  const age = selectedPet?.birthday ? calculateAge(selectedPet.birthday) : null;
-  const supportsPetYears = selectedPet?.type === 'dog' || selectedPet?.type === 'cat';
-  const petYearsAge = selectedPet?.birthday && supportsPetYears
-    ? calculatePetYears(selectedPet.birthday, selectedPet.type)
-    : null;
-  const petYearsLabel = selectedPet?.type === 'cat' ? 'cat years' : 'dog years';
-  const birthdayFormatted = selectedPet?.birthday
-    ? formatBirthday(selectedPet.birthday)
-    : null;
 
   if (pets.length === 0) {
     return (
@@ -384,509 +573,32 @@ export function HomeScreen({ navigation }: any) {
         onAddPet={() => navigation.navigate('AddPet')}
       />
 
-      {selectedPet && (
+      {pets.length > 0 && (
         <Animated.View
           {...panResponder.panHandlers}
           style={[
             styles.carouselStrip,
-            {
-              marginLeft: baseOffset,
-              transform: [{ translateX }],
-            },
+            { transform: [{ translateX: stripX }] },
           ]}
         >
-          {/* Prev pet preview (slot 0) */}
-          <View style={styles.carouselPage}>
-            {prevPet && (
-              <View style={{ opacity: 0.6 }}>
-                <PetPreviewCard pet={prevPet} theme={theme} />
+          {pets.map((pet, i) => (
+            <View
+              key={pet.id}
+              style={[
+                styles.carouselPage,
+                i === pets.length - 1 && { marginRight: 0 },
+              ]}
+              pointerEvents={pet.id === selectedPetId ? 'auto' : 'none'}
+            >
+              <View style={{ opacity: pet.id === selectedPetId ? 1 : 0.5, flex: 1 }}>
+                <PetPageContent
+                  pet={pet}
+                  navigation={navigation}
+                  onDetailEvent={setDetailEvent}
+                />
               </View>
-            )}
-          </View>
-
-          {/* Current pet - full content (slot 1) */}
-          <View style={styles.carouselPage}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Expanded Pet Profile Card */}
-          {(() => {
-            const colorMap = theme.dark ? PET_TYPE_COLORS_DARK : PET_TYPE_COLORS;
-            const typeColor = colorMap[selectedPet.type] || colorMap.other;
-            const detailColors = theme.dark ? DETAIL_ROW_COLORS_DARK : DETAIL_ROW_COLORS;
-            return (
-                <Card style={styles.profileCard}>
-                  {/* Pet type triangle – top left */}
-                  <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
-                  <View style={styles.cornerIconLeft}>
-                    <MaterialCommunityIcons
-                      name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                      size={25}
-                      color={typeColor.icon}
-                    />
-                  </View>
-
-                  {/* Edit triangle – top right */}
-                  <TouchableOpacity
-                    style={styles.editCornerWrap}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      navigation.navigate('EditPet', { petId: selectedPet.id })
-                    }
-                  >
-                    <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
-                    <View style={styles.cornerIconRight}>
-                      <Ionicons name="create-outline" size={25} color="#FFFFFF" />
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Centered profile content */}
-                  <View style={styles.profileContent}>
-                    {selectedPet.profileImage ? (
-                      <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
-                        <Image
-                          source={{ uri: selectedPet.profileImage }}
-                          style={styles.profileImage}
-                        />
-                      </View>
-                    ) : (
-                      <View
-                        style={[
-                          styles.profileImageRing,
-                          styles.profilePlaceholder,
-                          { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
-                        ]}
-                      >
-                        <MaterialCommunityIcons
-                          name={PET_TYPE_ICONS[selectedPet.type] || 'paw'}
-                          size={44}
-                          color={typeColor.icon}
-                        />
-                      </View>
-                    )}
-
-                    <Text style={[styles.petName, { color: theme.colors.text }]}>
-                      {selectedPet.name}
-                    </Text>
-
-                    {selectedPet.breed ? (
-                      <Text style={[styles.petBreed, { color: theme.colors.textSecondary }]}>
-                        {selectedPet.breed}
-                      </Text>
-                    ) : null}
-
-                    {age && (
-                      <TouchableOpacity
-                        style={[styles.ageBadge, { backgroundColor: typeColor.bg }]}
-                        activeOpacity={supportsPetYears ? 0.6 : 1}
-                        onPress={() => {
-                          if (supportsPetYears) setShowPetYears((v) => !v);
-                        }}
-                      >
-                        <Text style={[styles.petAge, { color: typeColor.icon }]}>
-                          {showPetYears && petYearsAge
-                            ? `${petYearsAge} in ${petYearsLabel}`
-                            : `${age} old`}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Share button */}
-                    <TouchableOpacity
-                      style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
-                      onPress={() => navigation.navigate('SharePet')}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name="share-outline"
-                        size={16}
-                        color={theme.colors.textSecondary}
-                      />
-                      <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
-                        Share
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Detail rows — each row is independently clickable */}
-                  <View
-                    style={[
-                      styles.profileDetails,
-                      { borderTopColor: theme.colors.border },
-                    ]}
-                  >
-                  {birthdayFormatted && (
-                    <TouchableOpacity
-                      style={styles.detailRow}
-                      activeOpacity={0.6}
-                      onPress={() =>
-                        navigation.navigate('EditPet', { petId: selectedPet.id })
-                      }
-                    >
-                      <View
-                        style={[
-                          styles.detailIcon,
-                          { backgroundColor: detailColors.birthday.bg },
-                        ]}
-                      >
-                        <Ionicons
-                          name="calendar-outline"
-                          size={16}
-                          color={detailColors.birthday.icon}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        Birthday
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {birthdayFormatted}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={theme.colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  )}
-                  {selectedPet.weight ? (
-                    <TouchableOpacity
-                      style={styles.detailRow}
-                      activeOpacity={0.6}
-                      onPress={() =>
-                        navigation.navigate('EditPet', { petId: selectedPet.id })
-                      }
-                    >
-                      <View
-                        style={[
-                          styles.detailIcon,
-                          { backgroundColor: detailColors.weight.bg },
-                        ]}
-                      >
-                        <Ionicons
-                          name="scale-outline"
-                          size={16}
-                          color={detailColors.weight.icon}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        Weight
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {selectedPet.weight} {selectedPet.weightUnit}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={theme.colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  ) : null}
-                  {petVets.length > 0 && (
-                    <TouchableOpacity
-                      style={styles.detailRow}
-                      activeOpacity={0.6}
-                      onPress={() => navigation.navigate('MedicalTab')}
-                    >
-                      <View
-                        style={[
-                          styles.detailIcon,
-                          { backgroundColor: detailColors.vet.bg },
-                        ]}
-                      >
-                        <Ionicons
-                          name="medkit-outline"
-                          size={16}
-                          color={detailColors.vet.icon}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        Vet
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          { color: theme.colors.text, flex: 1 },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {petVets[0].vetName || petVets[0].clinicName}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={theme.colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Personality tags — colored by pet type */}
-                {selectedPet.personality ? (
-                  <View
-                    style={[
-                      styles.personalitySection,
-                      { borderTopColor: theme.colors.border },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.personalitySectionTitle,
-                        { color: theme.colors.textSecondary },
-                      ]}
-                    >
-                      Personality
-                    </Text>
-                    <View style={styles.personalityRow}>
-                      {selectedPet.personality
-                        .split(',')
-                        .map((tag) => tag.trim())
-                        .filter(Boolean)
-                        .map((tag) => (
-                          <View
-                            key={tag}
-                            style={[
-                              styles.personalityBadge,
-                              { backgroundColor: typeColor.bg },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.personalityText,
-                                { color: typeColor.icon },
-                              ]}
-                            >
-                              {tag}
-                            </Text>
-                          </View>
-                        ))}
-                    </View>
-                  </View>
-                ) : null}
-                </Card>
-            );
-          })()}
-
-          {/* Quick Stats */}
-          <View style={styles.statsRow}>
-            <TouchableOpacity
-              style={[
-                styles.statCard,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-              ]}
-              onPress={() => navigation.navigate('ScheduleTab')}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="calendar"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text style={[styles.statNumber, { color: theme.colors.text }]}>
-                {petSchedule.length}
-              </Text>
-              <Text
-                style={[
-                  styles.statLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                Events
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.statCard,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-              ]}
-              onPress={() => navigation.navigate('MealsTab')}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="restaurant"
-                size={24}
-                color={theme.colors.warning}
-              />
-              <Text style={[styles.statNumber, { color: theme.colors.text }]}>
-                {petMeals.length}
-              </Text>
-              <Text
-                style={[
-                  styles.statLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                Meals
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.statCard,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-              ]}
-              onPress={() => navigation.navigate('MedicalTab')}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="medkit"
-                size={24}
-                color={theme.colors.danger}
-              />
-              <Text style={[styles.statNumber, { color: theme.colors.text }]}>
-                {petMeds.length}
-              </Text>
-              <Text
-                style={[
-                  styles.statLabel,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                Meds
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Upcoming Schedule */}
-          <Card>
-            <View style={styles.sectionHeader}>
-              <Text
-                style={[styles.sectionTitle, { color: theme.colors.text }]}
-              >
-                Upcoming Today
-              </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('ScheduleTab')}
-              >
-                <Text
-                  style={[
-                    styles.seeAllText,
-                    { color: theme.colors.primary },
-                  ]}
-                >
-                  See All
-                </Text>
-              </TouchableOpacity>
             </View>
-            {nextEvents.length > 0 ? (
-              nextEvents.map((event) => {
-                const typeInfo = EVENT_TYPE_INFO[event.type] || EVENT_TYPE_INFO.other;
-                return (
-                  <TouchableOpacity
-                    key={event.id}
-                    activeOpacity={0.6}
-                    onPress={() => setDetailEvent(event.id)}
-                    style={[
-                      styles.eventRow,
-                      { borderBottomColor: theme.colors.border },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.eventIcon,
-                        { backgroundColor: typeInfo.color + '18' },
-                      ]}
-                    >
-                      <Ionicons
-                        name={typeInfo.icon}
-                        size={18}
-                        color={typeInfo.color}
-                      />
-                    </View>
-                    <View style={styles.eventInfo}>
-                      <Text
-                        style={[
-                          styles.eventTitle,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {event.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.eventTime,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        {formatTime(event.time)}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <Text
-                style={[
-                  styles.noEventsText,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                No more events today
-              </Text>
-            )}
-          </Card>
-
-          {/* Import Pet Link */}
-          <TouchableOpacity
-            style={styles.importLink}
-            onPress={() => navigation.navigate('ImportPet')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="cloud-download-outline"
-              size={16}
-              color={theme.colors.primary}
-            />
-            <Text
-              style={[styles.importLinkText, { color: theme.colors.primary }]}
-            >
-              Import a shared pet
-            </Text>
-          </TouchableOpacity>
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
-          </View>
-
-          {/* Next pet preview (slot 2) */}
-          <View style={[styles.carouselPage, { marginRight: 0 }]}>
-            {nextPet && (
-              <View style={{ opacity: 0.6 }}>
-                <PetPreviewCard pet={nextPet} theme={theme} />
-              </View>
-            )}
-          </View>
+          ))}
         </Animated.View>
       )}
 

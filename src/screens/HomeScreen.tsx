@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,8 @@ import {
   Platform,
   Alert,
   Dimensions,
-  Animated,
-  PanResponder,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -71,8 +71,6 @@ const PAGE_PEEK = 10;
 const PAGE_GAP = 8;
 const PAGE_WIDTH = SCREEN_WIDTH - PAGE_PEEK * 2;
 const SNAP_OFFSET = PAGE_WIDTH + PAGE_GAP;
-const SWIPE_THRESHOLD = PAGE_WIDTH * 0.25;
-const EDGE_MAX = SCREEN_WIDTH * 0.15;
 
 function handleCallVet(phone: string) {
   const cleaned = phone.replace(/[^\d+]/g, '');
@@ -462,73 +460,27 @@ export function HomeScreen({ navigation }: any) {
   const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
-  // Swipe carousel — all pets rendered in a row, strip position animated
+  // Swipe carousel — native horizontal ScrollView with snap
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
-  const getRestingPos = (idx: number) => PAGE_PEEK - idx * SNAP_OFFSET;
+  const scrollRef = useRef<ScrollView>(null);
+  const lastScrollIndex = useRef(currentIndex);
 
-  const stripX = useRef(new Animated.Value(getRestingPos(currentIndex))).current;
-  const restingPos = useRef(getRestingPos(currentIndex));
-  const animatingRef = useRef(false);
-
-  // Refs for PanResponder (stable across renders)
-  const petsRef = useRef(pets);
-  petsRef.current = pets;
-  const currentIndexRef = useRef(currentIndex);
-  currentIndexRef.current = currentIndex;
-  const selectPetRef = useRef(selectPet);
-  selectPetRef.current = selectPet;
-
-  // Sync strip position when pet changes externally (e.g. header tap)
+  // Sync scroll position when pet changes externally (e.g. header avatar tap)
   useEffect(() => {
-    const target = getRestingPos(currentIndex);
-    if (target !== restingPos.current) {
-      restingPos.current = target;
-      stripX.setValue(target);
+    if (currentIndex !== lastScrollIndex.current) {
+      scrollRef.current?.scrollTo({ x: currentIndex * SNAP_OFFSET, animated: true });
     }
+    lastScrollIndex.current = currentIndex;
   }, [currentIndex]);
 
-  const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gs) => {
-      return !animatingRef.current && Math.abs(gs.dx) > 15 && Math.abs(gs.dy) < 15;
-    },
-    onPanResponderMove: (_, gs) => {
-      if (animatingRef.current) return;
-      let targetX = restingPos.current + gs.dx;
-      const maxX = PAGE_PEEK; // first pet centered
-      const minX = PAGE_PEEK - (petsRef.current.length - 1) * SNAP_OFFSET; // last pet
-      if (targetX > maxX) {
-        targetX = maxX + (targetX - maxX) * 0.3;
-      } else if (targetX < minX) {
-        targetX = minX + (targetX - minX) * 0.3;
-      }
-      stripX.setValue(targetX);
-    },
-    onPanResponderRelease: (_, gs) => {
-      if (animatingRef.current) return;
-
-      let targetIndex = currentIndexRef.current;
-      if (gs.dx < -SWIPE_THRESHOLD || (gs.dx < -30 && gs.vx < -1)) {
-        targetIndex = Math.min(petsRef.current.length - 1, currentIndexRef.current + 1);
-      } else if (gs.dx > SWIPE_THRESHOLD || (gs.dx > 30 && gs.vx > 1)) {
-        targetIndex = Math.max(0, currentIndexRef.current - 1);
-      }
-
-      const targetPos = PAGE_PEEK - targetIndex * SNAP_OFFSET;
-      animatingRef.current = true;
-      Animated.spring(stripX, {
-        toValue: targetPos,
-        damping: 20,
-        stiffness: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        restingPos.current = targetPos;
-        animatingRef.current = false;
-        if (targetIndex !== currentIndexRef.current) {
-          selectPetRef.current(petsRef.current[targetIndex].id);
-        }
-      });
-    },
-  }), []);
+  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const newIndex = Math.round(e.nativeEvent.contentOffset.x / SNAP_OFFSET);
+    const clamped = Math.max(0, Math.min(pets.length - 1, newIndex));
+    if (clamped !== currentIndex) {
+      lastScrollIndex.current = clamped;
+      selectPet(pets[clamped].id);
+    }
+  };
 
   if (pets.length === 0) {
     return (
@@ -574,20 +526,24 @@ export function HomeScreen({ navigation }: any) {
       />
 
       {pets.length > 0 && (
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[
-            styles.carouselStrip,
-            { transform: [{ translateX: stripX }] },
-          ]}
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={SNAP_OFFSET}
+          decelerationRate="fast"
+          disableIntervalMomentum
+          contentContainerStyle={{ paddingHorizontal: PAGE_PEEK }}
+          onMomentumScrollEnd={handleScrollEnd}
+          style={{ flex: 1 }}
         >
           {pets.map((pet, i) => (
             <View
               key={pet.id}
-              style={[
-                styles.carouselPage,
-                i === pets.length - 1 && { marginRight: 0 },
-              ]}
+              style={{
+                width: PAGE_WIDTH,
+                marginRight: i < pets.length - 1 ? PAGE_GAP : 0,
+              }}
             >
               <PetPageContent
                 pet={pet}
@@ -596,7 +552,7 @@ export function HomeScreen({ navigation }: any) {
               />
             </View>
           ))}
-        </Animated.View>
+        </ScrollView>
       )}
 
       {/* Event Detail Modal */}
@@ -912,14 +868,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     overflow: 'hidden',
-  },
-  carouselStrip: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  carouselPage: {
-    width: PAGE_WIDTH,
-    marginRight: PAGE_GAP,
   },
   scrollContent: {
     paddingBottom: 100,

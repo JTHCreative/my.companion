@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,8 @@ import {
   Alert,
   Dimensions,
   Animated,
+  PanResponder,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -193,14 +193,18 @@ export function HomeScreen({ navigation }: any) {
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < pets.length - 1;
 
+  // Store latest values in refs so PanResponder always sees current state
+  const hasPrevRef = useRef(hasPrev);
+  const hasNextRef = useRef(hasNext);
+  hasPrevRef.current = hasPrev;
+  hasNextRef.current = hasNext;
+
   const navigateToPet = useCallback((direction: 'next' | 'prev') => {
     const idx = pets.findIndex(p => p.id === selectedPetId);
     const targetIdx = direction === 'next' ? idx + 1 : idx - 1;
     if (targetIdx >= 0 && targetIdx < pets.length) {
-      // Position new content off-screen on the incoming side
       translateX.setValue(direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH);
       selectPet(pets[targetIdx].id);
-      // Animate new content sliding in
       Animated.spring(translateX, {
         toValue: 0,
         damping: 20,
@@ -213,49 +217,45 @@ export function HomeScreen({ navigation }: any) {
       animatingRef.current = false;
     }
   }, [pets, selectedPetId, selectPet]);
+  const navigateRef = useRef(navigateToPet);
+  navigateRef.current = navigateToPet;
 
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
-    .onUpdate((event) => {
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      // Only capture horizontal swipes, let vertical scroll through
+      return Math.abs(gestureState.dx) > 15 && Math.abs(gestureState.dy) < 15;
+    },
+    onPanResponderMove: (_, gestureState) => {
       if (animatingRef.current) return;
-
-      const tx = event.translationX;
-      // At edges, apply resistance — only slide up to 30% of screen
-      if (tx > 0 && !hasPrev) {
+      const tx = gestureState.dx;
+      if (tx > 0 && !hasPrevRef.current) {
         translateX.setValue(Math.min(tx * 0.3, EDGE_MAX));
-      } else if (tx < 0 && !hasNext) {
+      } else if (tx < 0 && !hasNextRef.current) {
         translateX.setValue(Math.max(tx * 0.3, -EDGE_MAX));
       } else {
         translateX.setValue(tx);
       }
-    })
-    .onEnd((event) => {
+    },
+    onPanResponderRelease: (_, gestureState) => {
       if (animatingRef.current) return;
+      const tx = gestureState.dx;
+      const vx = gestureState.vx;
 
-      const tx = event.translationX;
-      const vx = event.velocityX;
-
-      // Swipe right → previous pet (threshold or fast flick)
-      if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 500)) && hasPrev) {
+      if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 1)) && hasPrevRef.current) {
         animatingRef.current = true;
         Animated.timing(translateX, {
           toValue: SCREEN_WIDTH,
           duration: 200,
           useNativeDriver: true,
-        }).start(() => navigateToPet('prev'));
-      }
-      // Swipe left → next pet
-      else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -500)) && hasNext) {
+        }).start(() => navigateRef.current('prev'));
+      } else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -1)) && hasNextRef.current) {
         animatingRef.current = true;
         Animated.timing(translateX, {
           toValue: -SCREEN_WIDTH,
           duration: 200,
           useNativeDriver: true,
-        }).start(() => navigateToPet('next'));
-      }
-      // Bounce back
-      else {
+        }).start(() => navigateRef.current('next'));
+      } else {
         Animated.spring(translateX, {
           toValue: 0,
           damping: 20,
@@ -263,7 +263,8 @@ export function HomeScreen({ navigation }: any) {
           useNativeDriver: true,
         }).start();
       }
-    });
+    },
+  }), []);
 
   const animatedContentStyle = {
     transform: [{ translateX }],
@@ -343,8 +344,7 @@ export function HomeScreen({ navigation }: any) {
       />
 
       {selectedPet && (
-        <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.swipeContainer, animatedContentStyle]}>
+        <Animated.View {...panResponder.panHandlers} style={[styles.swipeContainer, animatedContentStyle]}>
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
@@ -818,7 +818,6 @@ export function HomeScreen({ navigation }: any) {
           <View style={{ height: 24 }} />
         </ScrollView>
         </Animated.View>
-        </GestureDetector>
       )}
 
       {/* Event Detail Modal */}

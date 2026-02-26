@@ -67,7 +67,11 @@ const DETAIL_ROW_COLORS_DARK: Record<string, { bg: string; icon: string }> = {
 };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+const PAGE_PEEK = 24;
+const PAGE_GAP = 12;
+const PAGE_WIDTH = SCREEN_WIDTH - PAGE_PEEK * 2;
+const SNAP_OFFSET = PAGE_WIDTH + PAGE_GAP;
+const SWIPE_THRESHOLD = PAGE_WIDTH * 0.25;
 const EDGE_MAX = SCREEN_WIDTH * 0.3;
 
 function handleCallVet(phone: string) {
@@ -179,19 +183,70 @@ function formatBirthday(birthday: string): string | null {
   });
 }
 
+function PetPreviewCard({ pet, theme }: { pet: any; theme: any }) {
+  const colorMap = theme.dark ? PET_TYPE_COLORS_DARK : PET_TYPE_COLORS;
+  const typeColor = colorMap[pet.type] || colorMap.other;
+  return (
+    <Card style={styles.profileCard}>
+      <View style={[styles.cornerTriangleLeft, { backgroundColor: typeColor.bg }]} />
+      <View style={styles.cornerIconLeft}>
+        <MaterialCommunityIcons
+          name={PET_TYPE_ICONS[pet.type] || 'paw'}
+          size={25}
+          color={typeColor.icon}
+        />
+      </View>
+      <View style={styles.profileContent}>
+        {pet.profileImage ? (
+          <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
+            <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.profileImageRing,
+              styles.profilePlaceholder,
+              { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={PET_TYPE_ICONS[pet.type] || 'paw'}
+              size={44}
+              color={typeColor.icon}
+            />
+          </View>
+        )}
+        <Text style={[styles.petName, { color: theme.colors.text }]}>
+          {pet.name}
+        </Text>
+        {pet.breed ? (
+          <Text style={[styles.petBreed, { color: theme.colors.textSecondary }]}>
+            {pet.breed}
+          </Text>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
 export function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents, meals, medications, vetInfo } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
   const [showPetYears, setShowPetYears] = useState(false);
 
-  // Swipe navigation between pets
+  // Swipe carousel navigation between pets
   const translateX = useRef(new Animated.Value(0)).current;
   const animatingRef = useRef(false);
 
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < pets.length - 1;
+  const prevPet = hasPrev ? pets[currentIndex - 1] : null;
+  const nextPet = hasNext ? pets[currentIndex + 1] : null;
+
+  // Current page is always slot 1 in [prev, current, next]
+  const baseOffset = PAGE_PEEK - SNAP_OFFSET;
 
   // Store latest values in refs so PanResponder always sees current state
   const hasPrevRef = useRef(hasPrev);
@@ -203,31 +258,21 @@ export function HomeScreen({ navigation }: any) {
     const idx = pets.findIndex(p => p.id === selectedPetId);
     const targetIdx = direction === 'next' ? idx + 1 : idx - 1;
     if (targetIdx >= 0 && targetIdx < pets.length) {
-      translateX.setValue(direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH);
       selectPet(pets[targetIdx].id);
-      Animated.spring(translateX, {
-        toValue: 0,
-        damping: 20,
-        stiffness: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        animatingRef.current = false;
-      });
-    } else {
-      animatingRef.current = false;
     }
+    translateX.setValue(0);
+    animatingRef.current = false;
   }, [pets, selectedPetId, selectPet]);
   const navigateRef = useRef(navigateToPet);
   navigateRef.current = navigateToPet;
 
   const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) => {
-      // Only capture horizontal swipes, let vertical scroll through
-      return Math.abs(gestureState.dx) > 15 && Math.abs(gestureState.dy) < 15;
+    onMoveShouldSetPanResponder: (_, gs) => {
+      return Math.abs(gs.dx) > 15 && Math.abs(gs.dy) < 15;
     },
-    onPanResponderMove: (_, gestureState) => {
+    onPanResponderMove: (_, gs) => {
       if (animatingRef.current) return;
-      const tx = gestureState.dx;
+      const tx = gs.dx;
       if (tx > 0 && !hasPrevRef.current) {
         translateX.setValue(Math.min(tx * 0.3, EDGE_MAX));
       } else if (tx < 0 && !hasNextRef.current) {
@@ -236,23 +281,23 @@ export function HomeScreen({ navigation }: any) {
         translateX.setValue(tx);
       }
     },
-    onPanResponderRelease: (_, gestureState) => {
+    onPanResponderRelease: (_, gs) => {
       if (animatingRef.current) return;
-      const tx = gestureState.dx;
-      const vx = gestureState.vx;
+      const tx = gs.dx;
+      const vx = gs.vx;
 
       if ((tx > SWIPE_THRESHOLD || (tx > 30 && vx > 1)) && hasPrevRef.current) {
         animatingRef.current = true;
         Animated.timing(translateX, {
-          toValue: SCREEN_WIDTH,
-          duration: 200,
+          toValue: SNAP_OFFSET,
+          duration: 250,
           useNativeDriver: true,
         }).start(() => navigateRef.current('prev'));
       } else if ((tx < -SWIPE_THRESHOLD || (tx < -30 && vx < -1)) && hasNextRef.current) {
         animatingRef.current = true;
         Animated.timing(translateX, {
-          toValue: -SCREEN_WIDTH,
-          duration: 200,
+          toValue: -SNAP_OFFSET,
+          duration: 250,
           useNativeDriver: true,
         }).start(() => navigateRef.current('next'));
       } else {
@@ -265,10 +310,6 @@ export function HomeScreen({ navigation }: any) {
       }
     },
   }), []);
-
-  const animatedContentStyle = {
-    transform: [{ translateX }],
-  };
 
   const petSchedule = scheduleEvents.filter(
     (e) => e.petId === selectedPet?.id
@@ -344,9 +385,28 @@ export function HomeScreen({ navigation }: any) {
       />
 
       {selectedPet && (
-        <Animated.View {...panResponder.panHandlers} style={[styles.swipeContainer, animatedContentStyle]}>
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={[
+            styles.carouselStrip,
+            {
+              marginLeft: baseOffset,
+              transform: [{ translateX }],
+            },
+          ]}
+        >
+          {/* Prev pet preview (slot 0) */}
+          <View style={styles.carouselPage}>
+            {prevPet && (
+              <View style={{ opacity: 0.6 }}>
+                <PetPreviewCard pet={prevPet} theme={theme} />
+              </View>
+            )}
+          </View>
+
+          {/* Current pet - full content (slot 1) */}
+          <View style={styles.carouselPage}>
         <ScrollView
-          style={styles.content}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
@@ -817,6 +877,16 @@ export function HomeScreen({ navigation }: any) {
 
           <View style={{ height: 24 }} />
         </ScrollView>
+          </View>
+
+          {/* Next pet preview (slot 2) */}
+          <View style={[styles.carouselPage, { marginRight: 0 }]}>
+            {nextPet && (
+              <View style={{ opacity: 0.6 }}>
+                <PetPreviewCard pet={nextPet} theme={theme} />
+              </View>
+            )}
+          </View>
         </Animated.View>
       )}
 
@@ -1134,11 +1204,13 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  swipeContainer: {
+  carouselStrip: {
+    flexDirection: 'row',
     flex: 1,
   },
-  content: {
-    flex: 1,
+  carouselPage: {
+    width: PAGE_WIDTH,
+    marginRight: PAGE_GAP,
   },
   scrollContent: {
     paddingBottom: 100,

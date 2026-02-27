@@ -11,6 +11,7 @@ import {
   Platform,
   Alert,
   Dimensions,
+  Animated,
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
@@ -461,12 +462,56 @@ export function HomeScreen({ navigation }: any) {
   const { pets, selectedPetId, selectPet, scheduleEvents } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
-  // Swipe carousel — native horizontal ScrollView with snap + edge bounce
+  // Swipe carousel — native horizontal ScrollView with snap + rubber-band edges
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
   const lastScrollIndex = useRef(currentIndex);
   const snapOffsets = pets.map((_, i) => BOUNCE_MAX + i * SNAP_OFFSET);
   const initialOffset = useRef({ x: BOUNCE_MAX + currentIndex * SNAP_OFFSET, y: 0 });
+
+  // Animated scroll position for rubber-band resistance
+  const scrollX = useRef(new Animated.Value(BOUNCE_MAX + currentIndex * SNAP_OFFSET)).current;
+  const lastScrollX = useRef(BOUNCE_MAX + currentIndex * SNAP_OFFSET);
+
+  // Rubber-band resistance: non-linear counter-transform in the padding area
+  // The further you pull past the edge, the stronger the resistance
+  const firstPageX = BOUNCE_MAX;
+  const lastPageX = BOUNCE_MAX + Math.max(0, pets.length - 1) * SNAP_OFFSET;
+  const counterFull = Math.round(BOUNCE_MAX * 0.7);
+  const counterHalf = Math.round(BOUNCE_MAX * 0.28);
+  const counterQuarter = Math.round(BOUNCE_MAX * 0.1);
+
+  const resistInput: number[] = [
+    0,
+    firstPageX * 0.5,
+    firstPageX * 0.75,
+    firstPageX,
+  ];
+  const resistOutput: number[] = [-counterFull, -counterHalf, -counterQuarter, 0];
+  if (lastPageX > firstPageX) {
+    resistInput.push(lastPageX);
+    resistOutput.push(0);
+  }
+  resistInput.push(lastPageX + BOUNCE_MAX * 0.25);
+  resistOutput.push(counterQuarter);
+  resistInput.push(lastPageX + BOUNCE_MAX * 0.5);
+  resistOutput.push(counterHalf);
+  resistInput.push(lastPageX + BOUNCE_MAX);
+  resistOutput.push(counterFull);
+
+  const resistance = scrollX.interpolate({
+    inputRange: resistInput,
+    outputRange: resistOutput,
+    extrapolate: 'clamp',
+  });
+
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: true,
+      listener: (e: any) => { lastScrollX.current = e.nativeEvent.contentOffset.x; },
+    },
+  );
 
   // Sync scroll position when pet changes externally (e.g. header avatar tap)
   useEffect(() => {
@@ -480,7 +525,6 @@ export function HomeScreen({ navigation }: any) {
     const x = e.nativeEvent.contentOffset.x;
     const newIndex = Math.round((x - BOUNCE_MAX) / SNAP_OFFSET);
     const clamped = Math.max(0, Math.min(pets.length - 1, newIndex));
-    // If scroll settled in the padding area, snap to nearest page
     const targetX = BOUNCE_MAX + clamped * SNAP_OFFSET;
     if (Math.abs(x - targetX) > 2) {
       scrollRef.current?.scrollTo({ x: targetX, animated: true });
@@ -493,9 +537,7 @@ export function HomeScreen({ navigation }: any) {
 
   const handleDragEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
-    const firstPage = BOUNCE_MAX;
-    const lastPage = BOUNCE_MAX + (pets.length - 1) * SNAP_OFFSET;
-    if (x < firstPage || x > lastPage) {
+    if (x < firstPageX || x > lastPageX) {
       const nearest = Math.max(0, Math.min(pets.length - 1, Math.round((x - BOUNCE_MAX) / SNAP_OFFSET)));
       scrollRef.current?.scrollTo({ x: BOUNCE_MAX + nearest * SNAP_OFFSET, animated: true });
       if (nearest !== currentIndex) {
@@ -549,7 +591,7 @@ export function HomeScreen({ navigation }: any) {
       />
 
       {pets.length > 0 && (
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -562,26 +604,30 @@ export function HomeScreen({ navigation }: any) {
           overScrollMode="never"
           contentContainerStyle={{ paddingLeft: BOUNCE_MAX + PAGE_PEEK, paddingRight: BOUNCE_MAX + PAGE_PEEK }}
           contentOffset={initialOffset.current}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           onScrollEndDrag={handleDragEnd}
           onMomentumScrollEnd={handleScrollEnd}
           style={{ flex: 1 }}
         >
-          {pets.map((pet, i) => (
-            <View
-              key={pet.id}
-              style={{
-                width: PAGE_WIDTH,
-                marginRight: i < pets.length - 1 ? PAGE_GAP : 0,
-              }}
-            >
-              <PetPageContent
-                pet={pet}
-                navigation={navigation}
-                onDetailEvent={setDetailEvent}
-              />
-            </View>
-          ))}
-        </ScrollView>
+          <Animated.View style={{ flexDirection: 'row', transform: [{ translateX: resistance }] }}>
+            {pets.map((pet, i) => (
+              <View
+                key={pet.id}
+                style={{
+                  width: PAGE_WIDTH,
+                  marginRight: i < pets.length - 1 ? PAGE_GAP : 0,
+                }}
+              >
+                <PetPageContent
+                  pet={pet}
+                  navigation={navigation}
+                  onDetailEvent={setDetailEvent}
+                />
+              </View>
+            ))}
+          </Animated.View>
+        </Animated.ScrollView>
       )}
 
       {/* Event Detail Modal */}

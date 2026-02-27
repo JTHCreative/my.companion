@@ -477,11 +477,31 @@ export function HomeScreen({ navigation }: any) {
   }, [currentIndex]);
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const newIndex = Math.round((e.nativeEvent.contentOffset.x - BOUNCE_MAX) / SNAP_OFFSET);
+    const x = e.nativeEvent.contentOffset.x;
+    const newIndex = Math.round((x - BOUNCE_MAX) / SNAP_OFFSET);
     const clamped = Math.max(0, Math.min(pets.length - 1, newIndex));
+    // If scroll settled in the padding area, snap to nearest page
+    const targetX = BOUNCE_MAX + clamped * SNAP_OFFSET;
+    if (Math.abs(x - targetX) > 2) {
+      scrollRef.current?.scrollTo({ x: targetX, animated: true });
+    }
     if (clamped !== currentIndex) {
       lastScrollIndex.current = clamped;
       selectPet(pets[clamped].id);
+    }
+  };
+
+  const handleDragEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const firstPage = BOUNCE_MAX;
+    const lastPage = BOUNCE_MAX + (pets.length - 1) * SNAP_OFFSET;
+    if (x < firstPage || x > lastPage) {
+      const nearest = Math.max(0, Math.min(pets.length - 1, Math.round((x - BOUNCE_MAX) / SNAP_OFFSET)));
+      scrollRef.current?.scrollTo({ x: BOUNCE_MAX + nearest * SNAP_OFFSET, animated: true });
+      if (nearest !== currentIndex) {
+        lastScrollIndex.current = nearest;
+        selectPet(pets[nearest].id);
+      }
     }
   };
 
@@ -542,6 +562,7 @@ export function HomeScreen({ navigation }: any) {
           overScrollMode="never"
           contentContainerStyle={{ paddingLeft: BOUNCE_MAX + PAGE_PEEK, paddingRight: BOUNCE_MAX + PAGE_PEEK }}
           contentOffset={initialOffset.current}
+          onScrollEndDrag={handleDragEnd}
           onMomentumScrollEnd={handleScrollEnd}
           style={{ flex: 1 }}
         >

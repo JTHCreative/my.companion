@@ -598,7 +598,7 @@ export function HomeScreen({ navigation }: any) {
           snapToOffsets={snapOffsets}
           snapToStart={false}
           snapToEnd={false}
-          decelerationRate="fast"
+          decelerationRate={0.993}
           disableIntervalMomentum
           bounces={false}
           overScrollMode="never"

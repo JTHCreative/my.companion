@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "my.Companion",
+    "name": "Petfolio",
     "slug": "my-companion",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,8 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mycompanion.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "my.Companion needs access to your camera to take pet profile photos.",
-        "NSPhotoLibraryUsageDescription": "my.Companion needs access to your photo library to select pet profile photos."
+        "NSCameraUsageDescription": "Petfolio needs access to your camera to take pet profile photos.",
+        "NSPhotoLibraryUsageDescription": "Petfolio needs access to your photo library to select pet profile photos."
       }
     },
     "android": {

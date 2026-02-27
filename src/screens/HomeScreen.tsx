@@ -553,12 +553,12 @@ export function HomeScreen({ navigation }: any) {
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
         <PetAvatarHeader
-          title="my.Companion"
+          title="Petfolio"
           onAddPet={() => navigation.navigate('AddPet')}
         />
         <EmptyState
           icon="paw"
-          title="Welcome to my.Companion"
+          title="Welcome to Petfolio"
           subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
           actionLabel="Add Your Pet"
           onAction={() => navigation.navigate('AddPet')}
@@ -586,7 +586,7 @@ export function HomeScreen({ navigation }: any) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <PetAvatarHeader
-        title="my.Companion"
+        title="Petfolio"
         onAddPet={() => navigation.navigate('AddPet')}
       />
 

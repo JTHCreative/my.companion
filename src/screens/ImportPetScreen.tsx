@@ -160,7 +160,7 @@ export function ImportPetScreen({ navigation }: any) {
                     { color: theme.colors.textSecondary },
                   ]}
                 >
-                  Paste the share code you received from another my.Companion
+                  Paste the share code you received from another Petfolio
                   user to add their pet's profile to your app.
                 </Text>
               </View>

@@ -53,7 +53,7 @@ export function buildProfileSummary(
   }
 
   lines.push('');
-  lines.push('Shared from my.Companion');
+  lines.push('Shared from Petfolio');
 
   return lines.join('\n');
 }
@@ -135,6 +135,6 @@ export async function shareFullPetData(
 ): Promise<void> {
   const code = encodePetData(pet, scheduleEvents, meals, vetInfo, medications);
   await Share.share({
-    message: `Import ${pet.name}'s full profile in my.Companion!\n\n${code}`,
+    message: `Import ${pet.name}'s full profile in Petfolio!\n\n${code}`,
   });
 }

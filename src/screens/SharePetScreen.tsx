@@ -173,7 +173,7 @@ export function SharePetScreen({ navigation }: any) {
                 {dataCount > 0
                   ? `${dataCount} items (schedule, meals, meds, vet info)`
                   : 'all data'}
-                . The recipient can import it into their my.Companion app.
+                . The recipient can import it into their Petfolio app.
               </Text>
             </View>
           </View>

@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { Logo } from './Logo';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   dog: 'dog',
@@ -207,9 +208,12 @@ export function PetAvatarHeader({
   return (
     <>
       <View style={[styles.headerBar, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
-          {title}
-        </Text>
+        <View style={styles.headerTitleRow}>
+          <Logo size={30} iconOnly />
+          <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
+            {title}
+          </Text>
+        </View>
         <View style={styles.headerRight}>
           {rightAccessory}
           {renderHeaderAvatar()}
@@ -229,6 +233,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 12,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: 26,

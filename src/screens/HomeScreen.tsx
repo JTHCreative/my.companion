@@ -457,7 +457,7 @@ function PetPageContent({ pet, navigation, onDetailEvent }: { pet: any; navigati
 
 export function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { pets, selectedPet, selectedPetId, selectPet, scheduleEvents } = useData();
+  const { pets, selectedPetId, selectPet, scheduleEvents } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
   // Swipe carousel — native horizontal ScrollView with snap
@@ -852,10 +852,6 @@ const EVENT_TYPE_INFO: Record<string, { icon: keyof typeof Ionicons.glyphMap; co
   medication: { icon: 'medkit', color: '#EF4444' },
   other: { icon: 'ellipsis-horizontal', color: '#64748B' },
 };
-
-function getScheduleIcon(type: string): keyof typeof Ionicons.glyphMap {
-  return EVENT_TYPE_INFO[type]?.icon || 'ellipsis-horizontal';
-}
 
 function formatTime(time: string): string {
   const [h, m] = time.split(':').map(Number);

@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6FA85C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#82B870;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="232" r="195" fill="none" stroke="url(#grad)" stroke-width="6" opacity="0.2"/>
+
+  <!-- Dog outline (left side) - wireframe style -->
+  <g fill="none" stroke="#6FA85C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Dog ear left -->
+    <path d="M120,155 Q108,120 115,100 Q120,88 132,95 Q140,102 145,125 L148,148"/>
+    <!-- Dog head -->
+    <path d="M148,148 Q152,135 168,128 Q185,122 200,130 Q210,136 212,148"/>
+    <!-- Dog ear right -->
+    <path d="M200,130 Q205,115 210,100 Q215,88 225,92 Q233,98 230,120 Q228,135 212,148"/>
+    <!-- Dog face -->
+    <path d="M148,148 Q145,165 148,178 Q152,192 165,198 Q178,202 190,198 Q203,192 207,178 Q210,165 212,148"/>
+    <!-- Dog nose -->
+    <ellipse cx="180" cy="172" rx="10" ry="7"/>
+    <!-- Dog eyes -->
+    <circle cx="158" cy="152" r="4" fill="#6FA85C"/>
+    <circle cx="200" cy="152" r="4" fill="#6FA85C"/>
+    <!-- Dog mouth -->
+    <path d="M170,180 Q180,188 190,180"/>
+    <!-- Dog body -->
+    <path d="M148,198 Q130,215 120,248 Q114,270 118,290 Q120,300 128,305"/>
+    <path d="M207,198 Q220,215 225,240 Q228,258 225,275 Q222,290 218,300"/>
+    <!-- Dog front legs -->
+    <path d="M128,305 Q125,330 128,348 Q130,355 136,355 Q142,355 142,348"/>
+    <path d="M155,300 Q153,330 155,348 Q157,355 163,355 Q168,355 168,348"/>
+    <!-- Dog back legs -->
+    <path d="M195,300 Q193,325 195,348 Q197,355 203,355 Q208,355 208,348"/>
+    <path d="M218,300 Q220,325 218,348 Q216,355 210,355"/>
+    <!-- Dog tail -->
+    <path d="M225,275 Q240,260 250,245 Q255,238 252,232"/>
+    <!-- Dog belly -->
+    <path d="M128,305 Q142,312 155,300"/>
+    <path d="M195,300 Q206,310 218,300"/>
+  </g>
+
+  <!-- Cat outline (right side) - wireframe style -->
+  <g fill="none" stroke="#82B870" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Cat ear left (tall pointed) -->
+    <path d="M290,148 L278,90 Q276,82 282,82 Q290,84 298,108 L302,130"/>
+    <!-- Cat ear right (tall pointed) -->
+    <path d="M355,148 L348,108 Q344,88 352,82 Q358,82 360,90 L370,148"/>
+    <!-- Cat head -->
+    <path d="M290,148 Q285,160 288,175 Q292,192 310,200 Q325,205 340,200 Q358,192 362,175 Q365,160 370,148"/>
+    <!-- Cat face details -->
+    <!-- Cat eyes (almond shaped) -->
+    <path d="M298,158 Q308,150 318,158 Q308,162 298,158" fill="#82B870"/>
+    <path d="M338,158 Q348,150 358,158 Q348,162 338,158" fill="#82B870"/>
+    <!-- Cat nose (small triangle) -->
+    <path d="M325,175 L320,182 L330,182 Z" fill="#82B870"/>
+    <!-- Cat whiskers -->
+    <path d="M320,185 L290,182"/>
+    <path d="M320,188 L288,190"/>
+    <path d="M330,185 L360,182"/>
+    <path d="M330,188 L362,190"/>
+    <!-- Cat mouth -->
+    <path d="M325,182 Q320,190 318,192"/>
+    <path d="M325,182 Q330,190 332,192"/>
+    <!-- Cat body (slender, elegant) -->
+    <path d="M310,200 Q295,220 288,248 Q282,275 286,300 Q288,310 295,315"/>
+    <path d="M340,200 Q360,225 368,255 Q372,278 368,300 Q366,310 360,315"/>
+    <!-- Cat front legs (slender) -->
+    <path d="M295,315 Q292,335 294,350 Q296,357 302,357 Q307,357 307,350"/>
+    <path d="M320,312 Q318,335 320,350 Q322,357 328,357 Q333,357 333,350"/>
+    <!-- Cat back legs -->
+    <path d="M345,310 Q343,332 345,350 Q347,357 353,357 Q358,357 358,350"/>
+    <path d="M360,315 Q362,332 360,350 Q358,357 352,357"/>
+    <!-- Cat tail (elegant upward curve) -->
+    <path d="M368,300 Q385,280 395,258 Q400,242 395,228 Q390,220 382,225"/>
+    <!-- Cat belly -->
+    <path d="M295,315 Q308,322 320,312"/>
+    <path d="M345,310 Q352,318 360,315"/>
+  </g>
+
+  <!-- Petfolio text -->
+  <text x="256" y="430" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="62" font-weight="700" fill="#2D3A2E" letter-spacing="-1">
+    Petfolio
+  </text>
+
+  <!-- Subtle tagline -->
+  <text x="256" y="462" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="18" fill="#6B7C6B" letter-spacing="3">
+    COMPANION APP
+  </text>
+</svg>

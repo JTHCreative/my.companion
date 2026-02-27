@@ -71,6 +71,7 @@ const PAGE_PEEK = 10;
 const PAGE_GAP = 8;
 const PAGE_WIDTH = SCREEN_WIDTH - PAGE_PEEK * 2;
 const SNAP_OFFSET = PAGE_WIDTH + PAGE_GAP;
+const BOUNCE_MAX = Math.round(PAGE_WIDTH * 0.25);
 
 function handleCallVet(phone: string) {
   const cleaned = phone.replace(/[^\d+]/g, '');
@@ -460,21 +461,23 @@ export function HomeScreen({ navigation }: any) {
   const { pets, selectedPetId, selectPet, scheduleEvents } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
-  // Swipe carousel — native horizontal ScrollView with snap
+  // Swipe carousel — native horizontal ScrollView with snap + edge bounce
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
   const scrollRef = useRef<ScrollView>(null);
   const lastScrollIndex = useRef(currentIndex);
+  const snapOffsets = pets.map((_, i) => BOUNCE_MAX + i * SNAP_OFFSET);
+  const initialOffset = useRef({ x: BOUNCE_MAX + currentIndex * SNAP_OFFSET, y: 0 });
 
   // Sync scroll position when pet changes externally (e.g. header avatar tap)
   useEffect(() => {
     if (currentIndex !== lastScrollIndex.current) {
-      scrollRef.current?.scrollTo({ x: currentIndex * SNAP_OFFSET, animated: true });
+      scrollRef.current?.scrollTo({ x: BOUNCE_MAX + currentIndex * SNAP_OFFSET, animated: true });
     }
     lastScrollIndex.current = currentIndex;
   }, [currentIndex]);
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const newIndex = Math.round(e.nativeEvent.contentOffset.x / SNAP_OFFSET);
+    const newIndex = Math.round((e.nativeEvent.contentOffset.x - BOUNCE_MAX) / SNAP_OFFSET);
     const clamped = Math.max(0, Math.min(pets.length - 1, newIndex));
     if (clamped !== currentIndex) {
       lastScrollIndex.current = clamped;
@@ -530,10 +533,15 @@ export function HomeScreen({ navigation }: any) {
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          snapToInterval={SNAP_OFFSET}
+          snapToOffsets={snapOffsets}
+          snapToStart={false}
+          snapToEnd={false}
           decelerationRate="fast"
           disableIntervalMomentum
-          contentContainerStyle={{ paddingHorizontal: PAGE_PEEK }}
+          bounces={false}
+          overScrollMode="never"
+          contentContainerStyle={{ paddingLeft: BOUNCE_MAX + PAGE_PEEK, paddingRight: BOUNCE_MAX + PAGE_PEEK }}
+          contentOffset={initialOffset.current}
           onMomentumScrollEnd={handleScrollEnd}
           style={{ flex: 1 }}
         >

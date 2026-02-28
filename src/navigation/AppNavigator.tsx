@@ -98,7 +98,7 @@ function MainTabs() {
         tabBarBackground: () => (
           <LinearGradient
             colors={['transparent', tabBarColor]}
-            locations={[0, 0.5]}
+            locations={[0, 0.45]}
             style={[navStyles.tabBarGradient, { height: gradientHeight }]}
           />
         ),

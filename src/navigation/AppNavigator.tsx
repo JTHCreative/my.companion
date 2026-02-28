@@ -1,9 +1,10 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -53,6 +54,9 @@ function MainTabs() {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 8);
   const tabBarHeight = 56 + bottomPadding;
+  const gradientHeight = tabBarHeight + 20;
+
+  const tabBarColor = theme.colors.tabBar;
 
   return (
     <Tab.Navigator
@@ -83,12 +87,21 @@ function MainTabs() {
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.tabBarInactive,
         tabBarStyle: {
-          backgroundColor: theme.colors.tabBar,
-          borderTopColor: theme.colors.border,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          position: 'absolute',
+          elevation: 0,
           paddingBottom: bottomPadding,
           paddingTop: 8,
           height: tabBarHeight,
         },
+        tabBarBackground: () => (
+          <LinearGradient
+            colors={['transparent', tabBarColor]}
+            locations={[0, 0.5]}
+            style={[navStyles.tabBarGradient, { height: gradientHeight }]}
+          />
+        ),
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
@@ -151,3 +164,12 @@ export function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const navStyles = StyleSheet.create({
+  tabBarGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+});

@@ -237,13 +237,10 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
 
         {/* Centered profile content */}
         <View style={styles.profileContent}>
-          <TouchableOpacity activeOpacity={0.7} onPress={onOpenGallery}>
+          <TouchableOpacity activeOpacity={0.7} onPress={onOpenGallery} style={styles.profileImageWrap}>
             {pet.profileImage ? (
               <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
                 <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
-                <View style={styles.galleryBadge}>
-                  <Ionicons name="images" size={10} color="#FFFFFF" />
-                </View>
               </View>
             ) : (
               <View
@@ -258,11 +255,11 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
                   size={44}
                   color={typeColor.icon}
                 />
-                <View style={styles.galleryBadge}>
-                  <Ionicons name="images" size={10} color="#FFFFFF" />
-                </View>
               </View>
             )}
+            <View style={styles.galleryBadge}>
+              <Ionicons name="images" size={10} color="#FFFFFF" />
+            </View>
           </TouchableOpacity>
 
           <Text style={[styles.petName, { color: theme.colors.text }]}>
@@ -1027,6 +1024,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  profileImageWrap: {
+    position: 'relative',
+  },
   profileImageRing: {
     width: 92,
     height: 92,
@@ -1048,9 +1048,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,

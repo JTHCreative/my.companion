@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -49,6 +50,9 @@ function HomeStackNavigator() {
 
 function MainTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 8);
+  const tabBarHeight = 56 + bottomPadding;
 
   return (
     <Tab.Navigator
@@ -81,9 +85,9 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: theme.colors.tabBar,
           borderTopColor: theme.colors.border,
-          paddingBottom: 8,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 88,
+          height: tabBarHeight,
         },
         tabBarLabelStyle: {
           fontSize: 11,

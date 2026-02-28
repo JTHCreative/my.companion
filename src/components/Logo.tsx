@@ -5,9 +5,11 @@ interface LogoProps {
   size?: number;
   /** When true, only renders the icon without text */
   iconOnly?: boolean;
+  /** Stroke color for all paths (defaults to black) */
+  color?: string;
 }
 
-export function Logo({ size = 512, iconOnly = false }: LogoProps) {
+export function Logo({ size = 512, iconOnly = false, color = '#000000' }: LogoProps) {
   return (
     <Svg
       width={size}
@@ -17,7 +19,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Right ear/head area */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -27,7 +29,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Table/platform left side */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -37,7 +39,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Left animal body */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -47,7 +49,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Top horizontal line with legs */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -57,7 +59,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Right side table/platform */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -67,7 +69,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Bottom left shelf line */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -77,7 +79,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Center body/face area */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -87,7 +89,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Upper body curve */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -97,7 +99,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Left body upper curve */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -107,7 +109,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Bottom right shelf line */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -117,7 +119,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Right leg detail */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -127,7 +129,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Right collar/neck detail */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -137,7 +139,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Left body lower detail */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -147,7 +149,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small horizontal line */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={4}
@@ -157,7 +159,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small mouth/nose detail */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={10}
@@ -167,7 +169,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Right front leg */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -177,7 +179,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Right back leg */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -187,7 +189,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small connector line */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={8}
@@ -197,7 +199,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small detail - right eye */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={3}
@@ -207,7 +209,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small detail - left eye */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={3}
@@ -217,7 +219,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small detail - whisker */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={3}
@@ -227,7 +229,7 @@ export function Logo({ size = 512, iconOnly = false }: LogoProps) {
       {/* Small detail - tail tip */}
       <Path
         fill="none"
-        stroke="#000000"
+        stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={3}

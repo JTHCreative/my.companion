@@ -14,7 +14,7 @@ export function Logo({ size = 512, iconOnly = false, color = '#000000' }: LogoPr
     <Svg
       width={size}
       height={size}
-      viewBox={iconOnly ? '240 240 560 470' : '0 0 1024 1024'}
+      viewBox={iconOnly ? '245 235 545 465' : '0 0 1024 1024'}
     >
       {/* Right ear/head area */}
       <Path

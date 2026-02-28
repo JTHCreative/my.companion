@@ -48,7 +48,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
           { opacity, transform: [{ scale }] },
         ]}
       >
-        <Logo size={220} />
+        <Logo size={240} />
       </Animated.View>
       <Animated.View style={[styles.textWrap, { opacity: titleOpacity }]}>
         <Text style={styles.title}>Petfolio</Text>
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 2,
   },
   title: {
     fontSize: 42,

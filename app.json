@@ -23,7 +23,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F5F7F4"
+        "backgroundColor": "#6FA85C"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.mycompanion.app",

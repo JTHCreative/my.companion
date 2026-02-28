@@ -140,7 +140,7 @@ export function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen
           name="Settings"

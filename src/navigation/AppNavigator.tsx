@@ -22,8 +22,9 @@ const HomeStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
+  const { theme } = useTheme();
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
       <HomeStack.Screen name="Home" component={HomeScreen} />
       <HomeStack.Screen
         name="AddPet"
@@ -158,7 +159,7 @@ export function AppNavigator() {
         <RootStack.Screen
           name="Settings"
           component={SettingsScreen}
-          options={{ presentation: 'modal' }}
+          options={{ presentation: 'modal', contentStyle: { backgroundColor: theme.colors.background } }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

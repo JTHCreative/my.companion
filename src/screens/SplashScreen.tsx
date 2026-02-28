@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 10,
   },
   title: {
     fontSize: 42,

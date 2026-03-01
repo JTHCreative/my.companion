@@ -369,7 +369,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
           />
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

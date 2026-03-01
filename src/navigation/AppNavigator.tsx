@@ -171,7 +171,7 @@ export function AppNavigator() {
         <RootStack.Screen
           name="Settings"
           component={SettingsScreen}
-          options={{ animation: 'slide_from_bottom', contentStyle: { backgroundColor: theme.colors.background } }}
+          options={{ presentation: 'fullScreenModal', contentStyle: { backgroundColor: theme.colors.background } }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

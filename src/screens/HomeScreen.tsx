@@ -408,26 +408,32 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
 
         {notesExpanded && (
           <View style={[styles.notesBody, { borderTopColor: theme.colors.border }]}>
-            {(pet.bulletNotes ?? []).map((note: { id: string; text: string }) => (
-              <View key={note.id} style={styles.noteItem}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={theme.dark ? '#7ABADF' : '#3B8BBE'}
-                  style={styles.noteBullet}
-                />
-                <Text style={[styles.noteText, { color: theme.colors.text }]}>{note.text}</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    const updated = (pet.bulletNotes ?? []).filter((n: { id: string }) => n.id !== note.id);
-                    updatePet({ ...pet, bulletNotes: updated });
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="close-circle-outline" size={18} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-            ))}
+            {(pet.bulletNotes ?? []).length === 0 ? (
+              <Text style={[styles.notesEmptyText, { color: theme.colors.textSecondary }]}>
+                Add a note below and it will appear here.
+              </Text>
+            ) : (
+              (pet.bulletNotes ?? []).map((note: { id: string; text: string }) => (
+                <View key={note.id} style={styles.noteItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.dark ? '#7ABADF' : '#3B8BBE'}
+                    style={styles.noteBullet}
+                  />
+                  <Text style={[styles.noteText, { color: theme.colors.text }]}>{note.text}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const updated = (pet.bulletNotes ?? []).filter((n: { id: string }) => n.id !== note.id);
+                      updatePet({ ...pet, bulletNotes: updated });
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
 
             <View style={[styles.noteInputRow, { borderTopColor: theme.colors.border }]}>
               <TextInput
@@ -1284,6 +1290,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
+  },
+  notesEmptyText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
   },
   noteItem: {
     flexDirection: 'row',

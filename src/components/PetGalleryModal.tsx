@@ -114,7 +114,7 @@ export function PetGalleryModal({
       if (i < galleryImages.length) {
         cells.push(
           <TouchableOpacity
-            key={i}
+            key={`img-${galleryImages[i]}`}
             activeOpacity={0.8}
             onPress={() => setViewingImage(galleryImages[i])}
             onLongPress={() => handleLongPress(i)}
@@ -134,7 +134,7 @@ export function PetGalleryModal({
         // Add button in next empty slot
         cells.push(
           <TouchableOpacity
-            key={i}
+            key={`add-${i}`}
             activeOpacity={0.7}
             onPress={showAddOptions}
             style={[
@@ -158,7 +158,7 @@ export function PetGalleryModal({
         // Empty placeholder
         cells.push(
           <View
-            key={i}
+            key={`empty-${i}`}
             style={[
               styles.gridCell,
               {

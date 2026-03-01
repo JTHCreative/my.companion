@@ -186,14 +186,14 @@ export function PetGalleryModal({
       >
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-            <TouchableOpacity onPress={onClose} style={styles.headerButton}>
-              <Ionicons name="close" size={24} color={theme.colors.text} />
+          <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+            <TouchableOpacity onPress={onClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
               {pet.name}'s Gallery
             </Text>
-            <View style={styles.headerButton}>
+            <View style={styles.backButton}>
               <Text style={[styles.photoCount, { color: theme.colors.textSecondary }]}>
                 {galleryImages.length}/{MAX_PHOTOS}
               </Text>
@@ -273,19 +273,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingBottom: 16,
     paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 14,
     borderBottomWidth: 1,
   },
-  headerButton: {
-    padding: 4,
-    minWidth: 50,
+  backButton: {
+    width: 40,
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   photoCount: {
     fontSize: 14,

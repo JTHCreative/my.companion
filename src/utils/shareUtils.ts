@@ -37,6 +37,13 @@ export function buildProfileSummary(
     );
   }
   if (pet.notes) lines.push(`Notes: ${pet.notes}`);
+  if (pet.bulletNotes && pet.bulletNotes.length > 0) {
+    lines.push('');
+    lines.push('Care Notes:');
+    pet.bulletNotes.forEach((note) => {
+      lines.push(`  • ${note.text}`);
+    });
+  }
 
   if (schedule.length > 0) {
     lines.push('');

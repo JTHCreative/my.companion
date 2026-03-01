@@ -717,8 +717,8 @@ export function HomeScreen({ navigation }: any) {
           snapToOffsets={snapOffsets}
           snapToStart={false}
           snapToEnd={false}
-          decelerationRate={0.997}
-          disableIntervalMomentum={false}
+          decelerationRate="fast"
+          disableIntervalMomentum={true}
           bounces={false}
           overScrollMode="never"
           contentContainerStyle={{ paddingLeft: BOUNCE_MAX + PAGE_PEEK, paddingRight: BOUNCE_MAX + PAGE_PEEK }}

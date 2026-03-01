@@ -34,6 +34,9 @@ interface DataContextValue {
 
   importPetData: (data: SharedPetData) => Promise<string>;
 
+  petSelectorOpen: boolean;
+  setPetSelectorOpen: (open: boolean) => void;
+
   loading: boolean;
 }
 
@@ -64,6 +67,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [vetInfo, setVetInfo] = useState<VetInfo[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [petSelectorOpen, setPetSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -340,6 +344,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         updateMedication,
         deleteMedication,
         importPetData,
+        petSelectorOpen,
+        setPetSelectorOpen,
         loading,
       }}
     >

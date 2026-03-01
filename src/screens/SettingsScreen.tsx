@@ -7,23 +7,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
 export function SettingsScreen({ navigation }: { navigation: any }) {
   const { theme, toggleTheme, isDark } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <PetAvatarHeader
-        title="Settings"
-        onAddPet={() => navigation.navigate('AddPet')}
-        initialSelectorOpen
-        rightAccessory={
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
-        }
-      />
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Settings</Text>
+        <View style={styles.backButton} />
+      </View>
 
       {/* Theme Section */}
       <View style={styles.section}>
@@ -98,6 +95,23 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    width: 40,
+    alignItems: 'flex-start',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   section: {
     paddingHorizontal: 20,

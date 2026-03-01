@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { HomeScreen } from '../screens/HomeScreen';
 import { AddEditPetScreen } from '../screens/AddEditPetScreen';
@@ -16,6 +17,8 @@ import { MedicalScreen } from '../screens/MedicalScreen';
 import { SharePetScreen } from '../screens/SharePetScreen';
 import { ImportPetScreen } from '../screens/ImportPetScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { SignInScreen } from '../screens/SignInScreen';
+import { SignUpScreen } from '../screens/SignUpScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
@@ -137,21 +140,18 @@ function MainTabs() {
   );
 }
 
-export function AppNavigator() {
-  const { theme, isDark } = useTheme();
-  const { loading } = useData();
+function AuthFlow() {
+  const [screen, setScreen] = useState<'signIn' | 'signUp'>('signIn');
 
-  const navigationTheme = {
-    ...(isDark ? DarkTheme : DefaultTheme),
-    colors: {
-      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
-      background: theme.colors.background,
-      card: theme.colors.card,
-      text: theme.colors.text,
-      border: theme.colors.border,
-      primary: theme.colors.primary,
-    },
-  };
+  if (screen === 'signUp') {
+    return <SignUpScreen onGoToSignIn={() => setScreen('signIn')} />;
+  }
+  return <SignInScreen onGoToSignUp={() => setScreen('signUp')} />;
+}
+
+function MainApp() {
+  const { theme } = useTheme();
+  const { loading } = useData();
 
   if (loading) {
     return (
@@ -168,9 +168,43 @@ export function AppNavigator() {
     );
   }
 
+  return <MainTabs />;
+}
+
+export function AppNavigator() {
+  const { theme, isDark } = useTheme();
+  const { user, initializing } = useAuth();
+
+  const navigationTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: theme.colors.background,
+      card: theme.colors.card,
+      text: theme.colors.text,
+      border: theme.colors.border,
+      primary: theme.colors.primary,
+    },
+  };
+
+  if (initializing) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer theme={navigationTheme}>
-      <MainTabs />
+      {user ? <MainApp /> : <AuthFlow />}
     </NavigationContainer>
   );
 }

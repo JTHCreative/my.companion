@@ -4,12 +4,32 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 export function SettingsScreen({ navigation }: { navigation: any }) {
   const { theme, toggleTheme, isDark } = useTheme();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch {
+            Alert.alert('Error', 'Failed to sign out. Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -87,6 +107,34 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
             </View>
           </View>
         </View>
+      </View>
+
+      {/* Account Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+          ACCOUNT
+        </Text>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingLabel}>
+              <Ionicons name="mail-outline" size={22} color={theme.colors.primary} />
+              <Text style={[styles.settingText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                {user?.email}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <TouchableOpacity
+          onPress={handleSignOut}
+          activeOpacity={0.7}
+          style={[styles.signOutButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+        >
+          <Ionicons name="log-out-outline" size={22} color={theme.colors.danger} />
+          <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Sign Out</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -172,5 +220,18 @@ const styles = StyleSheet.create({
   },
   toggleTextActive: {
     fontWeight: '700',
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  signOutText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

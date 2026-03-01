@@ -30,17 +30,20 @@ interface PetAvatarHeaderProps {
   onAddPet: () => void;
   /** Optional extra element rendered between the title and avatar (e.g. add button) */
   rightAccessory?: React.ReactNode;
+  /** Whether the pet selector bar starts open (defaults to false) */
+  initialSelectorOpen?: boolean;
 }
 
 export function PetAvatarHeader({
   title,
   onAddPet,
   rightAccessory,
+  initialSelectorOpen = false,
 }: PetAvatarHeaderProps) {
   const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet } = useData();
   const navigation = useNavigation<any>();
-  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectorOpen, setSelectorOpen] = useState(initialSelectorOpen);
 
   const renderHeaderAvatar = () => {
     if (!selectedPet) return null;

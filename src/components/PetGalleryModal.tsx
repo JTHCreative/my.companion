@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,10 +37,19 @@ export function PetGalleryModal({
   const { theme } = useTheme();
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>(pet.galleryImages || []);
+  const galleryImagesRef = useRef(galleryImages);
 
   useEffect(() => {
-    setGalleryImages(pet.galleryImages || []);
+    const images = pet.galleryImages || [];
+    galleryImagesRef.current = images;
+    setGalleryImages(images);
   }, [pet.galleryImages]);
+
+  const updateGallery = (newImages: string[]) => {
+    galleryImagesRef.current = newImages;
+    setGalleryImages(newImages);
+    onUpdateGallery(newImages);
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -51,9 +60,7 @@ export function PetGalleryModal({
     });
 
     if (!result.canceled) {
-      const newImages = [...galleryImages, result.assets[0].uri];
-      setGalleryImages(newImages);
-      onUpdateGallery(newImages);
+      updateGallery([...galleryImagesRef.current, result.assets[0].uri]);
     }
   };
 
@@ -71,9 +78,7 @@ export function PetGalleryModal({
     });
 
     if (!result.canceled) {
-      const newImages = [...galleryImages, result.assets[0].uri];
-      setGalleryImages(newImages);
-      onUpdateGallery(newImages);
+      updateGallery([...galleryImagesRef.current, result.assets[0].uri]);
     }
   };
 
@@ -92,9 +97,7 @@ export function PetGalleryModal({
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
-          const newImages = galleryImages.filter((_, i) => i !== index);
-          setGalleryImages(newImages);
-          onUpdateGallery(newImages);
+          updateGallery(galleryImagesRef.current.filter((_, i) => i !== index));
         },
       },
     ]);

@@ -9,6 +9,7 @@ export interface Pet {
   weightUnit: 'lbs' | 'kg';
   personality: string;
   profileImage: string | null;
+  galleryImages?: string[];
   birthday?: string;
   notes?: string;
 }

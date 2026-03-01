@@ -21,6 +21,7 @@ import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
+import { PetGalleryModal } from '../components/PetGalleryModal';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   dog: 'dog',
@@ -183,7 +184,7 @@ function formatBirthday(birthday: string): string | null {
   });
 }
 
-function PetPageContent({ pet, navigation, onDetailEvent }: { pet: any; navigation: any; onDetailEvent: (id: string) => void }) {
+function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet: any; navigation: any; onDetailEvent: (id: string) => void; onOpenGallery: () => void }) {
   const { theme } = useTheme();
   const { scheduleEvents, meals, medications, vetInfo } = useData();
   const [showPetYears, setShowPetYears] = useState(false);
@@ -236,25 +237,30 @@ function PetPageContent({ pet, navigation, onDetailEvent }: { pet: any; navigati
 
         {/* Centered profile content */}
         <View style={styles.profileContent}>
-          {pet.profileImage ? (
-            <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
-              <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+          <TouchableOpacity activeOpacity={0.7} onPress={onOpenGallery} style={styles.profileImageWrap}>
+            {pet.profileImage ? (
+              <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
+                <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.profileImageRing,
+                  styles.profilePlaceholder,
+                  { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={PET_TYPE_ICONS[pet.type] || 'paw'}
+                  size={44}
+                  color={typeColor.icon}
+                />
+              </View>
+            )}
+            <View style={styles.galleryBadge}>
+              <Ionicons name="images" size={10} color="#FFFFFF" />
             </View>
-          ) : (
-            <View
-              style={[
-                styles.profileImageRing,
-                styles.profilePlaceholder,
-                { backgroundColor: typeColor.bg, borderColor: typeColor.icon },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name={PET_TYPE_ICONS[pet.type] || 'paw'}
-                size={44}
-                color={typeColor.icon}
-              />
-            </View>
-          )}
+          </TouchableOpacity>
 
           <Text style={[styles.petName, { color: theme.colors.text }]}>
             {pet.name}
@@ -459,8 +465,10 @@ function PetPageContent({ pet, navigation, onDetailEvent }: { pet: any; navigati
 
 export function HomeScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { pets, selectedPetId, selectPet, scheduleEvents } = useData();
+  const { pets, selectedPetId, selectPet, scheduleEvents, updatePet } = useData();
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
+  const [galleryPetId, setGalleryPetId] = useState<string | null>(null);
+  const galleryPet = galleryPetId ? pets.find((p) => p.id === galleryPetId) : null;
 
   // Swipe carousel — native horizontal ScrollView with snap + rubber-band edges
   const currentIndex = pets.findIndex(p => p.id === selectedPetId);
@@ -623,6 +631,7 @@ export function HomeScreen({ navigation }: any) {
                   pet={pet}
                   navigation={navigation}
                   onDetailEvent={setDetailEvent}
+                  onOpenGallery={() => setGalleryPetId(pet.id)}
                 />
               </View>
             ))}
@@ -912,6 +921,18 @@ export function HomeScreen({ navigation }: any) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Pet Gallery Modal */}
+      {galleryPet && (
+        <PetGalleryModal
+          visible={galleryPetId !== null}
+          pet={galleryPet}
+          onClose={() => setGalleryPetId(null)}
+          onUpdateGallery={async (images) => {
+            await updatePet({ ...galleryPet, galleryImages: images });
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -1003,6 +1024,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  profileImageWrap: {
+    position: 'relative',
+  },
   profileImageRing: {
     width: 92,
     height: 92,
@@ -1018,6 +1042,19 @@ const styles = StyleSheet.create({
   profilePlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  galleryBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#555555',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   petName: {
     fontSize: 24,

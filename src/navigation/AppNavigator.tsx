@@ -1,9 +1,11 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -17,31 +19,36 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
-const RootStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
+  const { theme } = useTheme();
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
       <HomeStack.Screen name="Home" component={HomeScreen} />
       <HomeStack.Screen
         name="AddPet"
         component={AddEditPetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
       <HomeStack.Screen
         name="EditPet"
         component={AddEditPetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
       <HomeStack.Screen
         name="SharePet"
         component={SharePetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
       <HomeStack.Screen
         name="ImportPet"
         component={ImportPetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <HomeStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ animation: 'slide_from_bottom' }}
       />
     </HomeStack.Navigator>
   );
@@ -49,6 +56,12 @@ function HomeStackNavigator() {
 
 function MainTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 8);
+  const tabBarHeight = 56 + bottomPadding;
+  const gradientHeight = tabBarHeight + 20;
+
+  const tabBarColor = theme.colors.tabBar;
 
   return (
     <Tab.Navigator
@@ -79,12 +92,21 @@ function MainTabs() {
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.tabBarInactive,
         tabBarStyle: {
-          backgroundColor: theme.colors.tabBar,
-          borderTopColor: theme.colors.border,
-          paddingBottom: 8,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          position: 'absolute',
+          elevation: 0,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 88,
+          height: tabBarHeight,
         },
+        tabBarBackground: () => (
+          <LinearGradient
+            colors={['transparent', tabBarColor]}
+            locations={[0, 0.45]}
+            style={[navStyles.tabBarGradient, { height: gradientHeight }]}
+          />
+        ),
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
@@ -116,8 +138,20 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { loading } = useData();
+
+  const navigationTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: theme.colors.background,
+      card: theme.colors.card,
+      text: theme.colors.text,
+      border: theme.colors.border,
+      primary: theme.colors.primary,
+    },
+  };
 
   if (loading) {
     return (
@@ -135,15 +169,17 @@ export function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="Main" component={MainTabs} />
-        <RootStack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ presentation: 'modal' }}
-        />
-      </RootStack.Navigator>
+    <NavigationContainer theme={navigationTheme}>
+      <MainTabs />
     </NavigationContainer>
   );
 }
+
+const navStyles = StyleSheet.create({
+  tabBarGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+});

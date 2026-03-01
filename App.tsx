@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Text, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { DataProvider } from './src/context/DataContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -28,12 +29,14 @@ function AppContent() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <DataProvider>
-        <AppNavigator />
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-      </DataProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <DataProvider>
+          <AppNavigator />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+        </DataProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -38,20 +38,19 @@ export function PetAvatarHeader({
   rightAccessory,
 }: PetAvatarHeaderProps) {
   const { theme } = useTheme();
-  const { pets, selectedPet, selectedPetId, selectPet } = useData();
+  const { pets, selectedPet, selectedPetId, selectPet, petSelectorOpen, setPetSelectorOpen } = useData();
   const navigation = useNavigation<any>();
-  const [selectorOpen, setSelectorOpen] = useState(false);
 
   const renderHeaderAvatar = () => {
     if (!selectedPet) return null;
     return (
       <TouchableOpacity
-        onPress={() => setSelectorOpen(!selectorOpen)}
+        onPress={() => setPetSelectorOpen(!petSelectorOpen)}
         activeOpacity={0.7}
         style={[
           styles.headerAvatar,
           {
-            borderColor: selectorOpen
+            borderColor: petSelectorOpen
               ? theme.colors.primary
               : theme.colors.border,
           },
@@ -82,7 +81,7 @@ export function PetAvatarHeader({
   };
 
   const renderPetSelectorBar = () => {
-    if (!selectorOpen) return null;
+    if (!petSelectorOpen) return null;
     return (
       <View
         style={[
@@ -106,7 +105,7 @@ export function PetAvatarHeader({
                 key={pet.id}
                 onPress={() => {
                   selectPet(pet.id);
-                  setSelectorOpen(false);
+                  setPetSelectorOpen(false);
                 }}
                 activeOpacity={0.7}
                 style={styles.selectorItem}
@@ -162,7 +161,7 @@ export function PetAvatarHeader({
           {/* Add New Pet */}
           <TouchableOpacity
             onPress={() => {
-              setSelectorOpen(false);
+              setPetSelectorOpen(false);
               onAddPet();
             }}
             activeOpacity={0.7}
@@ -186,7 +185,6 @@ export function PetAvatarHeader({
         {/* Settings button */}
         <TouchableOpacity
           onPress={() => {
-            setSelectorOpen(false);
             navigation.navigate('Settings');
           }}
           activeOpacity={0.7}

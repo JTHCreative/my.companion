@@ -12,6 +12,7 @@ export interface Pet {
   galleryImages?: string[];
   birthday?: string;
   notes?: string;
+  bulletNotes?: { id: string; text: string }[];
 }
 
 export type ScheduleEventType =

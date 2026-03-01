@@ -14,6 +14,7 @@ import {
   Animated,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -22,6 +23,7 @@ import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
 import { PetGalleryModal } from '../components/PetGalleryModal';
+import { generateId } from '../utils/generateId';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   dog: 'dog',
@@ -186,8 +188,10 @@ function formatBirthday(birthday: string): string | null {
 
 function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet: any; navigation: any; onDetailEvent: (id: string) => void; onOpenGallery: () => void }) {
   const { theme } = useTheme();
-  const { scheduleEvents, meals, medications, vetInfo } = useData();
+  const { scheduleEvents, meals, medications, vetInfo, updatePet } = useData();
   const [showPetYears, setShowPetYears] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
 
   const petSchedule = scheduleEvents.filter((e) => e.petId === pet.id);
   const petMeals = meals.filter((m) => m.petId === pet.id);
@@ -373,6 +377,113 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
             </View>
           </View>
         ) : null}
+      </Card>
+
+      {/* Notes Section */}
+      <Card style={styles.notesCard}>
+        <TouchableOpacity
+          style={styles.notesHeader}
+          activeOpacity={0.7}
+          onPress={() => setNotesExpanded((v) => !v)}
+        >
+          <View style={styles.notesHeaderLeft}>
+            <View style={[styles.notesIconWrap, { backgroundColor: theme.dark ? '#2A3A4A' : '#E8F4FD' }]}>
+              <Ionicons name="document-text-outline" size={18} color={theme.dark ? '#7ABADF' : '#3B8BBE'} />
+            </View>
+            <Text style={[styles.notesTitle, { color: theme.colors.text }]}>Notes</Text>
+            {(pet.bulletNotes?.length ?? 0) > 0 && (
+              <View style={[styles.notesCountBadge, { backgroundColor: theme.dark ? '#2A3A4A' : '#E8F4FD' }]}>
+                <Text style={[styles.notesCountText, { color: theme.dark ? '#7ABADF' : '#3B8BBE' }]}>
+                  {pet.bulletNotes.length}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Ionicons
+            name={notesExpanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={theme.colors.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {notesExpanded && (
+          <View style={[styles.notesBody, { borderTopColor: theme.colors.border }]}>
+            {(pet.bulletNotes ?? []).length === 0 ? (
+              <Text style={[styles.notesEmptyText, { color: theme.colors.textSecondary }]}>
+                Add a note below and it will appear here.
+              </Text>
+            ) : (
+              (pet.bulletNotes ?? []).map((note: { id: string; text: string }) => (
+                <View key={note.id} style={styles.noteItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.dark ? '#7ABADF' : '#3B8BBE'}
+                    style={styles.noteBullet}
+                  />
+                  <Text style={[styles.noteText, { color: theme.colors.text }]}>{note.text}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const updated = (pet.bulletNotes ?? []).filter((n: { id: string }) => n.id !== note.id);
+                      updatePet({ ...pet, bulletNotes: updated });
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+
+            <View style={[styles.noteInputRow, { borderTopColor: theme.colors.border }]}>
+              <TextInput
+                style={[
+                  styles.noteInput,
+                  {
+                    color: theme.colors.text,
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                placeholder="Add a note..."
+                placeholderTextColor={theme.colors.textSecondary}
+                value={newNoteText}
+                onChangeText={setNewNoteText}
+                onSubmitEditing={() => {
+                  if (newNoteText.trim()) {
+                    const updated = [
+                      ...(pet.bulletNotes ?? []),
+                      { id: generateId(), text: newNoteText.trim() },
+                    ];
+                    updatePet({ ...pet, bulletNotes: updated });
+                    setNewNoteText('');
+                  }
+                }}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={[
+                  styles.noteAddBtn,
+                  { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary },
+                  !newNoteText.trim() && { opacity: 0.4 },
+                ]}
+                onPress={() => {
+                  if (newNoteText.trim()) {
+                    const updated = [
+                      ...(pet.bulletNotes ?? []),
+                      { id: generateId(), text: newNoteText.trim() },
+                    ];
+                    updatePet({ ...pet, bulletNotes: updated });
+                    setNewNoteText('');
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </Card>
 
       {/* Quick Stats */}
@@ -1136,6 +1247,93 @@ const styles = StyleSheet.create({
   personalityText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+
+  /* Notes section */
+  notesCard: {
+    marginTop: 8,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notesHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notesIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notesTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  notesCountBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  notesCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  notesBody: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  notesEmptyText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 10,
+  },
+  noteBullet: {
+    flexShrink: 0,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  noteInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  noteInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 14,
+  },
+  noteAddBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   /* Stats */

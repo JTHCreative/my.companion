@@ -29,22 +29,22 @@ function HomeStackNavigator() {
       <HomeStack.Screen
         name="AddPet"
         component={AddEditPetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
       <HomeStack.Screen
         name="EditPet"
         component={AddEditPetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
       <HomeStack.Screen
         name="SharePet"
         component={SharePetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
       <HomeStack.Screen
         name="ImportPet"
         component={ImportPetScreen}
-        options={{ presentation: 'modal' }}
+        options={{ animation: 'slide_from_bottom' }}
       />
     </HomeStack.Navigator>
   );
@@ -171,7 +171,7 @@ export function AppNavigator() {
         <RootStack.Screen
           name="Settings"
           component={SettingsScreen}
-          options={{ presentation: 'modal', contentStyle: { backgroundColor: theme.colors.background } }}
+          options={{ animation: 'slide_from_bottom', contentStyle: { backgroundColor: theme.colors.background } }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

@@ -19,7 +19,6 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
-const RootStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
   const { theme } = useTheme();
@@ -44,6 +43,11 @@ function HomeStackNavigator() {
       <HomeStack.Screen
         name="ImportPet"
         component={ImportPetScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <HomeStack.Screen
+        name="Settings"
+        component={SettingsScreen}
         options={{ animation: 'slide_from_bottom' }}
       />
     </HomeStack.Navigator>
@@ -166,14 +170,7 @@ export function AppNavigator() {
 
   return (
     <NavigationContainer theme={navigationTheme}>
-      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
-        <RootStack.Screen name="Main" component={MainTabs} />
-        <RootStack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ presentation: 'fullScreenModal', contentStyle: { backgroundColor: theme.colors.background } }}
-        />
-      </RootStack.Navigator>
+      <MainTabs />
     </NavigationContainer>
   );
 }

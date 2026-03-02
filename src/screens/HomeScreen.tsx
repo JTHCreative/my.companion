@@ -632,6 +632,12 @@ export function HomeScreen({ navigation }: any) {
     },
   );
 
+  // Ensure correct scroll position on mount (contentOffset prop is unreliable)
+  useEffect(() => {
+    const target = BOUNCE_MAX + currentIndex * SNAP_OFFSET;
+    scrollRef.current?.scrollTo({ x: target, animated: false });
+  }, []);
+
   // Sync scroll position when pet changes externally (e.g. header avatar tap)
   useEffect(() => {
     if (currentIndex !== lastScrollIndex.current) {

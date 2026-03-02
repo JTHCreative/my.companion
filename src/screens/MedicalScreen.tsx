@@ -235,14 +235,14 @@ export function MedicalScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Medical"
-          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAddPet={() => navigation.navigate('AddPet')}
         />
         <EmptyState
           icon="medkit"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their medical information."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAction={() => navigation.navigate('AddPet')}
         />
       </View>
     );
@@ -252,7 +252,7 @@ export function MedicalScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Medical"
-        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        onAddPet={() => navigation.navigate('AddPet')}
       />
 
       <ScrollView

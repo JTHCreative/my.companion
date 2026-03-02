@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+} from '@react-native-firebase/auth';
+import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 interface AuthContextValue {
   user: FirebaseAuthTypes.User | null;
@@ -22,7 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((firebaseUser) => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       if (initializing) setInitializing(false);
     });
@@ -30,15 +38,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await auth().signInWithEmailAndPassword(email, password);
+    await signInWithEmailAndPassword(getAuth(), email, password);
   };
 
   const signUp = async (email: string, password: string) => {
-    await auth().createUserWithEmailAndPassword(email, password);
+    await createUserWithEmailAndPassword(getAuth(), email, password);
   };
 
   const signOut = async () => {
-    await auth().signOut();
+    await firebaseSignOut(getAuth());
   };
 
   return (

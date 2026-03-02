@@ -44,7 +44,34 @@ export function PetAvatarHeader({
   const navigation = useNavigation<any>();
 
   const renderHeaderAvatar = () => {
-    if (!selectedPet) return null;
+    if (!selectedPet) {
+      // Show user-initial fallback when no pet is selected
+      const initial = displayName ? displayName.charAt(0).toUpperCase() : '';
+      return (
+        <View
+          style={[
+            styles.headerAvatar,
+            { borderColor: theme.colors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.headerAvatarImage,
+              styles.headerAvatarPlaceholder,
+              { backgroundColor: theme.colors.primaryLight },
+            ]}
+          >
+            {initial ? (
+              <Text style={{ fontSize: 16, fontWeight: '700', color: theme.colors.primary }}>
+                {initial}
+              </Text>
+            ) : (
+              <Ionicons name="person" size={18} color={theme.colors.primary} />
+            )}
+          </View>
+        </View>
+      );
+    }
     return (
       <TouchableOpacity
         onPress={() => setPetSelectorOpen(!petSelectorOpen)}

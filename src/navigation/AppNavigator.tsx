@@ -22,6 +22,7 @@ import { SignUpScreen } from '../screens/SignUpScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
   const { theme } = useTheme();
@@ -46,11 +47,6 @@ function HomeStackNavigator() {
       <HomeStack.Screen
         name="ImportPet"
         component={ImportPetScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <HomeStack.Screen
-        name="Settings"
-        component={SettingsScreen}
         options={{ animation: 'slide_from_bottom' }}
       />
     </HomeStack.Navigator>
@@ -168,7 +164,16 @@ function MainApp() {
     );
   }
 
-  return <MainTabs />;
+  return (
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Screen name="Tabs" component={MainTabs} />
+      <RootStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+    </RootStack.Navigator>
+  );
 }
 
 export function AppNavigator() {

@@ -187,7 +187,7 @@ export function PetAvatarHeader({
         {/* Settings button */}
         <TouchableOpacity
           onPress={() => {
-            navigation.navigate('HomeTab', { screen: 'Settings' });
+            navigation.navigate('Settings');
           }}
           activeOpacity={0.7}
           style={[

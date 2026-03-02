@@ -7,6 +7,7 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -181,6 +182,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         <View style={styles.backButton} />
       </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       {/* Theme Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
@@ -373,6 +375,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
           <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -380,6 +383,9 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',

@@ -1,4 +1,7 @@
 {
+  "cli": {
+    "appVersionSource": "local"
+  },
   "expo": {
     "name": "Petfolio",
     "slug": "my-companion",

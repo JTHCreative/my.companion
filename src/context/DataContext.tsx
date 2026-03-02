@@ -98,18 +98,32 @@ async function writePetDoc(userId: string, petDocument: PetDocument): Promise<vo
   await setDoc(petDoc(userId, petDocument.id), petDocument);
 }
 
-// Migrate existing AsyncStorage data to the embedded Firestore structure
+// Migrate existing AsyncStorage data to the embedded Firestore structure.
+// Uses a global flag — the legacy data was never user-scoped, so it should
+// only ever be migrated once (to whichever user first logs in after the
+// Firestore upgrade). Every subsequent user starts with a blank slate.
 async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
-  const migrationKey = `${ASYNC_KEYS.migrated}_${userId}`;
-  const alreadyMigrated = await AsyncStorage.getItem(migrationKey);
+  const globalKey = ASYNC_KEYS.migrated;
+  const alreadyMigrated = await AsyncStorage.getItem(globalKey);
   if (alreadyMigrated === 'true') return;
 
+  // Also clear any stale legacy data keys unconditionally so no future
+  // user can ever inherit them, even if the batch write below is skipped.
   const [petsRaw, eventsRaw, mealsRaw, vetsRaw, medsRaw] = await Promise.all([
     AsyncStorage.getItem(ASYNC_KEYS.pets),
     AsyncStorage.getItem(ASYNC_KEYS.scheduleEvents),
     AsyncStorage.getItem(ASYNC_KEYS.meals),
     AsyncStorage.getItem(ASYNC_KEYS.vetInfo),
     AsyncStorage.getItem(ASYNC_KEYS.medications),
+  ]);
+
+  // Clear legacy keys immediately — regardless of whether we migrate
+  await Promise.all([
+    AsyncStorage.removeItem(ASYNC_KEYS.pets),
+    AsyncStorage.removeItem(ASYNC_KEYS.scheduleEvents),
+    AsyncStorage.removeItem(ASYNC_KEYS.meals),
+    AsyncStorage.removeItem(ASYNC_KEYS.vetInfo),
+    AsyncStorage.removeItem(ASYNC_KEYS.medications),
   ]);
 
   const pets: Pet[] = petsRaw ? JSON.parse(petsRaw) : [];
@@ -119,36 +133,22 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
   const meds: Medication[] = medsRaw ? JSON.parse(medsRaw) : [];
 
   const hasData = pets.length > 0 || events.length > 0 || meals.length > 0 || vets.length > 0 || meds.length > 0;
-  if (!hasData) {
-    await AsyncStorage.setItem(migrationKey, 'true');
-    return;
+  if (hasData) {
+    const batch = writeBatch(db);
+    for (const pet of pets) {
+      const petDocument: PetDocument = {
+        ...pet,
+        scheduleEvents: events.filter((e) => e.petId === pet.id),
+        meals: meals.filter((m) => m.petId === pet.id),
+        vetInfo: vets.filter((v) => v.petId === pet.id),
+        medications: meds.filter((m) => m.petId === pet.id),
+      };
+      batch.set(petDoc(userId, pet.id), petDocument);
+    }
+    await batch.commit();
   }
 
-  // Build embedded PetDocuments
-  const batch = writeBatch(db);
-  for (const pet of pets) {
-    const petDocument: PetDocument = {
-      ...pet,
-      scheduleEvents: events.filter((e) => e.petId === pet.id),
-      meals: meals.filter((m) => m.petId === pet.id),
-      vetInfo: vets.filter((v) => v.petId === pet.id),
-      medications: meds.filter((m) => m.petId === pet.id),
-    };
-    batch.set(petDoc(userId, pet.id), petDocument);
-  }
-
-  await batch.commit();
-
-  // Clear legacy global keys so they aren't re-migrated to another account
-  await Promise.all([
-    AsyncStorage.removeItem(ASYNC_KEYS.pets),
-    AsyncStorage.removeItem(ASYNC_KEYS.scheduleEvents),
-    AsyncStorage.removeItem(ASYNC_KEYS.meals),
-    AsyncStorage.removeItem(ASYNC_KEYS.vetInfo),
-    AsyncStorage.removeItem(ASYNC_KEYS.medications),
-  ]);
-
-  await AsyncStorage.setItem(migrationKey, 'true');
+  await AsyncStorage.setItem(globalKey, 'true');
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {

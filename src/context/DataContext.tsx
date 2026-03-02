@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   collection,
@@ -13,6 +13,19 @@ import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { Pet, ScheduleEvent, Meal, VetInfo, Medication, SharedPetData } from '../types';
 import { generateId } from '../utils/generateId';
+
+/**
+ * Firestore document shape: each pet document embeds all related data
+ * to minimize read costs (1 collection listener instead of 5).
+ *
+ * Structure: users/{uid}/pets/{petId} → PetDocument
+ */
+interface PetDocument extends Pet {
+  scheduleEvents: ScheduleEvent[];
+  meals: Meal[];
+  vetInfo: VetInfo[];
+  medications: Medication[];
+}
 
 interface DataContextValue {
   pets: Pet[];
@@ -64,17 +77,28 @@ const ASYNC_KEYS = {
   migrated: 'companion_firestore_migrated',
 };
 
-// Helper to get a user-scoped Firestore collection reference
-function userCollection(userId: string, collectionName: string) {
-  return collection(db, 'users', userId, collectionName);
+// Helper to get the pets collection reference for a user
+function petsCollection(userId: string) {
+  return collection(db, 'users', userId, 'pets');
 }
 
-// Helper to get a user-scoped Firestore document reference
-function userDoc(userId: string, collectionName: string, docId: string) {
-  return doc(db, 'users', userId, collectionName, docId);
+// Helper to get a specific pet document reference
+function petDoc(userId: string, petId: string) {
+  return doc(db, 'users', userId, 'pets', petId);
 }
 
-// Migrate existing AsyncStorage data to Firestore for a user
+// Extract Pet fields from a PetDocument (strip embedded arrays)
+function extractPet(petDoc: PetDocument): Pet {
+  const { scheduleEvents, meals, vetInfo, medications, ...pet } = petDoc;
+  return pet;
+}
+
+// Write a full PetDocument to Firestore
+async function writePetDoc(userId: string, petDocument: PetDocument): Promise<void> {
+  await setDoc(petDoc(userId, petDocument.id), petDocument);
+}
+
+// Migrate existing AsyncStorage data to the embedded Firestore structure
 async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
   const migrationKey = `${ASYNC_KEYS.migrated}_${userId}`;
   const alreadyMigrated = await AsyncStorage.getItem(migrationKey);
@@ -100,23 +124,17 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
     return;
   }
 
-  // Batch write all data to Firestore
+  // Build embedded PetDocuments
   const batch = writeBatch(db);
-
   for (const pet of pets) {
-    batch.set(userDoc(userId, 'pets', pet.id), pet);
-  }
-  for (const event of events) {
-    batch.set(userDoc(userId, 'scheduleEvents', event.id), event);
-  }
-  for (const meal of meals) {
-    batch.set(userDoc(userId, 'meals', meal.id), meal);
-  }
-  for (const vet of vets) {
-    batch.set(userDoc(userId, 'vetInfo', vet.id), vet);
-  }
-  for (const med of meds) {
-    batch.set(userDoc(userId, 'medications', med.id), med);
+    const petDocument: PetDocument = {
+      ...pet,
+      scheduleEvents: events.filter((e) => e.petId === pet.id),
+      meals: meals.filter((m) => m.petId === pet.id),
+      vetInfo: vets.filter((v) => v.petId === pet.id),
+      medications: meds.filter((m) => m.petId === pet.id),
+    };
+    batch.set(petDoc(userId, pet.id), petDocument);
   }
 
   await batch.commit();
@@ -125,27 +143,21 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [pets, setPets] = useState<Pet[]>([]);
+  const [petDocs, setPetDocs] = useState<PetDocument[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
-  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [vetInfo, setVetInfo] = useState<VetInfo[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
   const [petSelectorOpen, setPetSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const unsubscribesRef = useRef<(() => void)[]>([]);
+  const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    // Cleanup previous listeners
-    unsubscribesRef.current.forEach((unsub) => unsub());
-    unsubscribesRef.current = [];
+    // Cleanup previous listener
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
+    }
 
     if (!user) {
-      setPets([]);
-      setScheduleEvents([]);
-      setMeals([]);
-      setVetInfo([]);
-      setMedications([]);
+      setPetDocs([]);
       setSelectedPetId(null);
       setLoading(false);
       return;
@@ -164,63 +176,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setSelectedPetId(savedSelectedId);
       }
 
-      // Set up real-time Firestore listeners
-      const unsubs: (() => void)[] = [];
-
-      let initialLoads = 5;
-      const checkReady = () => {
-        initialLoads--;
-        if (initialLoads === 0 && isMounted) {
+      // Single real-time listener on the pets collection
+      let isFirstSnapshot = true;
+      unsubRef.current = onSnapshot(query(petsCollection(userId)), (snapshot) => {
+        if (!isMounted) return;
+        const docs = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as PetDocument));
+        setPetDocs(docs);
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
           setLoading(false);
         }
-      };
-
-      unsubs.push(
-        onSnapshot(query(userCollection(userId, 'pets')), (snapshot) => {
-          if (!isMounted) return;
-          const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Pet));
-          setPets(data);
-          checkReady();
-        })
-      );
-
-      unsubs.push(
-        onSnapshot(query(userCollection(userId, 'scheduleEvents')), (snapshot) => {
-          if (!isMounted) return;
-          const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as ScheduleEvent));
-          setScheduleEvents(data);
-          checkReady();
-        })
-      );
-
-      unsubs.push(
-        onSnapshot(query(userCollection(userId, 'meals')), (snapshot) => {
-          if (!isMounted) return;
-          const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Meal));
-          setMeals(data);
-          checkReady();
-        })
-      );
-
-      unsubs.push(
-        onSnapshot(query(userCollection(userId, 'vetInfo')), (snapshot) => {
-          if (!isMounted) return;
-          const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as VetInfo));
-          setVetInfo(data);
-          checkReady();
-        })
-      );
-
-      unsubs.push(
-        onSnapshot(query(userCollection(userId, 'medications')), (snapshot) => {
-          if (!isMounted) return;
-          const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Medication));
-          setMedications(data);
-          checkReady();
-        })
-      );
-
-      unsubscribesRef.current = unsubs;
+      });
     }
 
     setLoading(true);
@@ -228,12 +194,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       isMounted = false;
-      unsubscribesRef.current.forEach((unsub) => unsub());
-      unsubscribesRef.current = [];
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
     };
   }, [user]);
 
-  const selectedPet = pets.find((p) => p.id === selectedPetId) || null;
+  // Derive flat arrays from embedded PetDocuments (same API for consumers)
+  const pets = useMemo(() => petDocs.map(extractPet), [petDocs]);
+
+  const scheduleEvents = useMemo(
+    () => petDocs.flatMap((d) => d.scheduleEvents ?? []),
+    [petDocs]
+  );
+
+  const meals = useMemo(
+    () => petDocs.flatMap((d) => d.meals ?? []),
+    [petDocs]
+  );
+
+  const vetInfo = useMemo(
+    () => petDocs.flatMap((d) => d.vetInfo ?? []),
+    [petDocs]
+  );
+
+  const medications = useMemo(
+    () => petDocs.flatMap((d) => d.medications ?? []),
+    [petDocs]
+  );
+
+  const selectedPet = useMemo(
+    () => pets.find((p) => p.id === selectedPetId) || null,
+    [pets, selectedPetId]
+  );
 
   // Auto-select first pet if none selected
   useEffect(() => {
@@ -248,10 +242,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, id);
   }, []);
 
-  // Pet CRUD
+  // Helper: find a PetDocument by id from current state
+  const findPetDoc = useCallback(
+    (petId: string): PetDocument | undefined => petDocs.find((d) => d.id === petId),
+    [petDocs]
+  );
+
+  // --- Pet CRUD ---
+
   const addPet = useCallback(async (pet: Pet) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'pets', pet.id), pet);
+    const newDoc: PetDocument = {
+      ...pet,
+      scheduleEvents: [],
+      meals: [],
+      vetInfo: [],
+      medications: [],
+    };
+    await writePetDoc(user.uid, newDoc);
     if (!selectedPetId) {
       setSelectedPetId(pet.id);
       await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, pet.id);
@@ -260,167 +268,184 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updatePet = useCallback(async (pet: Pet) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'pets', pet.id), pet);
-  }, [user]);
+    const existing = findPetDoc(pet.id);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      ...pet,
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const deletePet = useCallback(async (id: string) => {
     if (!user) return;
-    const userId = user.uid;
-
-    // Delete the pet and all associated data
-    const batch = writeBatch(db);
-    batch.delete(userDoc(userId, 'pets', id));
-
-    // Delete associated schedule events
-    const eventsToDelete = scheduleEvents.filter((e) => e.petId === id);
-    for (const event of eventsToDelete) {
-      batch.delete(userDoc(userId, 'scheduleEvents', event.id));
-    }
-
-    // Delete associated meals
-    const mealsToDelete = meals.filter((m) => m.petId === id);
-    for (const meal of mealsToDelete) {
-      batch.delete(userDoc(userId, 'meals', meal.id));
-    }
-
-    // Delete associated vet info
-    const vetsToDelete = vetInfo.filter((v) => v.petId === id);
-    for (const vet of vetsToDelete) {
-      batch.delete(userDoc(userId, 'vetInfo', vet.id));
-    }
-
-    // Delete associated medications
-    const medsToDelete = medications.filter((m) => m.petId === id);
-    for (const med of medsToDelete) {
-      batch.delete(userDoc(userId, 'medications', med.id));
-    }
-
-    await batch.commit();
-
+    // Single document delete — no cascading needed
+    await deleteDoc(petDoc(user.uid, id));
     if (selectedPetId === id) {
       setSelectedPetId(null);
       await AsyncStorage.removeItem(ASYNC_KEYS.selectedPetId);
     }
-  }, [user, selectedPetId, scheduleEvents, meals, vetInfo, medications]);
+  }, [user, selectedPetId]);
 
-  // Schedule CRUD
+  // --- Schedule CRUD ---
+
   const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'scheduleEvents', event.id), event);
-  }, [user]);
+    const existing = findPetDoc(event.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      scheduleEvents: [...existing.scheduleEvents, event],
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'scheduleEvents', event.id), event);
-  }, [user]);
+    const existing = findPetDoc(event.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? event : e)),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const deleteScheduleEvent = useCallback(async (id: string) => {
     if (!user) return;
-    await deleteDoc(userDoc(user.uid, 'scheduleEvents', id));
-  }, [user]);
+    const ownerDoc = petDocs.find((d) => d.scheduleEvents.some((e) => e.id === id));
+    if (!ownerDoc) return;
+    const updated: PetDocument = {
+      ...ownerDoc,
+      scheduleEvents: ownerDoc.scheduleEvents.filter((e) => e.id !== id),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, petDocs]);
 
-  // Meal CRUD
+  // --- Meal CRUD ---
+
   const addMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'meals', meal.id), meal);
-  }, [user]);
+    const existing = findPetDoc(meal.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      meals: [...existing.meals, meal],
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const updateMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'meals', meal.id), meal);
-  }, [user]);
+    const existing = findPetDoc(meal.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      meals: existing.meals.map((m) => (m.id === meal.id ? meal : m)),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const deleteMeal = useCallback(async (id: string) => {
     if (!user) return;
-    await deleteDoc(userDoc(user.uid, 'meals', id));
-  }, [user]);
+    const ownerDoc = petDocs.find((d) => d.meals.some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const updated: PetDocument = {
+      ...ownerDoc,
+      meals: ownerDoc.meals.filter((m) => m.id !== id),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, petDocs]);
 
-  // Vet CRUD
+  // --- Vet CRUD ---
+
   const addVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'vetInfo', vet.id), vet);
-  }, [user]);
+    const existing = findPetDoc(vet.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      vetInfo: [...existing.vetInfo, vet],
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const updateVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'vetInfo', vet.id), vet);
-  }, [user]);
+    const existing = findPetDoc(vet.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? vet : v)),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const deleteVetInfo = useCallback(async (id: string) => {
     if (!user) return;
-    await deleteDoc(userDoc(user.uid, 'vetInfo', id));
-  }, [user]);
+    const ownerDoc = petDocs.find((d) => d.vetInfo.some((v) => v.id === id));
+    if (!ownerDoc) return;
+    const updated: PetDocument = {
+      ...ownerDoc,
+      vetInfo: ownerDoc.vetInfo.filter((v) => v.id !== id),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, petDocs]);
 
-  // Medication CRUD
+  // --- Medication CRUD ---
+
   const addMedication = useCallback(async (med: Medication) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'medications', med.id), med);
-  }, [user]);
+    const existing = findPetDoc(med.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      medications: [...existing.medications, med],
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const updateMedication = useCallback(async (med: Medication) => {
     if (!user) return;
-    await setDoc(userDoc(user.uid, 'medications', med.id), med);
-  }, [user]);
+    const existing = findPetDoc(med.petId);
+    if (!existing) return;
+    const updated: PetDocument = {
+      ...existing,
+      medications: existing.medications.map((m) => (m.id === med.id ? med : m)),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, findPetDoc]);
 
   const deleteMedication = useCallback(async (id: string) => {
     if (!user) return;
-    await deleteDoc(userDoc(user.uid, 'medications', id));
-  }, [user]);
+    const ownerDoc = petDocs.find((d) => d.medications.some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const updated: PetDocument = {
+      ...ownerDoc,
+      medications: ownerDoc.medications.filter((m) => m.id !== id),
+    };
+    await writePetDoc(user.uid, updated);
+  }, [user, petDocs]);
 
-  // Import a shared pet's full data
+  // --- Import ---
+
   const importPetData = useCallback(async (data: SharedPetData): Promise<string> => {
     if (!user) throw new Error('Must be signed in to import pet data');
-    const userId = user.uid;
     const petId = generateId();
 
-    const newPet: Pet = {
+    const newDoc: PetDocument = {
       ...data.pet,
       id: petId,
       profileImage: null,
+      scheduleEvents: data.scheduleEvents.map((e) => ({ ...e, id: generateId(), petId })),
+      meals: data.meals.map((m) => ({ ...m, id: generateId(), petId })),
+      vetInfo: data.vetInfo.map((v) => ({ ...v, id: generateId(), petId })),
+      medications: data.medications.map((m) => ({ ...m, id: generateId(), petId })),
     };
 
-    const newEvents: ScheduleEvent[] = data.scheduleEvents.map((e) => ({
-      ...e,
-      id: generateId(),
-      petId,
-    }));
+    // Single document write instead of a batch across 5 collections
+    await writePetDoc(user.uid, newDoc);
 
-    const newMeals: Meal[] = data.meals.map((m) => ({
-      ...m,
-      id: generateId(),
-      petId,
-    }));
-
-    const newVets: VetInfo[] = data.vetInfo.map((v) => ({
-      ...v,
-      id: generateId(),
-      petId,
-    }));
-
-    const newMeds: Medication[] = data.medications.map((med) => ({
-      ...med,
-      id: generateId(),
-      petId,
-    }));
-
-    const batch = writeBatch(db);
-    batch.set(userDoc(userId, 'pets', newPet.id), newPet);
-    for (const event of newEvents) {
-      batch.set(userDoc(userId, 'scheduleEvents', event.id), event);
-    }
-    for (const meal of newMeals) {
-      batch.set(userDoc(userId, 'meals', meal.id), meal);
-    }
-    for (const vet of newVets) {
-      batch.set(userDoc(userId, 'vetInfo', vet.id), vet);
-    }
-    for (const med of newMeds) {
-      batch.set(userDoc(userId, 'medications', med.id), med);
-    }
-
-    await batch.commit();
-
-    // Auto-select the newly imported pet
     setSelectedPetId(petId);
     await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, petId);
 

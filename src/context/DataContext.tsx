@@ -180,7 +180,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       let isFirstSnapshot = true;
       unsubRef.current = onSnapshot(query(petsCollection(userId)), (snapshot) => {
         if (!isMounted) return;
-        const docs = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as PetDocument));
+        const docs = snapshot.docs
+          .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
+          .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
         setPetDocs(docs);
         if (isFirstSnapshot) {
           isFirstSnapshot = false;

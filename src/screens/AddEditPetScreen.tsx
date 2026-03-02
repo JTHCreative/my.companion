@@ -113,6 +113,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
         personality: personality.trim(),
         profileImage,
         birthday: birthday.trim(),
+        createdAt: existingPet?.createdAt || Date.now(),
       };
 
       if (isEditing) {
@@ -121,7 +122,9 @@ export function AddEditPetScreen({ navigation, route }: any) {
         await addPet(petData);
       }
 
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save pet.');
     }
@@ -369,7 +372,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
           />
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 160 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

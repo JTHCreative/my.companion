@@ -11,6 +11,7 @@ export interface Pet {
   profileImage: string | null;
   galleryImages?: string[];
   birthday?: string;
+  createdAt?: number;
   notes?: string;
   bulletNotes?: { id: string; text: string }[];
 }

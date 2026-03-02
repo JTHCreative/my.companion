@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -39,6 +40,7 @@ export function PetAvatarHeader({
 }: PetAvatarHeaderProps) {
   const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet, petSelectorOpen, setPetSelectorOpen } = useData();
+  const { displayName } = useAuth();
   const navigation = useNavigation<any>();
 
   const renderHeaderAvatar = () => {
@@ -214,6 +216,14 @@ export function PetAvatarHeader({
         </View>
         <View style={styles.headerRight}>
           {rightAccessory}
+          {displayName ? (
+            <Text
+              style={[styles.headerUserName, { color: theme.colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+          ) : null}
           {renderHeaderAvatar()}
         </View>
       </View>
@@ -246,7 +256,12 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+  },
+  headerUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: 120,
   },
   headerAvatar: {
     width: 38,

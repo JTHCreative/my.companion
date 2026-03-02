@@ -22,14 +22,18 @@ interface SignUpScreenProps {
 export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
   const { theme } = useTheme();
   const { signUp } = useAuth();
+  const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ userName?: string; email?: string; password?: string; confirmPassword?: string }>({});
 
   const validate = () => {
-    const newErrors: { email?: string; password?: string; confirmPassword?: string } = {};
+    const newErrors: { userName?: string; email?: string; password?: string; confirmPassword?: string } = {};
+    if (!userName.trim()) {
+      newErrors.userName = 'User name is required';
+    }
     if (!email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(email.trim())) {
@@ -51,7 +55,7 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
     if (!validate()) return;
     setLoading(true);
     try {
-      await signUp(email.trim(), password);
+      await signUp(email.trim(), password, userName.trim());
     } catch (error: any) {
       let message = 'Something went wrong. Please try again.';
       if (error.code === 'auth/email-already-in-use') {
@@ -85,6 +89,15 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
         </View>
 
         <View style={styles.form}>
+          <FormInput
+            label="User Name"
+            value={userName}
+            onChangeText={setUserName}
+            placeholder="Your display name"
+            autoCapitalize="words"
+            autoCorrect={false}
+            error={errors.userName}
+          />
           <FormInput
             label="Email"
             value={email}

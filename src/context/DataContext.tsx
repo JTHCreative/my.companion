@@ -138,6 +138,16 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
   }
 
   await batch.commit();
+
+  // Clear legacy global keys so they aren't re-migrated to another account
+  await Promise.all([
+    AsyncStorage.removeItem(ASYNC_KEYS.pets),
+    AsyncStorage.removeItem(ASYNC_KEYS.scheduleEvents),
+    AsyncStorage.removeItem(ASYNC_KEYS.meals),
+    AsyncStorage.removeItem(ASYNC_KEYS.vetInfo),
+    AsyncStorage.removeItem(ASYNC_KEYS.medications),
+  ]);
+
   await AsyncStorage.setItem(migrationKey, 'true');
 }
 
@@ -159,6 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setPetDocs([]);
       setSelectedPetId(null);
+      AsyncStorage.removeItem(ASYNC_KEYS.selectedPetId);
       setLoading(false);
       return;
     }

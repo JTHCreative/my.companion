@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
@@ -10,6 +9,7 @@ import {
   getPermissionStatus,
   registerPushToken,
   syncScheduledNotifications,
+  cancelAllNotifications,
 } from '../services/notifications';
 
 const PREFS_KEY = 'companion_notification_prefs';
@@ -86,7 +86,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     if (!prefs.enabled || !prefs.scheduleReminders || permissionStatus !== 'granted') {
       // Notifications disabled — cancel everything
-      Notifications.cancelAllScheduledNotificationsAsync();
+      cancelAllNotifications();
       return;
     }
 

@@ -1,5 +1,5 @@
+import messaging from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -28,45 +28,47 @@ export async function setupNotificationChannel(): Promise<void> {
   }
 }
 
+/**
+ * Request notification permissions via Firebase Cloud Messaging.
+ */
 export async function requestNotificationPermissions(): Promise<boolean> {
-  if (!Device.isDevice) {
-    // Push notifications don't work on simulators/emulators
-    return false;
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  return finalStatus === 'granted';
-}
-
-export async function getPermissionStatus(): Promise<string> {
-  const { status } = await Notifications.getPermissionsAsync();
-  return status;
+  const authStatus = await messaging().requestPermission();
+  return (
+    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+    authStatus === messaging.AuthorizationStatus.PROVISIONAL
+  );
 }
 
 /**
- * Get the Expo push token and store it in Firestore for future
+ * Check current notification permission status via FCM.
+ * Returns 'granted', 'denied', or 'undetermined' to match context expectations.
+ */
+export async function getPermissionStatus(): Promise<string> {
+  const authStatus = await messaging().hasPermission();
+  if (
+    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+    authStatus === messaging.AuthorizationStatus.PROVISIONAL
+  ) {
+    return 'granted';
+  }
+  if (authStatus === messaging.AuthorizationStatus.DENIED) {
+    return 'denied';
+  }
+  return 'undetermined';
+}
+
+/**
+ * Get the FCM token and store it in Firestore for future
  * remote notifications via Cloud Functions.
  */
 export async function registerPushToken(userId: string): Promise<string | null> {
-  if (!Device.isDevice) return null;
-
   try {
-    const { data: token } = await Notifications.getExpoPushTokenAsync({
-      projectId: '0a8465a7-7db8-4a0a-ae13-ed48e6d1b8c7',
-    });
+    const token = await messaging().getToken();
 
-    // Store in Firestore for backend use
     await setDoc(
       doc(db, 'userTokens', userId),
       {
-        expoPushToken: token,
+        fcmToken: token,
         platform: Platform.OS,
         updatedAt: Date.now(),
       },
@@ -80,7 +82,7 @@ export async function registerPushToken(userId: string): Promise<string | null> 
 }
 
 /**
- * Cancel all currently scheduled notifications and reschedule
+ * Cancel all currently scheduled local notifications and reschedule
  * based on the current set of schedule events.
  */
 export async function syncScheduledNotifications(
@@ -88,7 +90,6 @@ export async function syncScheduledNotifications(
   pets: Pet[],
   reminderMinutesBefore: number,
 ): Promise<void> {
-  // Cancel all existing scheduled notifications
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   const petMap = new Map(pets.map((p) => [p.id, p]));
@@ -150,6 +151,10 @@ export async function syncScheduledNotifications(
       });
     }
   }
+}
+
+export async function cancelAllNotifications(): Promise<void> {
+  await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
 function getEventTitle(type: string): string {

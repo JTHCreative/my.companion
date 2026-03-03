@@ -16,78 +16,75 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { decodePetData } from '../utils/shareUtils';
-import { SharedPetData } from '../types';
+import { SharedPetPreview } from '../types';
 
 export function ImportPetScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { importPetData } = useData();
+  const { lookupShareCode, joinSharedPet } = useData();
   const [code, setCode] = useState('');
-  const [preview, setPreview] = useState<SharedPetData | null>(null);
+  const [preview, setPreview] = useState<SharedPetPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [looking, setLooking] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   const handlePaste = async () => {
     const text = await Clipboard.getStringAsync();
     if (text) {
-      setCode(text);
-      parseCode(text);
+      const trimmed = text.trim();
+      setCode(trimmed);
+      handleLookup(trimmed);
     }
   };
 
-  const parseCode = (text: string) => {
+  const handleLookup = async (shareCode?: string) => {
+    const lookupCode = (shareCode || code).trim();
+    if (!lookupCode) return;
+
     setError(null);
     setPreview(null);
+    setLooking(true);
 
-    if (!text.trim()) return;
-
-    // Try to extract share code from pasted text (user might paste the full message)
-    const lines = text.split('\n');
-    let shareCode = text.trim();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('MYCOMPANION:')) {
-        shareCode = trimmed;
-        break;
+    try {
+      const result = await lookupShareCode(lookupCode);
+      if (result) {
+        setPreview(result);
+      } else {
+        setError('Invalid share code. Please check the code and try again.');
       }
-    }
-
-    const data = decodePetData(shareCode);
-    if (data) {
-      setPreview(data);
-      setCode(shareCode);
-    } else {
-      setError('Invalid share code. Make sure you copied the full code from the sender.');
+    } catch {
+      setError('Could not look up share code. Please check your connection and try again.');
+    } finally {
+      setLooking(false);
     }
   };
 
-  const handleImport = async () => {
+  const handleJoin = async () => {
     if (!preview) return;
 
-    setImporting(true);
+    setJoining(true);
     try {
-      await importPetData(preview);
+      await joinSharedPet(code.trim());
       Alert.alert(
-        'Pet Imported!',
-        `${preview.pet.name} has been added to your pets.`,
+        'Pet Joined!',
+        `You now have access to ${preview.name}'s profile. Changes will sync in real-time.`,
         [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch {
-      Alert.alert('Import Failed', 'Something went wrong while importing. Please try again.');
+      Alert.alert('Join Failed', 'Something went wrong while joining. Please try again.');
     } finally {
-      setImporting(false);
+      setJoining(false);
     }
   };
 
   const petType = preview
-    ? preview.pet.type.charAt(0).toUpperCase() + preview.pet.type.slice(1)
+    ? preview.type.charAt(0).toUpperCase() + preview.type.slice(1)
     : '';
 
   const totalItems = preview
-    ? preview.scheduleEvents.length +
-      preview.meals.length +
-      preview.medications.length +
-      preview.vetInfo.length
+    ? preview.scheduleEventCount +
+      preview.mealCount +
+      preview.medicationCount +
+      preview.vetInfoCount
     : 0;
 
   return (
@@ -115,7 +112,7 @@ export function ImportPetScreen({ navigation }: any) {
           />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-          Import Pet
+          Join a Pet
         </Text>
         <View style={styles.backButton} />
       </View>
@@ -140,7 +137,7 @@ export function ImportPetScreen({ navigation }: any) {
                 ]}
               >
                 <Ionicons
-                  name="cloud-download-outline"
+                  name="people-outline"
                   size={24}
                   color={theme.colors.primary}
                 />
@@ -152,7 +149,7 @@ export function ImportPetScreen({ navigation }: any) {
                     { color: theme.colors.text },
                   ]}
                 >
-                  Import a Shared Pet
+                  Join a Shared Pet
                 </Text>
                 <Text
                   style={[
@@ -160,8 +157,9 @@ export function ImportPetScreen({ navigation }: any) {
                     { color: theme.colors.textSecondary },
                   ]}
                 >
-                  Paste the share code you received from another Petfolio
-                  user to add their pet's profile to your app.
+                  Enter the share code you received from another Petfolio
+                  user to access their pet's profile. Changes will sync in
+                  real-time between all members.
                 </Text>
               </View>
             </View>
@@ -183,19 +181,18 @@ export function ImportPetScreen({ navigation }: any) {
                     : theme.colors.border,
                 },
               ]}
-              placeholder="Paste share code here..."
+              placeholder="Enter share code (e.g. ABC123)"
               placeholderTextColor={theme.colors.textSecondary}
               value={code}
               onChangeText={(text) => {
-                setCode(text);
+                setCode(text.toUpperCase());
                 setError(null);
                 setPreview(null);
               }}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              autoCapitalize="none"
+              autoCapitalize="characters"
               autoCorrect={false}
+              maxLength={6}
+              textAlign="center"
             />
             {error && (
               <Text style={[styles.errorText, { color: theme.colors.danger }]}>
@@ -218,10 +215,11 @@ export function ImportPetScreen({ navigation }: any) {
               />
               {code.length > 0 && !preview && (
                 <Button
-                  title="Decode"
-                  onPress={() => parseCode(code)}
+                  title="Look Up"
+                  onPress={() => handleLookup()}
                   variant="secondary"
-                  style={styles.decodeButton}
+                  loading={looking}
+                  style={styles.lookupButton}
                 />
               )}
             </View>
@@ -233,7 +231,7 @@ export function ImportPetScreen({ navigation }: any) {
               <Text
                 style={[styles.previewTitle, { color: theme.colors.text }]}
               >
-                Preview
+                {preview.alreadyMember ? 'Already Joined' : 'Preview'}
               </Text>
               <View
                 style={[
@@ -264,7 +262,7 @@ export function ImportPetScreen({ navigation }: any) {
                         { color: theme.colors.text },
                       ]}
                     >
-                      {preview.pet.name}
+                      {preview.name}
                     </Text>
                     <Text
                       style={[
@@ -273,7 +271,7 @@ export function ImportPetScreen({ navigation }: any) {
                       ]}
                     >
                       {petType}
-                      {preview.pet.breed ? ` - ${preview.pet.breed}` : ''}
+                      {preview.breed ? ` - ${preview.breed}` : ''}
                     </Text>
                   </View>
                 </View>
@@ -285,7 +283,7 @@ export function ImportPetScreen({ navigation }: any) {
                     { borderTopColor: theme.colors.border },
                   ]}
                 >
-                  {preview.scheduleEvents.length > 0 && (
+                  {preview.scheduleEventCount > 0 && (
                     <View style={styles.previewStat}>
                       <Ionicons
                         name="calendar-outline"
@@ -298,11 +296,11 @@ export function ImportPetScreen({ navigation }: any) {
                           { color: theme.colors.textSecondary },
                         ]}
                       >
-                        {preview.scheduleEvents.length} events
+                        {preview.scheduleEventCount} events
                       </Text>
                     </View>
                   )}
-                  {preview.meals.length > 0 && (
+                  {preview.mealCount > 0 && (
                     <View style={styles.previewStat}>
                       <Ionicons
                         name="restaurant-outline"
@@ -315,11 +313,11 @@ export function ImportPetScreen({ navigation }: any) {
                           { color: theme.colors.textSecondary },
                         ]}
                       >
-                        {preview.meals.length} meals
+                        {preview.mealCount} meals
                       </Text>
                     </View>
                   )}
-                  {preview.medications.length > 0 && (
+                  {preview.medicationCount > 0 && (
                     <View style={styles.previewStat}>
                       <Ionicons
                         name="medkit-outline"
@@ -332,11 +330,11 @@ export function ImportPetScreen({ navigation }: any) {
                           { color: theme.colors.textSecondary },
                         ]}
                       >
-                        {preview.medications.length} meds
+                        {preview.medicationCount} meds
                       </Text>
                     </View>
                   )}
-                  {preview.vetInfo.length > 0 && (
+                  {preview.vetInfoCount > 0 && (
                     <View style={styles.previewStat}>
                       <Ionicons
                         name="business-outline"
@@ -349,7 +347,7 @@ export function ImportPetScreen({ navigation }: any) {
                           { color: theme.colors.textSecondary },
                         ]}
                       >
-                        {preview.vetInfo.length} vets
+                        {preview.vetInfoCount} vets
                       </Text>
                     </View>
                   )}
@@ -366,17 +364,30 @@ export function ImportPetScreen({ navigation }: any) {
                 </View>
               </View>
 
-              <Button
-                title={`Import ${preview.pet.name}`}
-                onPress={handleImport}
-                loading={importing}
-                icon={
-                  !importing ? (
-                    <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-                  ) : undefined
-                }
-                style={styles.importButton}
-              />
+              {preview.alreadyMember ? (
+                <View style={styles.alreadyJoinedRow}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={[styles.alreadyJoinedText, { color: theme.colors.primary }]}>
+                    You already have access to this pet's profile.
+                  </Text>
+                </View>
+              ) : (
+                <Button
+                  title={`Join ${preview.name}`}
+                  onPress={handleJoin}
+                  loading={joining}
+                  icon={
+                    !joining ? (
+                      <Ionicons name="people-outline" size={18} color="#FFFFFF" />
+                    ) : undefined
+                  }
+                  style={styles.joinButton}
+                />
+              )}
             </Card>
           )}
         </ScrollView>
@@ -448,12 +459,13 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 13,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 24,
+    fontWeight: '800',
     fontFamily: 'monospace',
-    minHeight: 100,
-    lineHeight: 18,
+    letterSpacing: 6,
+    minHeight: 60,
   },
   errorText: {
     fontSize: 13,
@@ -467,7 +479,7 @@ const styles = StyleSheet.create({
   pasteButton: {
     flex: 1,
   },
-  decodeButton: {
+  lookupButton: {
     paddingHorizontal: 20,
   },
   previewTitle: {
@@ -519,7 +531,19 @@ const styles = StyleSheet.create({
   previewStatText: {
     fontSize: 13,
   },
-  importButton: {
+  alreadyJoinedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  alreadyJoinedText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  joinButton: {
     marginTop: 14,
   },
 });

@@ -563,9 +563,9 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         onPress={() => navigation.navigate('ImportPet')}
         activeOpacity={0.7}
       >
-        <Ionicons name="cloud-download-outline" size={16} color={theme.colors.primary} />
+        <Ionicons name="people-outline" size={16} color={theme.colors.primary} />
         <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-          Import a shared pet
+          Join a shared pet
         </Text>
       </TouchableOpacity>
 
@@ -700,12 +700,12 @@ export function HomeScreen({ navigation }: any) {
           activeOpacity={0.7}
         >
           <Ionicons
-            name="cloud-download-outline"
+            name="people-outline"
             size={16}
             color={theme.colors.primary}
           />
           <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-            Import a shared pet
+            Join a shared pet
           </Text>
         </TouchableOpacity>
       </View>

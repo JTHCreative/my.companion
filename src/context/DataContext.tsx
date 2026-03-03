@@ -5,22 +5,33 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
   onSnapshot,
   writeBatch,
   query,
+  where,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
-import { Pet, ScheduleEvent, Meal, VetInfo, Medication, SharedPetData } from '../types';
+import { Pet, ScheduleEvent, Meal, VetInfo, Medication, SharedPetPreview } from '../types';
 import { generateId } from '../utils/generateId';
+import { generateShareCode } from '../utils/shareUtils';
 
 /**
  * Firestore document shape: each pet document embeds all related data
  * to minimize read costs (1 collection listener instead of 5).
  *
- * Structure: users/{uid}/pets/{petId} → PetDocument
+ * Structure: pets/{petId} → PetDocument
+ * Queried by: where('members', 'array-contains', uid)
  */
 interface PetDocument extends Pet {
+  ownerUid: string;
+  members: string[];
+  shareCode?: string;
   scheduleEvents: ScheduleEvent[];
   meals: Meal[];
   vetInfo: VetInfo[];
@@ -56,7 +67,9 @@ interface DataContextValue {
   updateMedication: (med: Medication) => Promise<void>;
   deleteMedication: (id: string) => Promise<void>;
 
-  importPetData: (data: SharedPetData) => Promise<string>;
+  createShareLink: (petId: string) => Promise<string>;
+  lookupShareCode: (code: string) => Promise<SharedPetPreview | null>;
+  joinSharedPet: (code: string) => Promise<string>;
 
   petSelectorOpen: boolean;
   setPetSelectorOpen: (open: boolean) => void;
@@ -75,16 +88,13 @@ const ASYNC_KEYS = {
   medications: 'companion_medications',
   selectedPetId: 'companion_selected_pet',
   migrated: 'companion_firestore_migrated',
+  migratedToRoot: 'companion_migrated_root_pets',
 };
 
-// Helper to get the pets collection reference for a user
-function petsCollection(userId: string) {
-  return collection(db, 'users', userId, 'pets');
-}
+// --- Firestore helpers (root-level pets collection) ---
 
-// Helper to get a specific pet document reference
-function petDoc(userId: string, petId: string) {
-  return doc(db, 'users', userId, 'pets', petId);
+function petRef(petId: string) {
+  return doc(db, 'pets', petId);
 }
 
 // Extract Pet fields from a PetDocument (strip embedded arrays)
@@ -94,21 +104,18 @@ function extractPet(petDoc: PetDocument): Pet {
 }
 
 // Write a full PetDocument to Firestore
-async function writePetDoc(userId: string, petDocument: PetDocument): Promise<void> {
-  await setDoc(petDoc(userId, petDocument.id), petDocument);
+async function writePetDoc(petDocument: PetDocument): Promise<void> {
+  await setDoc(petRef(petDocument.id), petDocument);
 }
 
-// Migrate existing AsyncStorage data to the embedded Firestore structure.
-// Uses a global flag — the legacy data was never user-scoped, so it should
-// only ever be migrated once (to whichever user first logs in after the
-// Firestore upgrade). Every subsequent user starts with a blank slate.
+// --- Legacy migration: AsyncStorage → user-scoped Firestore (old path) ---
+// This migrates pre-Firestore data directly into the root pets collection
+// with proper ownership fields, so no second migration is needed.
 async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
   const globalKey = ASYNC_KEYS.migrated;
   const alreadyMigrated = await AsyncStorage.getItem(globalKey);
   if (alreadyMigrated === 'true') return;
 
-  // Also clear any stale legacy data keys unconditionally so no future
-  // user can ever inherit them, even if the batch write below is skipped.
   const [petsRaw, eventsRaw, mealsRaw, vetsRaw, medsRaw] = await Promise.all([
     AsyncStorage.getItem(ASYNC_KEYS.pets),
     AsyncStorage.getItem(ASYNC_KEYS.scheduleEvents),
@@ -117,7 +124,7 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
     AsyncStorage.getItem(ASYNC_KEYS.medications),
   ]);
 
-  // Clear legacy keys immediately — regardless of whether we migrate
+  // Clear legacy keys immediately
   await Promise.all([
     AsyncStorage.removeItem(ASYNC_KEYS.pets),
     AsyncStorage.removeItem(ASYNC_KEYS.scheduleEvents),
@@ -128,27 +135,60 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
 
   const pets: Pet[] = petsRaw ? JSON.parse(petsRaw) : [];
   const events: ScheduleEvent[] = eventsRaw ? JSON.parse(eventsRaw) : [];
-  const meals: Meal[] = mealsRaw ? JSON.parse(mealsRaw) : [];
+  const mealsList: Meal[] = mealsRaw ? JSON.parse(mealsRaw) : [];
   const vets: VetInfo[] = vetsRaw ? JSON.parse(vetsRaw) : [];
   const meds: Medication[] = medsRaw ? JSON.parse(medsRaw) : [];
 
-  const hasData = pets.length > 0 || events.length > 0 || meals.length > 0 || vets.length > 0 || meds.length > 0;
+  const hasData = pets.length > 0 || events.length > 0 || mealsList.length > 0 || vets.length > 0 || meds.length > 0;
   if (hasData) {
     const batch = writeBatch(db);
     for (const pet of pets) {
       const petDocument: PetDocument = {
         ...pet,
+        ownerUid: userId,
+        members: [userId],
         scheduleEvents: events.filter((e) => e.petId === pet.id),
-        meals: meals.filter((m) => m.petId === pet.id),
+        meals: mealsList.filter((m) => m.petId === pet.id),
         vetInfo: vets.filter((v) => v.petId === pet.id),
         medications: meds.filter((m) => m.petId === pet.id),
       };
-      batch.set(petDoc(userId, pet.id), petDocument);
+      batch.set(petRef(pet.id), petDocument);
     }
     await batch.commit();
   }
 
   await AsyncStorage.setItem(globalKey, 'true');
+}
+
+// --- Migration: user-scoped Firestore → root pets collection ---
+// For users who already migrated to users/{uid}/pets before the
+// real-time sharing update.
+async function migrateToRootCollection(userId: string): Promise<void> {
+  const alreadyMigrated = await AsyncStorage.getItem(ASYNC_KEYS.migratedToRoot);
+  if (alreadyMigrated === 'true') return;
+
+  const legacyRef = collection(db, 'users', userId, 'pets');
+  const snapshot = await getDocs(legacyRef);
+
+  if (!snapshot.empty) {
+    const batch = writeBatch(db);
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data() as PetDocument;
+
+      // Write to root collection with ownership fields
+      batch.set(petRef(docSnap.id), {
+        ...data,
+        ownerUid: data.ownerUid || userId,
+        members: data.members || [userId],
+      });
+
+      // Delete old user-scoped doc
+      batch.delete(doc(db, 'users', userId, 'pets', docSnap.id));
+    }
+    await batch.commit();
+  }
+
+  await AsyncStorage.setItem(ASYNC_KEYS.migratedToRoot, 'true');
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -180,18 +220,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async function init() {
       // Only run legacy migration for accounts that existed before the
       // Firestore upgrade. Brand-new accounts (created within the last
-      // 60 s) have nothing to migrate — skip and mark done so the
-      // migration never runs for them.
-      const createdAt = user.metadata.creationTime
-        ? new Date(user.metadata.creationTime).getTime()
+      // 60 s) have nothing to migrate.
+      const createdAt = user!.metadata.creationTime
+        ? new Date(user!.metadata.creationTime).getTime()
         : 0;
       const isNewAccount = Date.now() - createdAt < 60_000;
 
       if (isNewAccount) {
-        // Ensure migration is permanently skipped for this install
         await AsyncStorage.setItem(ASYNC_KEYS.migrated, 'true');
+        await AsyncStorage.setItem(ASYNC_KEYS.migratedToRoot, 'true');
       } else {
+        // Run AsyncStorage → Firestore migration (writes to root pets/ now)
         await migrateAsyncStorageToFirestore(userId);
+        // Move any existing user-scoped pets to root collection
+        await migrateToRootCollection(userId);
       }
 
       // Load selectedPetId from local storage (UI preference)
@@ -200,9 +242,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setSelectedPetId(savedSelectedId);
       }
 
-      // Single real-time listener on the pets collection
+      // Real-time listener on root pets collection filtered by membership
       let isFirstSnapshot = true;
-      unsubRef.current = onSnapshot(query(petsCollection(userId)), (snapshot) => {
+      const q = query(
+        collection(db, 'pets'),
+        where('members', 'array-contains', userId),
+      );
+      unsubRef.current = onSnapshot(q, (snapshot) => {
         if (!isMounted) return;
         const docs = snapshot.docs
           .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
@@ -280,12 +326,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const newDoc: PetDocument = {
       ...pet,
+      ownerUid: user.uid,
+      members: [user.uid],
       scheduleEvents: [],
       meals: [],
       vetInfo: [],
       medications: [],
     };
-    await writePetDoc(user.uid, newDoc);
+    await writePetDoc(newDoc);
     if (!selectedPetId) {
       setSelectedPetId(pet.id);
       await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, pet.id);
@@ -300,18 +348,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       ...pet,
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const deletePet = useCallback(async (id: string) => {
     if (!user) return;
-    // Single document delete — no cascading needed
-    await deleteDoc(petDoc(user.uid, id));
+    const existing = findPetDoc(id);
+    if (!existing) return;
+
+    if (existing.ownerUid === user.uid) {
+      // Owner deletes the entire pet document
+      await deleteDoc(petRef(id));
+    } else {
+      // Non-owner leaves — remove themselves from members
+      await updateDoc(petRef(id), {
+        members: arrayRemove(user.uid),
+      });
+    }
+
     if (selectedPetId === id) {
       setSelectedPetId(null);
       await AsyncStorage.removeItem(ASYNC_KEYS.selectedPetId);
     }
-  }, [user, selectedPetId]);
+  }, [user, selectedPetId, findPetDoc]);
 
   // --- Schedule CRUD ---
 
@@ -323,7 +382,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       scheduleEvents: [...existing.scheduleEvents, event],
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
@@ -334,7 +393,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? event : e)),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const deleteScheduleEvent = useCallback(async (id: string) => {
@@ -345,7 +404,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...ownerDoc,
       scheduleEvents: ownerDoc.scheduleEvents.filter((e) => e.id !== id),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, petDocs]);
 
   // --- Meal CRUD ---
@@ -358,7 +417,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       meals: [...existing.meals, meal],
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const updateMeal = useCallback(async (meal: Meal) => {
@@ -369,7 +428,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       meals: existing.meals.map((m) => (m.id === meal.id ? meal : m)),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const deleteMeal = useCallback(async (id: string) => {
@@ -380,7 +439,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...ownerDoc,
       meals: ownerDoc.meals.filter((m) => m.id !== id),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, petDocs]);
 
   // --- Vet CRUD ---
@@ -393,7 +452,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       vetInfo: [...existing.vetInfo, vet],
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const updateVetInfo = useCallback(async (vet: VetInfo) => {
@@ -404,7 +463,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? vet : v)),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const deleteVetInfo = useCallback(async (id: string) => {
@@ -415,7 +474,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...ownerDoc,
       vetInfo: ownerDoc.vetInfo.filter((v) => v.id !== id),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, petDocs]);
 
   // --- Medication CRUD ---
@@ -428,7 +487,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       medications: [...existing.medications, med],
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const updateMedication = useCallback(async (med: Medication) => {
@@ -439,7 +498,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...existing,
       medications: existing.medications.map((m) => (m.id === med.id ? med : m)),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, findPetDoc]);
 
   const deleteMedication = useCallback(async (id: string) => {
@@ -450,28 +509,82 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...ownerDoc,
       medications: ownerDoc.medications.filter((m) => m.id !== id),
     };
-    await writePetDoc(user.uid, updated);
+    await writePetDoc(updated);
   }, [user, petDocs]);
 
-  // --- Import ---
+  // --- Share link management ---
 
-  const importPetData = useCallback(async (data: SharedPetData): Promise<string> => {
-    if (!user) throw new Error('Must be signed in to import pet data');
-    const petId = generateId();
+  const createShareLink = useCallback(async (petId: string): Promise<string> => {
+    if (!user) throw new Error('Must be signed in');
+    const existing = findPetDoc(petId);
+    if (!existing) throw new Error('Pet not found');
 
-    const newDoc: PetDocument = {
-      ...data.pet,
-      id: petId,
-      profileImage: null,
-      scheduleEvents: data.scheduleEvents.map((e) => ({ ...e, id: generateId(), petId })),
-      meals: data.meals.map((m) => ({ ...m, id: generateId(), petId })),
-      vetInfo: data.vetInfo.map((v) => ({ ...v, id: generateId(), petId })),
-      medications: data.medications.map((m) => ({ ...m, id: generateId(), petId })),
+    // Return existing share code if one exists
+    if (existing.shareCode) return existing.shareCode;
+
+    // Generate a new share code
+    const code = generateShareCode();
+
+    // Create the share link lookup document
+    await setDoc(doc(db, 'shareLinks', code), {
+      petId,
+      ownerUid: user.uid,
+      createdAt: Date.now(),
+    });
+
+    // Store the share code on the pet document
+    const updated: PetDocument = {
+      ...existing,
+      shareCode: code,
     };
+    await writePetDoc(updated);
 
-    // Single document write instead of a batch across 5 collections
-    await writePetDoc(user.uid, newDoc);
+    return code;
+  }, [user, findPetDoc]);
 
+  const lookupShareCode = useCallback(async (code: string): Promise<SharedPetPreview | null> => {
+    if (!user) return null;
+
+    const trimmed = code.trim().toUpperCase();
+    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
+    if (!linkSnap.exists()) return null;
+
+    const { petId } = linkSnap.data() as { petId: string };
+    const petSnap = await getDoc(petRef(petId));
+    if (!petSnap.exists()) return null;
+
+    const petData = petSnap.data() as PetDocument;
+
+    return {
+      petId,
+      name: petData.name,
+      type: petData.type,
+      breed: petData.breed,
+      weight: petData.weight,
+      weightUnit: petData.weightUnit,
+      scheduleEventCount: petData.scheduleEvents?.length ?? 0,
+      mealCount: petData.meals?.length ?? 0,
+      medicationCount: petData.medications?.length ?? 0,
+      vetInfoCount: petData.vetInfo?.length ?? 0,
+      alreadyMember: petData.members?.includes(user.uid) ?? false,
+    };
+  }, [user]);
+
+  const joinSharedPet = useCallback(async (code: string): Promise<string> => {
+    if (!user) throw new Error('Must be signed in');
+
+    const trimmed = code.trim().toUpperCase();
+    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
+    if (!linkSnap.exists()) throw new Error('Invalid share code');
+
+    const { petId } = linkSnap.data() as { petId: string };
+
+    // Add current user to the pet's members array
+    await updateDoc(petRef(petId), {
+      members: arrayUnion(user.uid),
+    });
+
+    // Select this pet
     setSelectedPetId(petId);
     await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, petId);
 
@@ -504,7 +617,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addMedication,
         updateMedication,
         deleteMedication,
-        importPetData,
+        createShareLink,
+        lookupShareCode,
+        joinSharedPet,
         petSelectorOpen,
         setPetSelectorOpen,
         loading,

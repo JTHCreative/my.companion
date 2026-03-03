@@ -14,6 +14,9 @@ export interface Pet {
   createdAt?: number;
   notes?: string;
   bulletNotes?: { id: string; text: string }[];
+  ownerUid?: string;
+  members?: string[];
+  shareCode?: string;
 }
 
 export type ScheduleEventType =
@@ -82,4 +85,18 @@ export interface SharedPetData {
   meals: Omit<Meal, 'id' | 'petId'>[];
   vetInfo: Omit<VetInfo, 'id' | 'petId'>[];
   medications: Omit<Medication, 'id' | 'petId'>[];
+}
+
+export interface SharedPetPreview {
+  petId: string;
+  name: string;
+  type: PetType;
+  breed: string;
+  weight: string;
+  weightUnit: 'lbs' | 'kg';
+  scheduleEventCount: number;
+  mealCount: number;
+  medicationCount: number;
+  vetInfoCount: number;
+  alreadyMember: boolean;
 }

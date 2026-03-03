@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
+  Share,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -13,26 +14,33 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import {
-  encodePetData,
-  shareProfileSummary,
-  shareFullPetData,
-} from '../utils/shareUtils';
+import { shareProfileSummary } from '../utils/shareUtils';
 
 export function SharePetScreen({ navigation }: any) {
   const { theme } = useTheme();
-  const { selectedPet, scheduleEvents, meals, medications, vetInfo } = useData();
+  const { selectedPet, scheduleEvents, meals, medications, vetInfo, createShareLink } = useData();
+  const [shareCode, setShareCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const petSchedule = scheduleEvents.filter((e) => e.petId === selectedPet?.id);
   const petMeals = meals.filter((m) => m.petId === selectedPet?.id);
   const petMeds = medications.filter((m) => m.petId === selectedPet?.id);
   const petVets = vetInfo.filter((v) => v.petId === selectedPet?.id);
 
-  const shareCode = useMemo(() => {
-    if (!selectedPet) return '';
-    return encodePetData(selectedPet, petSchedule, petMeals, petVets, petMeds);
-  }, [selectedPet, petSchedule, petMeals, petVets, petMeds]);
+  // Auto-generate share code when screen opens
+  useEffect(() => {
+    if (!selectedPet) return;
+    if (selectedPet.shareCode) {
+      setShareCode(selectedPet.shareCode);
+      return;
+    }
+    setGenerating(true);
+    createShareLink(selectedPet.id)
+      .then(setShareCode)
+      .catch(() => {})
+      .finally(() => setGenerating(false));
+  }, [selectedPet?.id, selectedPet?.shareCode]);
 
   if (!selectedPet) {
     navigation.goBack();
@@ -47,15 +55,19 @@ export function SharePetScreen({ navigation }: any) {
     }
   };
 
-  const handleShareFullData = async () => {
+  const handleShareCode = async () => {
+    if (!shareCode) return;
     try {
-      await shareFullPetData(selectedPet, petSchedule, petMeals, petVets, petMeds);
+      await Share.share({
+        message: `Join ${selectedPet.name}'s profile on Petfolio! Enter this share code: ${shareCode}`,
+      });
     } catch {
       // User cancelled share sheet
     }
   };
 
   const handleCopyCode = async () => {
+    if (!shareCode) return;
     await Clipboard.setStringAsync(shareCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -144,7 +156,7 @@ export function SharePetScreen({ navigation }: any) {
           />
         </Card>
 
-        {/* Share Full Data Option */}
+        {/* Share Link Option (Real-time) */}
         <Card>
           <View style={styles.optionHeader}>
             <View
@@ -154,14 +166,14 @@ export function SharePetScreen({ navigation }: any) {
               ]}
             >
               <Ionicons
-                name="download-outline"
+                name="link-outline"
                 size={22}
                 color={theme.colors.primary}
               />
             </View>
             <View style={styles.optionInfo}>
               <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
-                Share Full Profile
+                Share Pet Link
               </Text>
               <Text
                 style={[
@@ -169,66 +181,64 @@ export function SharePetScreen({ navigation }: any) {
                   { color: theme.colors.textSecondary },
                 ]}
               >
-                Share {selectedPet.name}'s complete profile including{' '}
+                Share a code that lets another Petfolio user access{' '}
+                {selectedPet.name}'s full profile in real-time
                 {dataCount > 0
-                  ? `${dataCount} items (schedule, meals, meds, vet info)`
-                  : 'all data'}
-                . The recipient can import it into their Petfolio app.
+                  ? ` (${dataCount} items including schedule, meals, meds & vet info)`
+                  : ''}
+                . Any changes you make will sync to their app automatically.
               </Text>
             </View>
           </View>
 
-          <Button
-            title="Share via..."
-            onPress={handleShareFullData}
-            icon={
-              <Ionicons name="share-outline" size={18} color="#FFFFFF" />
-            }
-            style={styles.optionButton}
-          />
+          {generating ? (
+            <View style={styles.generatingRow}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.generatingText, { color: theme.colors.textSecondary }]}>
+                Generating share code...
+              </Text>
+            </View>
+          ) : shareCode ? (
+            <>
+              {/* Share Code Display */}
+              <TouchableOpacity
+                onPress={handleCopyCode}
+                activeOpacity={0.7}
+                style={[
+                  styles.codeBox,
+                  { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border },
+                ]}
+              >
+                <Text style={[styles.codeText, { color: theme.colors.text }]}>
+                  {shareCode}
+                </Text>
+              </TouchableOpacity>
 
-          {/* Divider */}
-          <View
-            style={[styles.divider, { borderBottomColor: theme.colors.border }]}
-          />
-
-          {/* Copy Code Section */}
-          <Text
-            style={[
-              styles.codeLabel,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            Or copy the share code:
-          </Text>
-          <TouchableOpacity
-            onPress={handleCopyCode}
-            activeOpacity={0.7}
-            style={[
-              styles.codeBox,
-              { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border },
-            ]}
-          >
-            <Text
-              style={[styles.codeText, { color: theme.colors.text }]}
-              numberOfLines={3}
-            >
-              {shareCode}
-            </Text>
-          </TouchableOpacity>
-          <Button
-            title={copied ? 'Copied!' : 'Copy Code'}
-            onPress={handleCopyCode}
-            variant="secondary"
-            icon={
-              <Ionicons
-                name={copied ? 'checkmark' : 'copy-outline'}
-                size={18}
-                color={theme.colors.primary}
-              />
-            }
-            style={styles.optionButton}
-          />
+              <View style={styles.buttonRow}>
+                <Button
+                  title={copied ? 'Copied!' : 'Copy Code'}
+                  onPress={handleCopyCode}
+                  variant="secondary"
+                  icon={
+                    <Ionicons
+                      name={copied ? 'checkmark' : 'copy-outline'}
+                      size={18}
+                      color={theme.colors.primary}
+                    />
+                  }
+                  style={styles.rowButton}
+                />
+                <Button
+                  title="Share via..."
+                  onPress={handleShareCode}
+                  icon={
+                    <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                  }
+                  style={styles.rowButton}
+                />
+              </View>
+            </>
+          ) : null}
         </Card>
 
         {/* Info Note */}
@@ -241,8 +251,9 @@ export function SharePetScreen({ navigation }: any) {
           <Text
             style={[styles.infoText, { color: theme.colors.textSecondary }]}
           >
-            Profile photos are not included in shared data. The recipient will
-            be able to add their own photo after importing.
+            When you share a pet link, the recipient will see all updates you
+            make in real-time. Profile photos are stored locally and not
+            included in the share.
           </Text>
         </View>
       </ScrollView>
@@ -307,25 +318,35 @@ const styles = StyleSheet.create({
   optionButton: {
     marginTop: 4,
   },
-  divider: {
-    borderBottomWidth: 1,
-    marginVertical: 16,
+  generatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
   },
-  codeLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 8,
+  generatingText: {
+    fontSize: 14,
   },
   codeBox: {
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 10,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
   },
   codeText: {
-    fontSize: 11,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 6,
     fontFamily: 'monospace',
-    lineHeight: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  rowButton: {
+    flex: 1,
   },
   infoNote: {
     flexDirection: 'row',

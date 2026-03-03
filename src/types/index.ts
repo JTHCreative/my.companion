@@ -78,6 +78,18 @@ export interface Medication {
   notes?: string;
 }
 
+export interface NotificationPreferences {
+  enabled: boolean;
+  scheduleReminders: boolean;
+  reminderMinutesBefore: number; // minutes before event to send reminder
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
+  enabled: true,
+  scheduleReminders: true,
+  reminderMinutesBefore: 15,
+};
+
 export interface SharedPetData {
   version: 1;
   pet: Omit<Pet, 'id' | 'profileImage'>;

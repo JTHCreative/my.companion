@@ -19,6 +19,7 @@ import { TimePicker } from '../components/TimePicker';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
+import { useNotifications } from '../context/NotificationContext';
 import { ScheduleEventType } from '../types';
 
 const EVENT_TYPES: {
@@ -70,6 +71,7 @@ export function ScheduleScreen({ navigation }: any) {
     meals,
     medications,
   } = useData();
+  const { prefs: notifPrefs, permissionStatus, requestPermissions } = useNotifications();
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -82,6 +84,7 @@ export function ScheduleScreen({ navigation }: any) {
   const [notes, setNotes] = useState('');
   const [linkedMealId, setLinkedMealId] = useState<string | undefined>(undefined);
   const [linkedMedicationId, setLinkedMedicationId] = useState<string | undefined>(undefined);
+  const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
   const petEvents = useMemo(
@@ -130,6 +133,7 @@ export function ScheduleScreen({ navigation }: any) {
     setNotes('');
     setLinkedMealId(undefined);
     setLinkedMedicationId(undefined);
+    setNotificationEnabled(true);
     setEditingEvent(null);
   };
 
@@ -150,6 +154,7 @@ export function ScheduleScreen({ navigation }: any) {
     setNotes(event.notes || '');
     setLinkedMealId(event.linkedMealId);
     setLinkedMedicationId(event.linkedMedicationId);
+    setNotificationEnabled(event.notificationEnabled !== false);
     setModalVisible(true);
   };
 
@@ -176,6 +181,7 @@ export function ScheduleScreen({ navigation }: any) {
         notes: notes.trim() || undefined,
         linkedMealId: eventType === 'feeding' ? linkedMealId : undefined,
         linkedMedicationId: eventType === 'medication' ? linkedMedicationId : undefined,
+        notificationEnabled,
       };
 
       if (editingEvent) {
@@ -200,6 +206,21 @@ export function ScheduleScreen({ navigation }: any) {
         onPress: () => deleteScheduleEvent(id),
       },
     ]);
+  };
+
+  const handleToggleEventNotification = async (eventId: string) => {
+    const event = scheduleEvents.find((e) => e.id === eventId);
+    if (!event) return;
+
+    const newValue = event.notificationEnabled === false;
+
+    // If enabling, ensure permissions are granted
+    if (newValue && permissionStatus !== 'granted') {
+      const granted = await requestPermissions();
+      if (!granted) return;
+    }
+
+    await updateScheduleEvent({ ...event, notificationEnabled: newValue });
   };
 
   const getEventTypeInfo = (type: string) =>
@@ -309,6 +330,17 @@ export function ScheduleScreen({ navigation }: any) {
                                 {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
                               </Text>
                             </View>
+                            <TouchableOpacity
+                              onPress={() => handleToggleEventNotification(event.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.eventBellBtn}
+                            >
+                              <Ionicons
+                                name={event.notificationEnabled !== false ? 'notifications' : 'notifications-off-outline'}
+                                size={16}
+                                color={event.notificationEnabled !== false ? typeInfo.color : theme.colors.textSecondary + '80'}
+                              />
+                            </TouchableOpacity>
                           </TouchableOpacity>
                         );
                       })}
@@ -622,6 +654,48 @@ export function ScheduleScreen({ navigation }: any) {
               style={{ height: 80 }}
             />
 
+            {/* Notification Toggle */}
+            <TouchableOpacity
+              onPress={() => setNotificationEnabled((prev) => !prev)}
+              activeOpacity={0.7}
+              style={[
+                styles.notifToggleRow,
+                {
+                  backgroundColor: theme.colors.inputBackground,
+                  borderColor: notificationEnabled ? theme.colors.primary : theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.notifToggleLabel}>
+                <Ionicons
+                  name={notificationEnabled ? 'notifications' : 'notifications-off-outline'}
+                  size={20}
+                  color={notificationEnabled ? theme.colors.primary : theme.colors.textSecondary}
+                />
+                <View>
+                  <Text style={[styles.notifToggleText, { color: theme.colors.text }]}>
+                    Notification
+                  </Text>
+                  <Text style={[styles.notifToggleHint, { color: theme.colors.textSecondary }]}>
+                    {notificationEnabled ? 'Reminder will be sent before this event' : 'No reminder for this event'}
+                  </Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.notifTogglePill,
+                  { backgroundColor: notificationEnabled ? theme.colors.primary : theme.colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.notifToggleKnob,
+                    notificationEnabled ? styles.notifToggleKnobOn : styles.notifToggleKnobOff,
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+
             {editingEvent && (
               <Button
                 title="Delete Event"
@@ -879,6 +953,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 1,
   },
+  eventBellBtn: {
+    padding: 4,
+    alignSelf: 'flex-start',
+  },
   // Modal
   modalContainer: {
     flex: 1,
@@ -954,6 +1032,53 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  notifToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  notifToggleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  notifToggleText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  notifToggleHint: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  notifTogglePill: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  notifToggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  notifToggleKnobOn: {
+    alignSelf: 'flex-end',
+  },
+  notifToggleKnobOff: {
+    alignSelf: 'flex-start',
   },
   deleteBtn: {
     marginTop: 16,

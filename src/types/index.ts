@@ -40,6 +40,7 @@ export interface ScheduleEvent {
   notes?: string;
   linkedMealId?: string; // links feeding events to meals
   linkedMedicationId?: string; // links medication events to medications
+  notificationEnabled?: boolean; // per-event notification toggle (defaults to true)
 }
 
 export interface Ingredient {

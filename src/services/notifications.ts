@@ -104,6 +104,9 @@ export async function syncScheduledNotifications(
   };
 
   for (const event of events) {
+    // Skip events with notifications explicitly disabled
+    if (event.notificationEnabled === false) continue;
+
     const pet = petMap.get(event.petId);
     if (!pet) continue;
 

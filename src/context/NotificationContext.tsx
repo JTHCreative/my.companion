@@ -77,7 +77,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const syncKey = JSON.stringify({
       enabled: prefs.enabled && prefs.scheduleReminders,
       mins: prefs.reminderMinutesBefore,
-      events: scheduleEvents.map((e) => `${e.id}:${e.time}:${e.days.join(',')}`),
+      events: scheduleEvents.map((e) => `${e.id}:${e.time}:${e.days.join(',')}:${e.notificationEnabled !== false}`),
       petIds: pets.map((p) => p.id),
     });
 

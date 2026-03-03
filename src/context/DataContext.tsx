@@ -178,8 +178,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     async function init() {
-      // Migrate any existing local data first
-      await migrateAsyncStorageToFirestore(userId);
+      // Only run legacy migration for accounts that existed before the
+      // Firestore upgrade. Brand-new accounts (created within the last
+      // 60 s) have nothing to migrate — skip and mark done so the
+      // migration never runs for them.
+      const createdAt = user.metadata.creationTime
+        ? new Date(user.metadata.creationTime).getTime()
+        : 0;
+      const isNewAccount = Date.now() - createdAt < 60_000;
+
+      if (isNewAccount) {
+        // Ensure migration is permanently skipped for this install
+        await AsyncStorage.setItem(ASYNC_KEYS.migrated, 'true');
+      } else {
+        await migrateAsyncStorageToFirestore(userId);
+      }
 
       // Load selectedPetId from local storage (UI preference)
       const savedSelectedId = await AsyncStorage.getItem(ASYNC_KEYS.selectedPetId);

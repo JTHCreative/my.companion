@@ -16,6 +16,7 @@ import { MealsScreen } from '../screens/MealsScreen';
 import { MedicalScreen } from '../screens/MedicalScreen';
 import { SharePetScreen } from '../screens/SharePetScreen';
 import { ImportPetScreen } from '../screens/ImportPetScreen';
+import { AddPetChoiceScreen } from '../screens/AddPetChoiceScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
@@ -147,6 +148,11 @@ function MainApp() {
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
       <RootStack.Screen name="Tabs" component={MainTabs} />
+      <RootStack.Screen
+        name="AddPetChoice"
+        component={AddPetChoiceScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
       <RootStack.Screen
         name="AddPet"
         component={AddEditPetScreen}

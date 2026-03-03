@@ -685,29 +685,15 @@ export function HomeScreen({ navigation }: any) {
       >
         <PetAvatarHeader
           title="Petfolio"
-          onAddPet={() => navigation.navigate('AddPet')}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="paw"
           title="Welcome to Petfolio"
           subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
           actionLabel="Add Your Pet"
-          onAction={() => navigation.navigate('AddPet')}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
-        <TouchableOpacity
-          style={styles.importLink}
-          onPress={() => navigation.navigate('ImportPet')}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="people-outline"
-            size={16}
-            color={theme.colors.primary}
-          />
-          <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-            Join a shared pet
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -718,7 +704,7 @@ export function HomeScreen({ navigation }: any) {
     >
       <PetAvatarHeader
         title="Petfolio"
-        onAddPet={() => navigation.navigate('AddPet')}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       {pets.length > 0 && (

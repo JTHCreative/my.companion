@@ -188,14 +188,14 @@ export function ScheduleScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Schedule"
-          onAddPet={() => navigation.navigate('AddPet')}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="calendar"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their schedule."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('AddPet')}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
       </View>
     );
@@ -205,7 +205,7 @@ export function ScheduleScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Schedule"
-        onAddPet={() => navigation.navigate('AddPet')}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       <ScrollView

@@ -181,7 +181,7 @@ export function ImportPetScreen({ navigation }: any) {
                     : theme.colors.border,
                 },
               ]}
-              placeholder="Enter share code (e.g. ABC123)"
+              placeholder="Enter 6 Digit Code"
               placeholderTextColor={theme.colors.textSecondary}
               value={code}
               onChangeText={(text) => {

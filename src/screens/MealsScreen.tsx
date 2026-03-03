@@ -163,14 +163,14 @@ export function MealsScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Meals"
-          onAddPet={() => navigation.navigate('AddPet')}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="restaurant"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their meals and treats."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('AddPet')}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
       </View>
     );
@@ -180,7 +180,7 @@ export function MealsScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Meals"
-        onAddPet={() => navigation.navigate('AddPet')}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
         rightAccessory={
           <TouchableOpacity onPress={() => openAddModal()} style={styles.addButton}>
             <Ionicons name="add-circle" size={28} color={theme.colors.primary} />

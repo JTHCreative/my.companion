@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Alert,
+  TextInput,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -12,7 +15,101 @@ import { useAuth } from '../context/AuthContext';
 
 export function SettingsScreen({ navigation }: { navigation: any }) {
   const { theme, toggleTheme, isDark } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, displayName, signOut, updateDisplayName, updateUserEmail, updateUserPassword } = useAuth();
+
+  const [accountExpanded, setAccountExpanded] = useState(false);
+
+  // Editable fields
+  const [editName, setEditName] = useState(displayName);
+  const [editEmail, setEditEmail] = useState(user?.email || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  // Visibility toggles
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+
+  // Reset fields when expanding
+  const toggleAccountSection = () => {
+    if (!accountExpanded) {
+      setEditName(displayName);
+      setEditEmail(user?.email || '');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    }
+    setAccountExpanded(!accountExpanded);
+  };
+
+  const handleSaveAccount = async () => {
+    // Validate
+    if (editName.trim() === '') {
+      Alert.alert('Error', 'User name cannot be empty.');
+      return;
+    }
+    if (editEmail.trim() === '' || !/\S+@\S+\.\S+/.test(editEmail.trim())) {
+      Alert.alert('Error', 'Please enter a valid email.');
+      return;
+    }
+
+    const emailChanged = editEmail.trim() !== user?.email;
+    const passwordChanged = newPassword.length > 0;
+
+    if ((emailChanged || passwordChanged) && !currentPassword) {
+      Alert.alert('Error', 'Current password is required to update email or password.');
+      return;
+    }
+    if (passwordChanged && newPassword.length < 6) {
+      Alert.alert('Error', 'New password must be at least 6 characters.');
+      return;
+    }
+    if (passwordChanged && newPassword !== confirmNewPassword) {
+      Alert.alert('Error', 'New passwords do not match.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Update display name if changed
+      if (editName.trim() !== displayName) {
+        await updateDisplayName(editName.trim());
+      }
+
+      // Update email if changed
+      if (emailChanged) {
+        await updateUserEmail(editEmail.trim(), currentPassword);
+      }
+
+      // Update password if changed
+      if (passwordChanged) {
+        await updateUserPassword(currentPassword, newPassword);
+      }
+
+      Alert.alert('Success', 'Account settings updated.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setAccountExpanded(false);
+    } catch (error: any) {
+      let message = 'Failed to update. Please try again.';
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        message = 'Current password is incorrect.';
+      } else if (error.code === 'auth/email-already-in-use') {
+        message = 'That email is already in use by another account.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        message = 'Please sign out and sign back in, then try again.';
+      } else if (error.code === 'auth/weak-password') {
+        message = 'New password is too weak. Use at least 6 characters.';
+      }
+      Alert.alert('Update Failed', message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -31,6 +128,49 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
     ]);
   };
 
+  const renderPasswordInput = (
+    label: string,
+    value: string,
+    onChangeText: (text: string) => void,
+    placeholder: string,
+    visible: boolean,
+    toggleVisible: () => void,
+  ) => (
+    <View style={styles.accountFieldContainer}>
+      <Text style={[styles.accountFieldLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+      <View style={styles.passwordInputWrapper}>
+        <TextInput
+          style={[
+            styles.accountInput,
+            {
+              backgroundColor: theme.colors.inputBackground,
+              color: theme.colors.text,
+              borderColor: theme.colors.border,
+              paddingRight: 44,
+            },
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.tabBarInactive}
+          secureTextEntry={!visible}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          onPress={toggleVisible}
+          activeOpacity={0.6}
+          style={styles.passwordEyeButton}
+        >
+          <Ionicons
+            name={visible ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color={theme.colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
@@ -42,6 +182,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         <View style={styles.backButton} />
       </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       {/* Theme Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
@@ -109,20 +250,118 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         </View>
       </View>
 
-      {/* Account Section */}
+      {/* Account Settings Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
           ACCOUNT
         </Text>
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <View style={styles.settingRow}>
+          <TouchableOpacity
+            onPress={toggleAccountSection}
+            activeOpacity={0.7}
+            style={styles.settingRow}
+          >
             <View style={styles.settingLabel}>
-              <Ionicons name="mail-outline" size={22} color={theme.colors.primary} />
-              <Text style={[styles.settingText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-                {user?.email}
-              </Text>
+              <Ionicons name="person-outline" size={22} color={theme.colors.primary} />
+              <Text style={[styles.settingText, { color: theme.colors.text }]}>Account Settings</Text>
             </View>
-          </View>
+            <Ionicons
+              name={accountExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {accountExpanded && (
+            <View style={[styles.accountContent, { borderTopColor: theme.colors.border }]}>
+              {/* User Name */}
+              <View style={styles.accountFieldContainer}>
+                <Text style={[styles.accountFieldLabel, { color: theme.colors.textSecondary }]}>User Name</Text>
+                <TextInput
+                  style={[
+                    styles.accountInput,
+                    {
+                      backgroundColor: theme.colors.inputBackground,
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Your display name"
+                  placeholderTextColor={theme.colors.tabBarInactive}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              {/* Email */}
+              <View style={styles.accountFieldContainer}>
+                <Text style={[styles.accountFieldLabel, { color: theme.colors.textSecondary }]}>Email</Text>
+                <TextInput
+                  style={[
+                    styles.accountInput,
+                    {
+                      backgroundColor: theme.colors.inputBackground,
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={theme.colors.tabBarInactive}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* Current Password */}
+              {renderPasswordInput(
+                'Current Password',
+                currentPassword,
+                setCurrentPassword,
+                'Required to change email or password',
+                showCurrentPassword,
+                () => setShowCurrentPassword(!showCurrentPassword),
+              )}
+
+              {/* New Password */}
+              {renderPasswordInput(
+                'New Password',
+                newPassword,
+                setNewPassword,
+                'Leave blank to keep current',
+                showNewPassword,
+                () => setShowNewPassword(!showNewPassword),
+              )}
+
+              {/* Confirm New Password */}
+              {renderPasswordInput(
+                'Confirm New Password',
+                confirmNewPassword,
+                setConfirmNewPassword,
+                'Re-enter new password',
+                showConfirmPassword,
+                () => setShowConfirmPassword(!showConfirmPassword),
+              )}
+
+              {/* Save Button */}
+              <TouchableOpacity
+                onPress={handleSaveAccount}
+                disabled={saving}
+                activeOpacity={0.7}
+                style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={theme.colors.textInverse} />
+                ) : (
+                  <Text style={[styles.saveButtonText, { color: theme.colors.textInverse }]}>
+                    Save Changes
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
 
@@ -136,6 +375,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
           <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -143,6 +383,9 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
@@ -219,6 +462,46 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   toggleTextActive: {
+    fontWeight: '700',
+  },
+  accountContent: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 14,
+  },
+  accountFieldContainer: {
+    gap: 6,
+  },
+  accountFieldLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  accountInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  passwordInputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  passwordEyeButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 4,
+  },
+  saveButton: {
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  saveButtonText: {
+    fontSize: 15,
     fontWeight: '700',
   },
   signOutButton: {

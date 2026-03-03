@@ -563,9 +563,9 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         onPress={() => navigation.navigate('ImportPet')}
         activeOpacity={0.7}
       >
-        <Ionicons name="cloud-download-outline" size={16} color={theme.colors.primary} />
+        <Ionicons name="people-outline" size={16} color={theme.colors.primary} />
         <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-          Import a shared pet
+          Join a shared pet
         </Text>
       </TouchableOpacity>
 
@@ -632,6 +632,18 @@ export function HomeScreen({ navigation }: any) {
     },
   );
 
+  // Ensure correct scroll position when ScrollView first renders
+  // (contentOffset prop is unreliable; the mount useEffect fires before
+  // the ScrollView exists when transitioning from 0→1 pets)
+  const hasInitialScrolled = useRef(false);
+  const handleCarouselLayout = () => {
+    if (!hasInitialScrolled.current) {
+      hasInitialScrolled.current = true;
+      const target = BOUNCE_MAX + currentIndex * SNAP_OFFSET;
+      scrollRef.current?.scrollTo({ x: target, animated: false });
+    }
+  };
+
   // Sync scroll position when pet changes externally (e.g. header avatar tap)
   useEffect(() => {
     if (currentIndex !== lastScrollIndex.current) {
@@ -673,29 +685,15 @@ export function HomeScreen({ navigation }: any) {
       >
         <PetAvatarHeader
           title="Petfolio"
-          onAddPet={() => navigation.navigate('AddPet')}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="paw"
           title="Welcome to Petfolio"
           subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
           actionLabel="Add Your Pet"
-          onAction={() => navigation.navigate('AddPet')}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
-        <TouchableOpacity
-          style={styles.importLink}
-          onPress={() => navigation.navigate('ImportPet')}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="cloud-download-outline"
-            size={16}
-            color={theme.colors.primary}
-          />
-          <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-            Import a shared pet
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -706,7 +704,7 @@ export function HomeScreen({ navigation }: any) {
     >
       <PetAvatarHeader
         title="Petfolio"
-        onAddPet={() => navigation.navigate('AddPet')}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       {pets.length > 0 && (
@@ -723,6 +721,7 @@ export function HomeScreen({ navigation }: any) {
           overScrollMode="never"
           contentContainerStyle={{ paddingLeft: BOUNCE_MAX + PAGE_PEEK, paddingRight: BOUNCE_MAX + PAGE_PEEK }}
           contentOffset={initialOffset.current}
+          onLayout={handleCarouselLayout}
           onScroll={onScroll}
           scrollEventThrottle={16}
           onScrollEndDrag={handleDragEnd}

@@ -16,43 +16,20 @@ import { MealsScreen } from '../screens/MealsScreen';
 import { MedicalScreen } from '../screens/MedicalScreen';
 import { SharePetScreen } from '../screens/SharePetScreen';
 import { ImportPetScreen } from '../screens/ImportPetScreen';
+import { AddPetChoiceScreen } from '../screens/AddPetChoiceScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SignInScreen } from '../screens/SignInScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
 
 function HomeStackNavigator() {
   const { theme } = useTheme();
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
       <HomeStack.Screen name="Home" component={HomeScreen} />
-      <HomeStack.Screen
-        name="AddPet"
-        component={AddEditPetScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <HomeStack.Screen
-        name="EditPet"
-        component={AddEditPetScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <HomeStack.Screen
-        name="SharePet"
-        component={SharePetScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <HomeStack.Screen
-        name="ImportPet"
-        component={ImportPetScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <HomeStack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
     </HomeStack.Navigator>
   );
 }
@@ -168,7 +145,41 @@ function MainApp() {
     );
   }
 
-  return <MainTabs />;
+  return (
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Screen name="Tabs" component={MainTabs} />
+      <RootStack.Screen
+        name="AddPetChoice"
+        component={AddPetChoiceScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <RootStack.Screen
+        name="AddPet"
+        component={AddEditPetScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <RootStack.Screen
+        name="EditPet"
+        component={AddEditPetScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <RootStack.Screen
+        name="SharePet"
+        component={SharePetScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <RootStack.Screen
+        name="ImportPet"
+        component={ImportPetScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <RootStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+    </RootStack.Navigator>
+  );
 }
 
 export function AppNavigator() {

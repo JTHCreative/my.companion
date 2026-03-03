@@ -145,3 +145,24 @@ export async function shareFullPetData(
     message: `Import ${pet.name}'s full profile in Petfolio!\n\n${code}`,
   });
 }
+
+/**
+ * Generate a short 6-character share code for real-time pet sharing.
+ */
+export function generateShareCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * Share a pet's share code via the native share sheet.
+ */
+export async function shareLink(petName: string, code: string): Promise<void> {
+  await Share.share({
+    message: `Join ${petName}'s profile on Petfolio! Enter this share code: ${code}`,
+  });
+}

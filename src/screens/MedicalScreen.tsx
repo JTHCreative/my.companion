@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -67,8 +67,14 @@ export function MedicalScreen({ navigation }: any) {
   const [endDate, setEndDate] = useState('');
   const [medNotes, setMedNotes] = useState('');
 
-  const petVets = vetInfo.filter((v) => v.petId === selectedPetId);
-  const petMeds = medications.filter((m) => m.petId === selectedPetId);
+  const petVets = useMemo(
+    () => vetInfo.filter((v) => v.petId === selectedPetId),
+    [vetInfo, selectedPetId]
+  );
+  const petMeds = useMemo(
+    () => medications.filter((m) => m.petId === selectedPetId),
+    [medications, selectedPetId]
+  );
 
   const resetForm = () => {
     setClinicName('');
@@ -235,14 +241,14 @@ export function MedicalScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Medical"
-          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="medkit"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their medical information."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
       </View>
     );
@@ -252,7 +258,7 @@ export function MedicalScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Medical"
-        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       <ScrollView

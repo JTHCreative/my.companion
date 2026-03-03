@@ -180,6 +180,7 @@ export function ImportPetScreen({ navigation }: any) {
                     ? theme.colors.danger
                     : theme.colors.border,
                 },
+                !code && styles.codeInputEmpty,
               ]}
               placeholder="Enter 6 Digit Code"
               placeholderTextColor={theme.colors.textSecondary}
@@ -466,6 +467,11 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     letterSpacing: 6,
     minHeight: 60,
+  },
+  codeInputEmpty: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 0,
   },
   errorText: {
     fontSize: 13,

@@ -344,11 +344,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const existing = findPetDoc(pet.id);
     if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
-      ...pet,
-    };
-    await writePetDoc(updated);
+    // Only send changed pet fields, not embedded arrays
+    const { scheduleEvents, meals, vetInfo, medications, ...existingPetFields } = existing;
+    const changes: Record<string, any> = {};
+    for (const key of Object.keys(pet) as (keyof Pet)[]) {
+      if (pet[key] !== existingPetFields[key]) {
+        changes[key] = pet[key];
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      await updateDoc(petRef(pet.id), changes);
+    }
   }, [user, findPetDoc]);
 
   const deletePet = useCallback(async (id: string) => {
@@ -376,140 +382,116 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
-    const existing = findPetDoc(event.petId);
-    if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
-      scheduleEvents: [...existing.scheduleEvents, event],
-    };
-    await writePetDoc(updated);
-  }, [user, findPetDoc]);
+    await updateDoc(petRef(event.petId), {
+      scheduleEvents: arrayUnion(event),
+    });
+  }, [user]);
 
   const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
     const existing = findPetDoc(event.petId);
     if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
+    await updateDoc(petRef(event.petId), {
       scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? event : e)),
-    };
-    await writePetDoc(updated);
+    });
   }, [user, findPetDoc]);
 
   const deleteScheduleEvent = useCallback(async (id: string) => {
     if (!user) return;
     const ownerDoc = petDocs.find((d) => d.scheduleEvents.some((e) => e.id === id));
     if (!ownerDoc) return;
-    const updated: PetDocument = {
-      ...ownerDoc,
-      scheduleEvents: ownerDoc.scheduleEvents.filter((e) => e.id !== id),
-    };
-    await writePetDoc(updated);
+    const toRemove = ownerDoc.scheduleEvents.find((e) => e.id === id);
+    if (!toRemove) return;
+    await updateDoc(petRef(ownerDoc.id), {
+      scheduleEvents: arrayRemove(toRemove),
+    });
   }, [user, petDocs]);
 
   // --- Meal CRUD ---
 
   const addMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
-    const existing = findPetDoc(meal.petId);
-    if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
-      meals: [...existing.meals, meal],
-    };
-    await writePetDoc(updated);
-  }, [user, findPetDoc]);
+    await updateDoc(petRef(meal.petId), {
+      meals: arrayUnion(meal),
+    });
+  }, [user]);
 
   const updateMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
     const existing = findPetDoc(meal.petId);
     if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
+    await updateDoc(petRef(meal.petId), {
       meals: existing.meals.map((m) => (m.id === meal.id ? meal : m)),
-    };
-    await writePetDoc(updated);
+    });
   }, [user, findPetDoc]);
 
   const deleteMeal = useCallback(async (id: string) => {
     if (!user) return;
     const ownerDoc = petDocs.find((d) => d.meals.some((m) => m.id === id));
     if (!ownerDoc) return;
-    const updated: PetDocument = {
-      ...ownerDoc,
-      meals: ownerDoc.meals.filter((m) => m.id !== id),
-    };
-    await writePetDoc(updated);
+    const toRemove = ownerDoc.meals.find((m) => m.id === id);
+    if (!toRemove) return;
+    await updateDoc(petRef(ownerDoc.id), {
+      meals: arrayRemove(toRemove),
+    });
   }, [user, petDocs]);
 
   // --- Vet CRUD ---
 
   const addVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
-    const existing = findPetDoc(vet.petId);
-    if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
-      vetInfo: [...existing.vetInfo, vet],
-    };
-    await writePetDoc(updated);
-  }, [user, findPetDoc]);
+    await updateDoc(petRef(vet.petId), {
+      vetInfo: arrayUnion(vet),
+    });
+  }, [user]);
 
   const updateVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
     const existing = findPetDoc(vet.petId);
     if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
+    await updateDoc(petRef(vet.petId), {
       vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? vet : v)),
-    };
-    await writePetDoc(updated);
+    });
   }, [user, findPetDoc]);
 
   const deleteVetInfo = useCallback(async (id: string) => {
     if (!user) return;
     const ownerDoc = petDocs.find((d) => d.vetInfo.some((v) => v.id === id));
     if (!ownerDoc) return;
-    const updated: PetDocument = {
-      ...ownerDoc,
-      vetInfo: ownerDoc.vetInfo.filter((v) => v.id !== id),
-    };
-    await writePetDoc(updated);
+    const toRemove = ownerDoc.vetInfo.find((v) => v.id === id);
+    if (!toRemove) return;
+    await updateDoc(petRef(ownerDoc.id), {
+      vetInfo: arrayRemove(toRemove),
+    });
   }, [user, petDocs]);
 
   // --- Medication CRUD ---
 
   const addMedication = useCallback(async (med: Medication) => {
     if (!user) return;
-    const existing = findPetDoc(med.petId);
-    if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
-      medications: [...existing.medications, med],
-    };
-    await writePetDoc(updated);
-  }, [user, findPetDoc]);
+    await updateDoc(petRef(med.petId), {
+      medications: arrayUnion(med),
+    });
+  }, [user]);
 
   const updateMedication = useCallback(async (med: Medication) => {
     if (!user) return;
     const existing = findPetDoc(med.petId);
     if (!existing) return;
-    const updated: PetDocument = {
-      ...existing,
+    await updateDoc(petRef(med.petId), {
       medications: existing.medications.map((m) => (m.id === med.id ? med : m)),
-    };
-    await writePetDoc(updated);
+    });
   }, [user, findPetDoc]);
 
   const deleteMedication = useCallback(async (id: string) => {
     if (!user) return;
     const ownerDoc = petDocs.find((d) => d.medications.some((m) => m.id === id));
     if (!ownerDoc) return;
-    const updated: PetDocument = {
-      ...ownerDoc,
-      medications: ownerDoc.medications.filter((m) => m.id !== id),
-    };
-    await writePetDoc(updated);
+    const toRemove = ownerDoc.medications.find((m) => m.id === id);
+    if (!toRemove) return;
+    await updateDoc(petRef(ownerDoc.id), {
+      medications: arrayRemove(toRemove),
+    });
   }, [user, petDocs]);
 
   // --- Share link management ---
@@ -533,11 +515,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Store the share code on the pet document
-    const updated: PetDocument = {
-      ...existing,
-      shareCode: code,
-    };
-    await writePetDoc(updated);
+    await updateDoc(petRef(petId), { shareCode: code });
 
     return code;
   }, [user, findPetDoc]);
@@ -591,40 +569,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return petId;
   }, [user]);
 
+  const contextValue = useMemo<DataContextValue>(() => ({
+    pets,
+    selectedPetId,
+    selectedPet,
+    selectPet,
+    addPet,
+    updatePet,
+    deletePet,
+    scheduleEvents,
+    addScheduleEvent,
+    updateScheduleEvent,
+    deleteScheduleEvent,
+    meals,
+    addMeal,
+    updateMeal,
+    deleteMeal,
+    vetInfo,
+    addVetInfo,
+    updateVetInfo,
+    deleteVetInfo,
+    medications,
+    addMedication,
+    updateMedication,
+    deleteMedication,
+    createShareLink,
+    lookupShareCode,
+    joinSharedPet,
+    petSelectorOpen,
+    setPetSelectorOpen,
+    loading,
+  }), [
+    pets, selectedPetId, selectedPet, selectPet,
+    addPet, updatePet, deletePet,
+    scheduleEvents, addScheduleEvent, updateScheduleEvent, deleteScheduleEvent,
+    meals, addMeal, updateMeal, deleteMeal,
+    vetInfo, addVetInfo, updateVetInfo, deleteVetInfo,
+    medications, addMedication, updateMedication, deleteMedication,
+    createShareLink, lookupShareCode, joinSharedPet,
+    petSelectorOpen, setPetSelectorOpen, loading,
+  ]);
+
   return (
-    <DataContext.Provider
-      value={{
-        pets,
-        selectedPetId,
-        selectedPet,
-        selectPet,
-        addPet,
-        updatePet,
-        deletePet,
-        scheduleEvents,
-        addScheduleEvent,
-        updateScheduleEvent,
-        deleteScheduleEvent,
-        meals,
-        addMeal,
-        updateMeal,
-        deleteMeal,
-        vetInfo,
-        addVetInfo,
-        updateVetInfo,
-        deleteVetInfo,
-        medications,
-        addMedication,
-        updateMedication,
-        deleteMedication,
-        createShareLink,
-        lookupShareCode,
-        joinSharedPet,
-        petSelectorOpen,
-        setPetSelectorOpen,
-        loading,
-      }}
-    >
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -67,8 +67,14 @@ export function MedicalScreen({ navigation }: any) {
   const [endDate, setEndDate] = useState('');
   const [medNotes, setMedNotes] = useState('');
 
-  const petVets = vetInfo.filter((v) => v.petId === selectedPetId);
-  const petMeds = medications.filter((m) => m.petId === selectedPetId);
+  const petVets = useMemo(
+    () => vetInfo.filter((v) => v.petId === selectedPetId),
+    [vetInfo, selectedPetId]
+  );
+  const petMeds = useMemo(
+    () => medications.filter((m) => m.petId === selectedPetId),
+    [medications, selectedPetId]
+  );
 
   const resetForm = () => {
     setClinicName('');

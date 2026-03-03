@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -40,9 +40,18 @@ export function MealsScreen({ navigation }: any) {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [notes, setNotes] = useState('');
 
-  const petMeals = meals.filter((m) => m.petId === selectedPetId);
-  const mealItems = petMeals.filter((m) => m.type === 'meal');
-  const treatItems = petMeals.filter((m) => m.type === 'treat');
+  const petMeals = useMemo(
+    () => meals.filter((m) => m.petId === selectedPetId),
+    [meals, selectedPetId]
+  );
+  const mealItems = useMemo(
+    () => petMeals.filter((m) => m.type === 'meal'),
+    [petMeals]
+  );
+  const treatItems = useMemo(
+    () => petMeals.filter((m) => m.type === 'treat'),
+    [petMeals]
+  );
 
   const resetForm = () => {
     setName('');
@@ -147,9 +156,23 @@ export function MealsScreen({ navigation }: any) {
     }
   };
 
-  // Find schedule events linked to each meal
-  const getLinkedEvents = (mealId: string) =>
-    scheduleEvents.filter((e) => e.linkedMealId === mealId);
+  // Pre-build a map of mealId → linked schedule events for O(1) lookup
+  const linkedEventsMap = useMemo(() => {
+    const map = new Map<string, typeof scheduleEvents>();
+    for (const e of scheduleEvents) {
+      if (e.linkedMealId) {
+        const existing = map.get(e.linkedMealId) || [];
+        existing.push(e);
+        map.set(e.linkedMealId, existing);
+      }
+    }
+    return map;
+  }, [scheduleEvents]);
+
+  const getLinkedEvents = useCallback(
+    (mealId: string) => linkedEventsMap.get(mealId) || [],
+    [linkedEventsMap]
+  );
 
   const formatTime = (t: string): string => {
     const [h, m] = t.split(':').map(Number);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
+import { Pet } from '../types';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   dog: 'dog',
@@ -25,6 +26,64 @@ const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMa
   hamster: 'rodent',
   other: 'paw',
 };
+
+interface SelectorPetItemProps {
+  pet: Pet;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  theme: any;
+}
+
+const SelectorPetItem = React.memo(function SelectorPetItem({ pet, isSelected, onSelect, theme }: SelectorPetItemProps) {
+  const handlePress = useCallback(() => onSelect(pet.id), [onSelect, pet.id]);
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.7}
+      style={styles.selectorItem}
+    >
+      <View
+        style={[
+          styles.selectorAvatarRing,
+          {
+            borderColor: isSelected ? theme.colors.primary : 'transparent',
+          },
+        ]}
+      >
+        {pet.profileImage ? (
+          <Image source={{ uri: pet.profileImage }} style={styles.selectorAvatar} />
+        ) : (
+          <View
+            style={[
+              styles.selectorAvatar,
+              styles.selectorAvatarPlaceholder,
+              { backgroundColor: theme.colors.primaryLight },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={PET_TYPE_ICONS[pet.type] || 'paw'}
+              size={18}
+              color={theme.colors.primary}
+            />
+          </View>
+        )}
+      </View>
+      <Text
+        style={[
+          styles.selectorName,
+          {
+            color: isSelected ? theme.colors.primary : theme.colors.text,
+            fontWeight: isSelected ? '700' : '500',
+          },
+        ]}
+        numberOfLines={1}
+      >
+        {pet.name}
+      </Text>
+    </TouchableOpacity>
+  );
+});
 
 interface PetAvatarHeaderProps {
   title: string;
@@ -42,6 +101,11 @@ export function PetAvatarHeader({
   const { pets, selectedPet, selectedPetId, selectPet, petSelectorOpen, setPetSelectorOpen } = useData();
   const { displayName } = useAuth();
   const navigation = useNavigation<any>();
+
+  const handleSelectPet = useCallback((id: string) => {
+    selectPet(id);
+    setPetSelectorOpen(false);
+  }, [selectPet, setPetSelectorOpen]);
 
   const renderHeaderAvatar = () => {
     if (!selectedPet) {
@@ -127,66 +191,15 @@ export function PetAvatarHeader({
           contentContainerStyle={styles.selectorScroll}
           style={styles.selectorScrollView}
         >
-          {pets.map((pet) => {
-            const isSelected = pet.id === selectedPetId;
-            return (
-              <TouchableOpacity
-                key={pet.id}
-                onPress={() => {
-                  selectPet(pet.id);
-                  setPetSelectorOpen(false);
-                }}
-                activeOpacity={0.7}
-                style={styles.selectorItem}
-              >
-                <View
-                  style={[
-                    styles.selectorAvatarRing,
-                    {
-                      borderColor: isSelected
-                        ? theme.colors.primary
-                        : 'transparent',
-                    },
-                  ]}
-                >
-                  {pet.profileImage ? (
-                    <Image
-                      source={{ uri: pet.profileImage }}
-                      style={styles.selectorAvatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.selectorAvatar,
-                        styles.selectorAvatarPlaceholder,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={PET_TYPE_ICONS[pet.type] || 'paw'}
-                        size={18}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.selectorName,
-                    {
-                      color: isSelected
-                        ? theme.colors.primary
-                        : theme.colors.text,
-                      fontWeight: isSelected ? '700' : '500',
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {pet.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {pets.map((pet) => (
+            <SelectorPetItem
+              key={pet.id}
+              pet={pet}
+              isSelected={pet.id === selectedPetId}
+              onSelect={handleSelectPet}
+              theme={theme}
+            />
+          ))}
           {/* Add New Pet */}
           <TouchableOpacity
             onPress={() => {

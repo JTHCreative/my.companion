@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -84,21 +84,43 @@ export function ScheduleScreen({ navigation }: any) {
   const [linkedMedicationId, setLinkedMedicationId] = useState<string | undefined>(undefined);
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
-  const petEvents = scheduleEvents
-    .filter((e) => e.petId === selectedPetId)
-    .sort((a, b) => a.time.localeCompare(b.time));
+  const petEvents = useMemo(
+    () => scheduleEvents
+      .filter((e) => e.petId === selectedPetId)
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    [scheduleEvents, selectedPetId]
+  );
 
-  const petMeals = meals.filter((m) => m.petId === selectedPetId);
-  const petMedications = medications.filter((m) => m.petId === selectedPetId);
+  const petMeals = useMemo(
+    () => meals.filter((m) => m.petId === selectedPetId),
+    [meals, selectedPetId]
+  );
+  const petMedications = useMemo(
+    () => medications.filter((m) => m.petId === selectedPetId),
+    [medications, selectedPetId]
+  );
+
+  // O(1) lookup maps for linked items
+  const mealMap = useMemo(
+    () => new Map(petMeals.map((m) => [m.id, m])),
+    [petMeals]
+  );
+  const medMap = useMemo(
+    () => new Map(petMedications.map((m) => [m.id, m])),
+    [petMedications]
+  );
 
   // Group events by hour for the timeline
-  const eventsByHour = new Map<number, typeof petEvents>();
-  for (const event of petEvents) {
-    const hour = parseInt(event.time.split(':')[0], 10);
-    const existing = eventsByHour.get(hour) || [];
-    existing.push(event);
-    eventsByHour.set(hour, existing);
-  }
+  const eventsByHour = useMemo(() => {
+    const map = new Map<number, typeof petEvents>();
+    for (const event of petEvents) {
+      const hour = parseInt(event.time.split(':')[0], 10);
+      const existing = map.get(hour) || [];
+      existing.push(event);
+      map.set(hour, existing);
+    }
+    return map;
+  }, [petEvents]);
 
   const resetForm = () => {
     setEventType('feeding');
@@ -248,8 +270,8 @@ export function ScheduleScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       {hourEvents.map((event) => {
                         const typeInfo = getEventTypeInfo(event.type);
-                        const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
-                        const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
+                        const linkedMeal = event.linkedMealId ? mealMap.get(event.linkedMealId) : undefined;
+                        const linkedMed = event.linkedMedicationId ? medMap.get(event.linkedMedicationId) : undefined;
                         return (
                           <TouchableOpacity
                             key={event.id}
@@ -639,8 +661,8 @@ export function ScheduleScreen({ navigation }: any) {
               const event = scheduleEvents.find((e) => e.id === detailEvent);
               if (!event) return null;
               const typeInfo = getEventTypeInfo(event.type);
-              const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
-              const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
+              const linkedMeal = event.linkedMealId ? mealMap.get(event.linkedMealId) : undefined;
+              const linkedMed = event.linkedMedicationId ? medMap.get(event.linkedMedicationId) : undefined;
 
               return (
                 <>

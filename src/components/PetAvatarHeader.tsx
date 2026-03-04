@@ -14,6 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
+import { PetImage } from './PetImage';
 import { Pet } from '../types';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -52,7 +53,15 @@ const SelectorPetItem = React.memo(function SelectorPetItem({ pet, isSelected, o
         ]}
       >
         {pet.profileImage ? (
-          <Image source={{ uri: pet.profileImage }} style={styles.selectorAvatar} />
+          <PetImage
+            uri={pet.profileImage}
+            petName={pet.name}
+            style={styles.selectorAvatar}
+            fallbackStyle={[styles.selectorAvatar, styles.selectorAvatarPlaceholder, { backgroundColor: theme.colors.primaryLight }]}
+            fallbackFontSize={16}
+            fallbackBg={theme.colors.primaryLight}
+            fallbackColor={theme.colors.primary}
+          />
         ) : (
           <View
             style={[
@@ -150,9 +159,14 @@ export function PetAvatarHeader({
         ]}
       >
         {selectedPet.profileImage ? (
-          <Image
-            source={{ uri: selectedPet.profileImage }}
+          <PetImage
+            uri={selectedPet.profileImage}
+            petName={selectedPet.name}
             style={styles.headerAvatarImage}
+            fallbackStyle={[styles.headerAvatarImage, styles.headerAvatarPlaceholder, { backgroundColor: theme.colors.primaryLight }]}
+            fallbackFontSize={16}
+            fallbackBg={theme.colors.primaryLight}
+            fallbackColor={theme.colors.primary}
           />
         ) : (
           <View

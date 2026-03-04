@@ -1,9 +1,18 @@
-import messaging from '@react-native-firebase/messaging';
+import { getApp } from '@react-native-firebase/app';
+import {
+  getMessaging,
+  getToken,
+  hasPermission,
+  requestPermission,
+  AuthorizationStatus,
+} from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ScheduleEvent, Pet } from '../types';
+
+const messagingInstance = getMessaging(getApp());
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -32,10 +41,10 @@ export async function setupNotificationChannel(): Promise<void> {
  * Request notification permissions via Firebase Cloud Messaging.
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
-  const authStatus = await messaging().requestPermission();
+  const authStatus = await requestPermission(messagingInstance);
   return (
-    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-    authStatus === messaging.AuthorizationStatus.PROVISIONAL
+    authStatus === AuthorizationStatus.AUTHORIZED ||
+    authStatus === AuthorizationStatus.PROVISIONAL
   );
 }
 
@@ -44,14 +53,14 @@ export async function requestNotificationPermissions(): Promise<boolean> {
  * Returns 'granted', 'denied', or 'undetermined' to match context expectations.
  */
 export async function getPermissionStatus(): Promise<string> {
-  const authStatus = await messaging().hasPermission();
+  const authStatus = await hasPermission(messagingInstance);
   if (
-    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-    authStatus === messaging.AuthorizationStatus.PROVISIONAL
+    authStatus === AuthorizationStatus.AUTHORIZED ||
+    authStatus === AuthorizationStatus.PROVISIONAL
   ) {
     return 'granted';
   }
-  if (authStatus === messaging.AuthorizationStatus.DENIED) {
+  if (authStatus === AuthorizationStatus.DENIED) {
     return 'denied';
   }
   return 'undetermined';
@@ -63,7 +72,7 @@ export async function getPermissionStatus(): Promise<string> {
  */
 export async function registerPushToken(userId: string): Promise<string | null> {
   try {
-    const token = await messaging().getToken();
+    const token = await getToken(messagingInstance);
 
     await setDoc(
       doc(db, 'userTokens', userId),

@@ -14,6 +14,7 @@ import { AddEditPetScreen } from '../screens/AddEditPetScreen';
 import { ScheduleScreen } from '../screens/ScheduleScreen';
 import { MealsScreen } from '../screens/MealsScreen';
 import { MedicalScreen } from '../screens/MedicalScreen';
+import { MessagesScreen } from '../screens/MessagesScreen';
 import { SharePetScreen } from '../screens/SharePetScreen';
 import { ImportPetScreen } from '../screens/ImportPetScreen';
 import { AddPetChoiceScreen } from '../screens/AddPetChoiceScreen';
@@ -62,6 +63,9 @@ function MainTabs() {
               break;
             case 'MedicalTab':
               iconName = focused ? 'medkit' : 'medkit-outline';
+              break;
+            case 'MessagesTab':
+              iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
               break;
             default:
               iconName = 'ellipsis-horizontal';
@@ -112,6 +116,11 @@ function MainTabs() {
         name="MedicalTab"
         component={MedicalScreen}
         options={{ tabBarLabel: 'Medical' }}
+      />
+      <Tab.Screen
+        name="MessagesTab"
+        component={MessagesScreen}
+        options={{ tabBarLabel: 'Messages' }}
       />
     </Tab.Navigator>
   );

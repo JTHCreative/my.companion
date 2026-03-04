@@ -519,17 +519,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const existing = findPetDoc(petId);
     if (!existing) throw new Error('Pet not found');
 
-    // Return existing share code if one exists
-    if (existing.shareCode) return existing.shareCode;
+    // Return existing share code if one exists, and backfill preview data
+    // for share links that were created before preview embedding.
+    if (existing.shareCode) {
+      setDoc(doc(db, 'shareLinks', existing.shareCode), {
+        petId,
+        ownerUid: user.uid,
+        name: existing.name,
+        type: existing.type,
+        breed: existing.breed,
+        weight: existing.weight,
+        weightUnit: existing.weightUnit,
+        scheduleEventCount: existing.scheduleEvents?.length ?? 0,
+        mealCount: existing.meals?.length ?? 0,
+        medicationCount: existing.medications?.length ?? 0,
+        vetInfoCount: existing.vetInfo?.length ?? 0,
+      }, { merge: true }).catch(() => {});
+      return existing.shareCode;
+    }
 
     // Generate a new share code
     const code = generateShareCode();
 
-    // Create the share link lookup document
+    // Create the share link lookup document with embedded preview data
+    // so non-members can look up the pet without needing read access to
+    // the pets collection.
     await setDoc(doc(db, 'shareLinks', code), {
       petId,
       ownerUid: user.uid,
       createdAt: Date.now(),
+      name: existing.name,
+      type: existing.type,
+      breed: existing.breed,
+      weight: existing.weight,
+      weightUnit: existing.weightUnit,
+      scheduleEventCount: existing.scheduleEvents?.length ?? 0,
+      mealCount: existing.meals?.length ?? 0,
+      medicationCount: existing.medications?.length ?? 0,
+      vetInfoCount: existing.vetInfo?.length ?? 0,
     });
 
     // Store the share code on the pet document
@@ -545,26 +572,80 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
     if (!linkSnap.exists()) return null;
 
-    const { petId } = linkSnap.data() as { petId: string };
-    const petSnap = await getDoc(petRef(petId));
-    if (!petSnap.exists()) return null;
-
-    const petData = petSnap.data() as PetDocument;
-
-    return {
-      petId,
-      name: petData.name,
-      type: petData.type,
-      breed: petData.breed,
-      weight: petData.weight,
-      weightUnit: petData.weightUnit,
-      scheduleEventCount: petData.scheduleEvents?.length ?? 0,
-      mealCount: petData.meals?.length ?? 0,
-      medicationCount: petData.medications?.length ?? 0,
-      vetInfoCount: petData.vetInfo?.length ?? 0,
-      alreadyMember: petData.members?.includes(user.uid) ?? false,
+    const linkData = linkSnap.data() as {
+      petId: string;
+      name?: string;
+      type?: string;
+      breed?: string;
+      weight?: string;
+      weightUnit?: 'lbs' | 'kg';
+      scheduleEventCount?: number;
+      mealCount?: number;
+      medicationCount?: number;
+      vetInfoCount?: number;
     };
-  }, [user]);
+
+    // Check local state to see if the user already has access
+    const alreadyMember = petDocs.some((d) => d.id === linkData.petId);
+
+    // Use preview data embedded in the shareLinks document so non-members
+    // don't need read access to the pets collection.
+    if (linkData.name) {
+      return {
+        petId: linkData.petId,
+        name: linkData.name,
+        type: (linkData.type ?? 'dog') as SharedPetPreview['type'],
+        breed: linkData.breed ?? '',
+        weight: linkData.weight ?? '',
+        weightUnit: linkData.weightUnit ?? 'lbs',
+        scheduleEventCount: linkData.scheduleEventCount ?? 0,
+        mealCount: linkData.mealCount ?? 0,
+        medicationCount: linkData.medicationCount ?? 0,
+        vetInfoCount: linkData.vetInfoCount ?? 0,
+        alreadyMember,
+      };
+    }
+
+    // Fallback for share links created before preview data was embedded:
+    // try reading the pet document directly (works if user is already a member
+    // or if rules allow it).
+    try {
+      const petSnap = await getDoc(petRef(linkData.petId));
+      if (!petSnap.exists()) return null;
+
+      const petData = petSnap.data() as PetDocument;
+      return {
+        petId: linkData.petId,
+        name: petData.name,
+        type: petData.type,
+        breed: petData.breed,
+        weight: petData.weight,
+        weightUnit: petData.weightUnit,
+        scheduleEventCount: petData.scheduleEvents?.length ?? 0,
+        mealCount: petData.meals?.length ?? 0,
+        medicationCount: petData.medications?.length ?? 0,
+        vetInfoCount: petData.vetInfo?.length ?? 0,
+        alreadyMember,
+      };
+    } catch {
+      // Permission denied — the share link exists but the pet document
+      // is not readable by this user. Return minimal preview so the user
+      // can still attempt to join.
+      return {
+        petId: linkData.petId,
+        name: 'Shared Pet',
+        type: 'dog',
+        breed: '',
+        weight: '',
+        weightUnit: 'lbs',
+        scheduleEventCount: 0,
+        mealCount: 0,
+        medicationCount: 0,
+        vetInfoCount: 0,
+        alreadyMember,
+      };
+    }
+  }, [user, petDocs]);
 
   const joinSharedPet = useCallback(async (code: string): Promise<string> => {
     if (!user) throw new Error('Must be signed in');

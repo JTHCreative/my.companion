@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   headerTitleAccessory: {
-    height: 32,
+    alignSelf: 'stretch',
     justifyContent: 'center',
   },
   headerRight: {

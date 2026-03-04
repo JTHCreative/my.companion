@@ -97,6 +97,24 @@ function petRef(petId: string) {
   return doc(db, 'pets', petId);
 }
 
+// Recursively strip undefined values from an object so Firestore never
+// receives invalid data (arrayUnion/arrayRemove/updateDoc all reject undefined).
+function stripUndefined<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map(stripUndefined) as unknown as T;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = stripUndefined(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
 // Extract Pet fields from a PetDocument (strip embedded arrays)
 function extractPet(petDoc: PetDocument): Pet {
   const { scheduleEvents, meals, vetInfo, medications, ...pet } = petDoc;
@@ -383,7 +401,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
     await updateDoc(petRef(event.petId), {
-      scheduleEvents: arrayUnion(event),
+      scheduleEvents: arrayUnion(stripUndefined(event)),
     });
   }, [user]);
 
@@ -392,7 +410,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const existing = findPetDoc(event.petId);
     if (!existing) return;
     await updateDoc(petRef(event.petId), {
-      scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? event : e)),
+      scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? stripUndefined(event) : e)),
     });
   }, [user, findPetDoc]);
 
@@ -412,7 +430,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
     await updateDoc(petRef(meal.petId), {
-      meals: arrayUnion(meal),
+      meals: arrayUnion(stripUndefined(meal)),
     });
   }, [user]);
 
@@ -421,7 +439,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const existing = findPetDoc(meal.petId);
     if (!existing) return;
     await updateDoc(petRef(meal.petId), {
-      meals: existing.meals.map((m) => (m.id === meal.id ? meal : m)),
+      meals: existing.meals.map((m) => (m.id === meal.id ? stripUndefined(meal) : m)),
     });
   }, [user, findPetDoc]);
 
@@ -441,7 +459,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
     await updateDoc(petRef(vet.petId), {
-      vetInfo: arrayUnion(vet),
+      vetInfo: arrayUnion(stripUndefined(vet)),
     });
   }, [user]);
 
@@ -450,7 +468,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const existing = findPetDoc(vet.petId);
     if (!existing) return;
     await updateDoc(petRef(vet.petId), {
-      vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? vet : v)),
+      vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? stripUndefined(vet) : v)),
     });
   }, [user, findPetDoc]);
 
@@ -470,7 +488,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addMedication = useCallback(async (med: Medication) => {
     if (!user) return;
     await updateDoc(petRef(med.petId), {
-      medications: arrayUnion(med),
+      medications: arrayUnion(stripUndefined(med)),
     });
   }, [user]);
 
@@ -479,7 +497,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const existing = findPetDoc(med.petId);
     if (!existing) return;
     await updateDoc(petRef(med.petId), {
-      medications: existing.medications.map((m) => (m.id === med.id ? med : m)),
+      medications: existing.medications.map((m) => (m.id === med.id ? stripUndefined(med) : m)),
     });
   }, [user, findPetDoc]);
 

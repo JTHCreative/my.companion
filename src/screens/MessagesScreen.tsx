@@ -93,6 +93,7 @@ const MessageBubble = React.memo(function MessageBubble({
   };
 
   const renderLeftActions = (_progress: RNAnimated.AnimatedInterpolation<number>, dragX: RNAnimated.AnimatedInterpolation<number>) => {
+    if (!isOwner) return null;
     const scale = dragX.interpolate({
       inputRange: [0, 60],
       outputRange: [0, 1],
@@ -111,38 +112,53 @@ const MessageBubble = React.memo(function MessageBubble({
     );
   };
 
-  const handleSwipeOpen = (direction: 'left' | 'right') => {
-    if (direction === 'left') {
-      onPin(message);
-      swipeableRef.current?.close();
-    }
+  const renderRightActions = (_progress: RNAnimated.AnimatedInterpolation<number>, dragX: RNAnimated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({
+      inputRange: [-60, 0],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    });
+    return (
+      <View style={styles.swipeActionRight}>
+        <RNAnimated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="arrow-undo" size={22} color={theme.colors.primary} />
+        </RNAnimated.View>
+      </View>
+    );
   };
 
-  const bubbleInner = (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onLongPress={handleLongPress}
-      style={[
-        styles.bubbleRow,
-        isMine ? styles.bubbleRowMine : styles.bubbleRowOther,
-      ]}
+  const handleSwipeOpen = (direction: 'left' | 'right') => {
+    if (direction === 'left' && isOwner) {
+      onPin(message);
+    } else if (direction === 'right') {
+      onReply(message);
+    }
+    swipeableRef.current?.close();
+  };
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={isOwner ? renderLeftActions : undefined}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={handleSwipeOpen}
+      overshootLeft={false}
+      overshootRight={false}
+      leftThreshold={60}
+      rightThreshold={60}
     >
-      <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-        <Text style={styles.avatarText}>{getInitials(message.authorName)}</Text>
-      </View>
-      <View style={[styles.bubbleContent, { borderColor: theme.colors.border, borderWidth: 1 }]}>
-        <View style={[styles.bubbleInner, !isMine && styles.bubbleInnerReverse]}>
-          {!isMine && (
-            <View style={styles.bubbleActions}>
-              <TouchableOpacity
-                onPress={() => onReply(message)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={styles.actionBtn}
-              >
-                <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          )}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onLongPress={handleLongPress}
+        style={[
+          styles.bubbleRow,
+          isMine ? styles.bubbleRowMine : styles.bubbleRowOther,
+        ]}
+      >
+        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+          <Text style={styles.avatarText}>{getInitials(message.authorName)}</Text>
+        </View>
+        <View style={[styles.bubbleContent, { borderColor: theme.colors.border, borderWidth: 1 }]}>
           <View style={styles.bubbleTextArea}>
             <View style={[styles.bubbleHeader, !isMine && styles.bubbleHeaderRight]}>
               <Text style={[styles.authorName, { color: theme.colors.text }]}>
@@ -166,37 +182,10 @@ const MessageBubble = React.memo(function MessageBubble({
               {message.text}
             </Text>
           </View>
-          {isMine && (
-            <View style={styles.bubbleActions}>
-              <TouchableOpacity
-                onPress={() => onReply(message)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={styles.actionBtn}
-              >
-                <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Swipeable>
   );
-
-  if (isOwner) {
-    return (
-      <Swipeable
-        ref={swipeableRef}
-        renderLeftActions={renderLeftActions}
-        onSwipeableOpen={handleSwipeOpen}
-        overshootLeft={false}
-        leftThreshold={60}
-      >
-        {bubbleInner}
-      </Swipeable>
-    );
-  }
-
-  return bubbleInner;
 });
 
 export function MessagesScreen({ navigation }: any) {
@@ -582,6 +571,12 @@ const styles = StyleSheet.create({
     width: 60,
     paddingLeft: 16,
   },
+  swipeActionRight: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    paddingRight: 16,
+  },
   avatar: {
     width: 36,
     height: 36,
@@ -601,25 +596,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  bubbleInner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  bubbleInnerReverse: {
-    flexDirection: 'row',
-  },
   bubbleTextArea: {
     flex: 1,
-  },
-  bubbleActions: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 8,
-    marginHorizontal: 8,
-    paddingTop: 2,
-  },
-  actionBtn: {
-    padding: 4,
   },
   bubbleHeader: {
     flexDirection: 'row',

@@ -8,16 +8,23 @@ import {
   TextInput,
   ActivityIndicator,
   ScrollView,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 export function SettingsScreen({ navigation }: { navigation: any }) {
   const { theme, toggleTheme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user, displayName, signOut, updateDisplayName, updateUserEmail, updateUserPassword } = useAuth();
+  const { prefs, permissionStatus, updatePrefs, requestPermissions } = useNotifications();
 
   const [accountExpanded, setAccountExpanded] = useState(false);
+  const [notificationsExpanded, setNotificationsExpanded] = useState(false);
 
   // Editable fields
   const [editName, setEditName] = useState(displayName);
@@ -44,6 +51,42 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
     }
     setAccountExpanded(!accountExpanded);
   };
+
+  const handleToggleNotifications = async () => {
+    if (!prefs.enabled) {
+      // Turning on — request permissions if needed
+      if (permissionStatus !== 'granted') {
+        const granted = await requestPermissions();
+        if (!granted) {
+          Alert.alert(
+            'Notifications Blocked',
+            'Please enable notifications in your device settings to receive pet reminders.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Open Settings',
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    Linking.openSettings();
+                  }
+                },
+              },
+            ],
+          );
+          return;
+        }
+      }
+    }
+    await updatePrefs({ enabled: !prefs.enabled });
+  };
+
+  const handleToggleScheduleReminders = async () => {
+    await updatePrefs({ scheduleReminders: !prefs.scheduleReminders });
+  };
+
+  const reminderOptions = [5, 10, 15, 30] as const;
 
   const handleSaveAccount = async () => {
     // Validate
@@ -174,7 +217,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
         </TouchableOpacity>
@@ -182,7 +225,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         <View style={styles.backButton} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
       {/* Theme Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
@@ -247,6 +290,126 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+          NOTIFICATIONS
+        </Text>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          {/* Master toggle */}
+          <TouchableOpacity
+            onPress={handleToggleNotifications}
+            activeOpacity={0.7}
+            style={styles.settingRow}
+          >
+            <View style={styles.settingLabel}>
+              <Ionicons
+                name={prefs.enabled ? 'notifications' : 'notifications-off-outline'}
+                size={22}
+                color={theme.colors.primary}
+              />
+              <Text style={[styles.settingText, { color: theme.colors.text }]}>Notifications</Text>
+            </View>
+            <View
+              style={[
+                styles.togglePill,
+                { backgroundColor: prefs.enabled ? theme.colors.primary : theme.colors.inputBackground },
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleKnob,
+                  prefs.enabled ? styles.toggleKnobOn : styles.toggleKnobOff,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {prefs.enabled && (
+            <>
+              {/* Divider */}
+              <View style={{ height: 1, backgroundColor: theme.colors.border, marginHorizontal: 16 }} />
+
+              {/* Schedule Reminders toggle */}
+              <TouchableOpacity
+                onPress={handleToggleScheduleReminders}
+                activeOpacity={0.7}
+                style={styles.settingRow}
+              >
+                <View style={styles.settingLabel}>
+                  <Ionicons name="alarm-outline" size={22} color={theme.colors.primary} />
+                  <Text style={[styles.settingText, { color: theme.colors.text }]}>Schedule Reminders</Text>
+                </View>
+                <View
+                  style={[
+                    styles.togglePill,
+                    { backgroundColor: prefs.scheduleReminders ? theme.colors.primary : theme.colors.inputBackground },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleKnob,
+                      prefs.scheduleReminders ? styles.toggleKnobOn : styles.toggleKnobOff,
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {prefs.scheduleReminders && (
+                <>
+                  {/* Divider */}
+                  <View style={{ height: 1, backgroundColor: theme.colors.border, marginHorizontal: 16 }} />
+
+                  {/* Reminder timing */}
+                  <View style={[styles.settingRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
+                    <View style={styles.settingLabel}>
+                      <Ionicons name="time-outline" size={22} color={theme.colors.primary} />
+                      <Text style={[styles.settingText, { color: theme.colors.text }]}>Remind Me Before</Text>
+                    </View>
+                    <View style={styles.reminderOptions}>
+                      {reminderOptions.map((mins) => (
+                        <TouchableOpacity
+                          key={mins}
+                          onPress={() => updatePrefs({ reminderMinutesBefore: mins })}
+                          activeOpacity={0.7}
+                          style={[
+                            styles.reminderChip,
+                            {
+                              backgroundColor:
+                                prefs.reminderMinutesBefore === mins
+                                  ? theme.colors.primary
+                                  : theme.colors.inputBackground,
+                              borderColor:
+                                prefs.reminderMinutesBefore === mins
+                                  ? theme.colors.primary
+                                  : theme.colors.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.reminderChipText,
+                              {
+                                color:
+                                  prefs.reminderMinutesBefore === mins
+                                    ? theme.colors.textInverse
+                                    : theme.colors.text,
+                              },
+                            ]}
+                          >
+                            {mins} min
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </>
+              )}
+            </>
+          )}
         </View>
       </View>
 
@@ -385,14 +548,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 60,
     paddingBottom: 14,
     borderBottomWidth: 1,
   },
@@ -503,6 +665,46 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  togglePill: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleKnobOn: {
+    alignSelf: 'flex-end',
+  },
+  toggleKnobOff: {
+    alignSelf: 'flex-start',
+  },
+  reminderOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    paddingLeft: 34,
+  },
+  reminderChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  reminderChipText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   signOutButton: {
     flexDirection: 'row',

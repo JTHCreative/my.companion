@@ -52,6 +52,13 @@
       "@react-native-firebase/auth",
       "@react-native-firebase/messaging",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6FA85C"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

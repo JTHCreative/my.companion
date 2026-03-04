@@ -23,6 +23,7 @@ import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
 import { PetGalleryModal } from '../components/PetGalleryModal';
+import { PetImage } from '../components/PetImage';
 import { generateId } from '../utils/generateId';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -244,7 +245,15 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
           <TouchableOpacity activeOpacity={0.7} onPress={onOpenGallery} style={styles.profileImageWrap}>
             {pet.profileImage ? (
               <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
-                <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+                <PetImage
+                  uri={pet.profileImage}
+                  petName={pet.name}
+                  style={styles.profileImage}
+                  fallbackStyle={[styles.profileImage, { backgroundColor: typeColor.bg }]}
+                  fallbackFontSize={36}
+                  fallbackBg={typeColor.bg}
+                  fallbackColor={typeColor.icon}
+                />
               </View>
             ) : (
               <View

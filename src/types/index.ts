@@ -40,6 +40,7 @@ export interface ScheduleEvent {
   notes?: string;
   linkedMealId?: string; // links feeding events to meals
   linkedMedicationId?: string; // links medication events to medications
+  notificationEnabled?: boolean; // per-event notification toggle (defaults to true)
 }
 
 export interface Ingredient {
@@ -77,6 +78,18 @@ export interface Medication {
   endDate?: string;
   notes?: string;
 }
+
+export interface NotificationPreferences {
+  enabled: boolean;
+  scheduleReminders: boolean;
+  reminderMinutesBefore: number; // minutes before event to send reminder
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
+  enabled: true,
+  scheduleReminders: true,
+  reminderMinutesBefore: 15,
+};
 
 export interface SharedPetData {
   version: 1;

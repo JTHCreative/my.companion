@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
   Animated as RNAnimated,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -204,6 +205,7 @@ export function MessagesScreen({ navigation }: any) {
 
   const [text, setText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [helpVisible, setHelpVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const flatListRef = useRef<FlatList>(null);
 
@@ -328,6 +330,11 @@ export function MessagesScreen({ navigation }: any) {
         <PetAvatarHeader
           title="Messages"
           onAddPet={() => navigation.navigate('AddPetChoice')}
+          rightAccessory={
+            <TouchableOpacity onPress={() => setHelpVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="help-circle-outline" size={22} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          }
         />
         <EmptyState
           icon="chatbubbles"
@@ -349,6 +356,11 @@ export function MessagesScreen({ navigation }: any) {
       <PetAvatarHeader
         title="Messages"
         onAddPet={() => navigation.navigate('AddPetChoice')}
+        rightAccessory={
+          <TouchableOpacity onPress={() => setHelpVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="help-circle-outline" size={22} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        }
       />
 
       <FlatList
@@ -479,6 +491,45 @@ export function MessagesScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </View>
+      <Modal visible={helpVisible} transparent animationType="fade" onRequestClose={() => setHelpVisible(false)}>
+        <TouchableOpacity style={styles.helpOverlay} activeOpacity={1} onPress={() => setHelpVisible(false)}>
+          <View style={[styles.helpCard, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.helpHeader}>
+              <Text style={[styles.helpTitle, { color: theme.colors.text }]}>Message Guide</Text>
+              <TouchableOpacity onPress={() => setHelpVisible(false)}>
+                <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.helpRow}>
+              <View style={[styles.helpIconCircle, { backgroundColor: '#F59E0B20' }]}>
+                <Ionicons name="pin" size={18} color="#F59E0B" />
+              </View>
+              <View style={styles.helpTextArea}>
+                <Text style={[styles.helpAction, { color: theme.colors.text }]}>Pin a message</Text>
+                <Text style={[styles.helpDesc, { color: theme.colors.textSecondary }]}>Swipe right on a message. Owner only.</Text>
+              </View>
+            </View>
+            <View style={styles.helpRow}>
+              <View style={[styles.helpIconCircle, { backgroundColor: theme.colors.primaryLight }]}>
+                <Ionicons name="arrow-undo" size={18} color={theme.colors.primary} />
+              </View>
+              <View style={styles.helpTextArea}>
+                <Text style={[styles.helpAction, { color: theme.colors.text }]}>Reply to a message</Text>
+                <Text style={[styles.helpDesc, { color: theme.colors.textSecondary }]}>Swipe left on any message.</Text>
+              </View>
+            </View>
+            <View style={styles.helpRow}>
+              <View style={[styles.helpIconCircle, { backgroundColor: '#EF444420' }]}>
+                <Ionicons name="trash" size={18} color="#EF4444" />
+              </View>
+              <View style={styles.helpTextArea}>
+                <Text style={[styles.helpAction, { color: theme.colors.text }]}>Delete a message</Text>
+                <Text style={[styles.helpDesc, { color: theme.colors.textSecondary }]}>Long press on your own message, or any message if you're the owner.</Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -700,5 +751,54 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Help modal
+  helpOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  helpCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 16,
+    padding: 20,
+  },
+  helpHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  helpTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  helpIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  helpTextArea: {
+    flex: 1,
+  },
+  helpAction: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  helpDesc: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

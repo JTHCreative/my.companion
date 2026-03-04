@@ -228,19 +228,23 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
           />
         </View>
 
-        {/* Edit triangle – top right (owner only) */}
-        {isOwner && (
-          <TouchableOpacity
-            style={styles.editCornerWrap}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
-          >
-            <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
-            <View style={styles.cornerIconRight}>
-              <Ionicons name="create-outline" size={25} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-        )}
+        {/* Edit triangle – top right */}
+        <TouchableOpacity
+          style={styles.editCornerWrap}
+          activeOpacity={0.7}
+          onPress={() => {
+            if (isOwner) {
+              navigation.navigate('EditPet', { petId: pet.id });
+            } else {
+              Alert.alert('View Only', 'Only the pet owner can edit the profile.');
+            }
+          }}
+        >
+          <View style={[styles.cornerTriangleRight, { backgroundColor: isOwner ? (theme.dark ? '#4A7A3A' : theme.colors.primary) : (theme.dark ? '#3A3A3A' : '#B0B0B0') }]} />
+          <View style={styles.cornerIconRight}>
+            <Ionicons name="create-outline" size={25} color={isOwner ? '#FFFFFF' : (theme.dark ? '#888888' : '#E0E0E0')} />
+          </View>
+        </TouchableOpacity>
 
         {/* Centered profile content */}
         <View style={styles.profileContent}>

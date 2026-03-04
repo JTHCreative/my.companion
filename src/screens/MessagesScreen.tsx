@@ -9,7 +9,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Animated as RNAnimated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -83,17 +85,47 @@ const MessageBubble = React.memo(function MessageBubble({
   onDelete,
 }: MessageBubbleProps) {
   const avatarColor = getAvatarColor(message.authorUid);
+  const swipeableRef = useRef<Swipeable>(null);
 
   const handleLongPress = () => {
     if (!isMine && !isOwner) return;
     onDelete(message);
   };
 
-  return (
+  const renderLeftActions = (_progress: RNAnimated.AnimatedInterpolation<number>, dragX: RNAnimated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({
+      inputRange: [0, 60],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    });
+    return (
+      <View style={styles.swipeActionLeft}>
+        <RNAnimated.View style={{ transform: [{ scale }] }}>
+          <Ionicons
+            name={message.pinned ? 'pin-outline' : 'pin'}
+            size={22}
+            color="#F59E0B"
+          />
+        </RNAnimated.View>
+      </View>
+    );
+  };
+
+  const handleSwipeOpen = (direction: 'left' | 'right') => {
+    if (direction === 'left') {
+      onPin(message);
+      swipeableRef.current?.close();
+    }
+  };
+
+  const bubbleInner = (
     <TouchableOpacity
       activeOpacity={0.8}
       onLongPress={handleLongPress}
-      style={styles.bubbleRow}
+      style={[
+        styles.bubbleRow,
+        isMine ? styles.bubbleRowMine : styles.bubbleRowOther,
+      ]}
     >
       <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
         <Text style={styles.avatarText}>{getInitials(message.authorName)}</Text>
@@ -131,24 +163,27 @@ const MessageBubble = React.memo(function MessageBubble({
             >
               <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
             </TouchableOpacity>
-            {isOwner && (
-              <TouchableOpacity
-                onPress={() => onPin(message)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={styles.actionBtn}
-              >
-                <Ionicons
-                  name={message.pinned ? 'pin' : 'pin-outline'}
-                  size={18}
-                  color={message.pinned ? '#F59E0B' : theme.colors.textSecondary}
-                />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </View>
     </TouchableOpacity>
   );
+
+  if (isOwner) {
+    return (
+      <Swipeable
+        ref={swipeableRef}
+        renderLeftActions={renderLeftActions}
+        onSwipeableOpen={handleSwipeOpen}
+        overshootLeft={false}
+        leftThreshold={60}
+      >
+        {bubbleInner}
+      </Swipeable>
+    );
+  }
+
+  return bubbleInner;
 });
 
 export function MessagesScreen({ navigation }: any) {
@@ -519,6 +554,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 4,
+    maxWidth: '85%',
+  },
+  bubbleRowMine: {
+    alignSelf: 'flex-start',
+  },
+  bubbleRowOther: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row-reverse',
+  },
+  swipeActionLeft: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    paddingLeft: 16,
   },
   avatar: {
     width: 36,
@@ -526,7 +575,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginHorizontal: 10,
     marginTop: 2,
   },
   avatarText: {

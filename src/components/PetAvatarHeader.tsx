@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
+import { PetImage } from './PetImage';
+import { Pet } from '../types';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   dog: 'dog',
@@ -25,24 +28,123 @@ const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMa
   other: 'paw',
 };
 
+interface SelectorPetItemProps {
+  pet: Pet;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  theme: any;
+}
+
+const SelectorPetItem = React.memo(function SelectorPetItem({ pet, isSelected, onSelect, theme }: SelectorPetItemProps) {
+  const handlePress = useCallback(() => onSelect(pet.id), [onSelect, pet.id]);
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.7}
+      style={styles.selectorItem}
+    >
+      <View
+        style={[
+          styles.selectorAvatarRing,
+          {
+            borderColor: isSelected ? theme.colors.primary : 'transparent',
+          },
+        ]}
+      >
+        {pet.profileImage ? (
+          <PetImage
+            uri={pet.profileImage}
+            petName={pet.name}
+            style={styles.selectorAvatar}
+            fallbackStyle={[styles.selectorAvatar, styles.selectorAvatarPlaceholder, { backgroundColor: theme.colors.primaryLight }]}
+            fallbackFontSize={16}
+            fallbackBg={theme.colors.primaryLight}
+            fallbackColor={theme.colors.primary}
+          />
+        ) : (
+          <View
+            style={[
+              styles.selectorAvatar,
+              styles.selectorAvatarPlaceholder,
+              { backgroundColor: theme.colors.primaryLight },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={PET_TYPE_ICONS[pet.type] || 'paw'}
+              size={18}
+              color={theme.colors.primary}
+            />
+          </View>
+        )}
+      </View>
+      <Text
+        style={[
+          styles.selectorName,
+          {
+            color: isSelected ? theme.colors.primary : theme.colors.text,
+            fontWeight: isSelected ? '700' : '500',
+          },
+        ]}
+        numberOfLines={1}
+      >
+        {pet.name}
+      </Text>
+    </TouchableOpacity>
+  );
+});
+
 interface PetAvatarHeaderProps {
   title: string;
   onAddPet: () => void;
-  /** Optional extra element rendered between the title and avatar (e.g. add button) */
-  rightAccessory?: React.ReactNode;
+  /** Optional callback; when provided, a (?) icon is shown next to the title */
+  onHelpPress?: () => void;
 }
 
 export function PetAvatarHeader({
   title,
   onAddPet,
-  rightAccessory,
+  onHelpPress,
 }: PetAvatarHeaderProps) {
   const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet, petSelectorOpen, setPetSelectorOpen } = useData();
+  const { displayName } = useAuth();
   const navigation = useNavigation<any>();
 
+  const handleSelectPet = useCallback((id: string) => {
+    selectPet(id);
+    setPetSelectorOpen(false);
+  }, [selectPet, setPetSelectorOpen]);
+
   const renderHeaderAvatar = () => {
-    if (!selectedPet) return null;
+    if (!selectedPet) {
+      // Show user-initial fallback when no pet is selected
+      const initial = displayName ? displayName.charAt(0).toUpperCase() : '';
+      return (
+        <View
+          style={[
+            styles.headerAvatar,
+            { borderColor: theme.colors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.headerAvatarImage,
+              styles.headerAvatarPlaceholder,
+              { backgroundColor: theme.colors.primaryLight },
+            ]}
+          >
+            {initial ? (
+              <Text style={{ fontSize: 16, fontWeight: '700', color: theme.colors.primary }}>
+                {initial}
+              </Text>
+            ) : (
+              <Ionicons name="person" size={18} color={theme.colors.primary} />
+            )}
+          </View>
+        </View>
+      );
+    }
     return (
       <TouchableOpacity
         onPress={() => setPetSelectorOpen(!petSelectorOpen)}
@@ -57,9 +159,14 @@ export function PetAvatarHeader({
         ]}
       >
         {selectedPet.profileImage ? (
-          <Image
-            source={{ uri: selectedPet.profileImage }}
+          <PetImage
+            uri={selectedPet.profileImage}
+            petName={selectedPet.name}
             style={styles.headerAvatarImage}
+            fallbackStyle={[styles.headerAvatarImage, styles.headerAvatarPlaceholder, { backgroundColor: theme.colors.primaryLight }]}
+            fallbackFontSize={16}
+            fallbackBg={theme.colors.primaryLight}
+            fallbackColor={theme.colors.primary}
           />
         ) : (
           <View
@@ -98,66 +205,15 @@ export function PetAvatarHeader({
           contentContainerStyle={styles.selectorScroll}
           style={styles.selectorScrollView}
         >
-          {pets.map((pet) => {
-            const isSelected = pet.id === selectedPetId;
-            return (
-              <TouchableOpacity
-                key={pet.id}
-                onPress={() => {
-                  selectPet(pet.id);
-                  setPetSelectorOpen(false);
-                }}
-                activeOpacity={0.7}
-                style={styles.selectorItem}
-              >
-                <View
-                  style={[
-                    styles.selectorAvatarRing,
-                    {
-                      borderColor: isSelected
-                        ? theme.colors.primary
-                        : 'transparent',
-                    },
-                  ]}
-                >
-                  {pet.profileImage ? (
-                    <Image
-                      source={{ uri: pet.profileImage }}
-                      style={styles.selectorAvatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.selectorAvatar,
-                        styles.selectorAvatarPlaceholder,
-                        { backgroundColor: theme.colors.primaryLight },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={PET_TYPE_ICONS[pet.type] || 'paw'}
-                        size={18}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.selectorName,
-                    {
-                      color: isSelected
-                        ? theme.colors.primary
-                        : theme.colors.text,
-                      fontWeight: isSelected ? '700' : '500',
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {pet.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {pets.map((pet) => (
+            <SelectorPetItem
+              key={pet.id}
+              pet={pet}
+              isSelected={pet.id === selectedPetId}
+              onSelect={handleSelectPet}
+              theme={theme}
+            />
+          ))}
           {/* Add New Pet */}
           <TouchableOpacity
             onPress={() => {
@@ -211,9 +267,21 @@ export function PetAvatarHeader({
           <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
             {title}
           </Text>
+          {onHelpPress ? (
+            <TouchableOpacity onPress={onHelpPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="help-circle-outline" size={22} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
-          {rightAccessory}
+          {displayName ? (
+            <Text
+              style={[styles.headerUserName, { color: theme.colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+          ) : null}
           {renderHeaderAvatar()}
         </View>
       </View>
@@ -246,7 +314,12 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+  },
+  headerUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: 120,
   },
   headerAvatar: {
     width: 38,

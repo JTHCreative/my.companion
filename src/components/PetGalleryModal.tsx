@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../context/ThemeContext';
+import { PetImage } from './PetImage';
 import { Pet } from '../types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -127,7 +128,15 @@ export function PetGalleryModal({
               },
             ]}
           >
-            <Image source={{ uri: galleryImages[i] }} style={styles.gridImage} />
+            <PetImage
+              uri={galleryImages[i]}
+              petName={pet.name}
+              style={styles.gridImage}
+              fallbackStyle={[styles.gridImage, { borderRadius: 8 }]}
+              fallbackFontSize={24}
+              fallbackBg={theme.colors.inputBackground}
+              fallbackColor={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
         );
       } else if (i === galleryImages.length) {
@@ -207,9 +216,14 @@ export function PetGalleryModal({
               onPress={() => setViewingImage(pet.profileImage)}
               style={styles.profileSection}
             >
-              <Image
-                source={{ uri: pet.profileImage }}
+              <PetImage
+                uri={pet.profileImage}
+                petName={pet.name}
                 style={[styles.profilePreview, { borderColor: theme.colors.border }]}
+                fallbackStyle={[styles.profilePreview, { borderColor: theme.colors.border, borderRadius: 40 }]}
+                fallbackFontSize={32}
+                fallbackBg={theme.colors.inputBackground}
+                fallbackColor={theme.colors.textSecondary}
               />
               <Text style={[styles.profileLabel, { color: theme.colors.textSecondary }]}>
                 Profile Photo
@@ -253,9 +267,14 @@ export function PetGalleryModal({
             </TouchableOpacity>
           </View>
           {viewingImage && (
-            <Image
-              source={{ uri: viewingImage }}
+            <PetImage
+              uri={viewingImage}
+              petName={pet.name}
               style={styles.fullscreenImage}
+              fallbackStyle={[styles.fullscreenImage, { borderRadius: 12 }]}
+              fallbackFontSize={64}
+              fallbackBg="rgba(255,255,255,0.1)"
+              fallbackColor="#FFFFFF"
               resizeMode="contain"
             />
           )}

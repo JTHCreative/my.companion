@@ -11,8 +11,12 @@ export interface Pet {
   profileImage: string | null;
   galleryImages?: string[];
   birthday?: string;
+  createdAt?: number;
   notes?: string;
   bulletNotes?: { id: string; text: string }[];
+  ownerUid?: string;
+  members?: string[];
+  shareCode?: string;
 }
 
 export type ScheduleEventType =
@@ -36,6 +40,7 @@ export interface ScheduleEvent {
   notes?: string;
   linkedMealId?: string; // links feeding events to meals
   linkedMedicationId?: string; // links medication events to medications
+  notificationEnabled?: boolean; // per-event notification toggle (defaults to true)
 }
 
 export interface Ingredient {
@@ -74,6 +79,33 @@ export interface Medication {
   notes?: string;
 }
 
+export interface NotificationPreferences {
+  enabled: boolean;
+  scheduleReminders: boolean;
+  reminderMinutesBefore: number; // minutes before event to send reminder
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
+  enabled: true,
+  scheduleReminders: true,
+  reminderMinutesBefore: 15,
+};
+
+export interface Message {
+  id: string;
+  petId: string;
+  authorUid: string;
+  authorName: string;
+  text: string;
+  createdAt: number;
+  pinned: boolean;
+  replyTo?: {
+    id: string;
+    authorName: string;
+    text: string;
+  };
+}
+
 export interface SharedPetData {
   version: 1;
   pet: Omit<Pet, 'id' | 'profileImage'>;
@@ -81,4 +113,18 @@ export interface SharedPetData {
   meals: Omit<Meal, 'id' | 'petId'>[];
   vetInfo: Omit<VetInfo, 'id' | 'petId'>[];
   medications: Omit<Medication, 'id' | 'petId'>[];
+}
+
+export interface SharedPetPreview {
+  petId: string;
+  name: string;
+  type: PetType;
+  breed: string;
+  weight: string;
+  weightUnit: 'lbs' | 'kg';
+  scheduleEventCount: number;
+  mealCount: number;
+  medicationCount: number;
+  vetInfoCount: number;
+  alreadyMember: boolean;
 }

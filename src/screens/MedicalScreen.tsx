@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -36,6 +37,7 @@ const FREQUENCY_OPTIONS = [
 
 export function MedicalScreen({ navigation }: any) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     selectedPet,
     selectedPetId,
@@ -67,8 +69,14 @@ export function MedicalScreen({ navigation }: any) {
   const [endDate, setEndDate] = useState('');
   const [medNotes, setMedNotes] = useState('');
 
-  const petVets = vetInfo.filter((v) => v.petId === selectedPetId);
-  const petMeds = medications.filter((m) => m.petId === selectedPetId);
+  const petVets = useMemo(
+    () => vetInfo.filter((v) => v.petId === selectedPetId),
+    [vetInfo, selectedPetId]
+  );
+  const petMeds = useMemo(
+    () => medications.filter((m) => m.petId === selectedPetId),
+    [medications, selectedPetId]
+  );
 
   const resetForm = () => {
     setClinicName('');
@@ -235,14 +243,14 @@ export function MedicalScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Medical"
-          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="medkit"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their medical information."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
       </View>
     );
@@ -252,7 +260,7 @@ export function MedicalScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Medical"
-        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       <ScrollView
@@ -467,7 +475,7 @@ export function MedicalScreen({ navigation }: any) {
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
               onPress={() => {
                 setModalMode('none');
@@ -543,7 +551,7 @@ export function MedicalScreen({ navigation }: any) {
               />
             )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 40 + insets.bottom }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -558,7 +566,7 @@ export function MedicalScreen({ navigation }: any) {
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
               onPress={() => {
                 setModalMode('none');
@@ -669,7 +677,7 @@ export function MedicalScreen({ navigation }: any) {
               />
             )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 40 + insets.bottom }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>

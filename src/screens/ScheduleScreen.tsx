@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -19,6 +20,7 @@ import { TimePicker } from '../components/TimePicker';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
+import { useNotifications } from '../context/NotificationContext';
 import { ScheduleEventType } from '../types';
 
 const EVENT_TYPES: {
@@ -60,6 +62,7 @@ function formatTime(t: string): string {
 
 export function ScheduleScreen({ navigation }: any) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     selectedPet,
     selectedPetId,
@@ -70,6 +73,7 @@ export function ScheduleScreen({ navigation }: any) {
     meals,
     medications,
   } = useData();
+  const { prefs: notifPrefs, permissionStatus, requestPermissions } = useNotifications();
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -82,23 +86,46 @@ export function ScheduleScreen({ navigation }: any) {
   const [notes, setNotes] = useState('');
   const [linkedMealId, setLinkedMealId] = useState<string | undefined>(undefined);
   const [linkedMedicationId, setLinkedMedicationId] = useState<string | undefined>(undefined);
+  const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [detailEvent, setDetailEvent] = useState<string | null>(null);
 
-  const petEvents = scheduleEvents
-    .filter((e) => e.petId === selectedPetId)
-    .sort((a, b) => a.time.localeCompare(b.time));
+  const petEvents = useMemo(
+    () => scheduleEvents
+      .filter((e) => e.petId === selectedPetId)
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    [scheduleEvents, selectedPetId]
+  );
 
-  const petMeals = meals.filter((m) => m.petId === selectedPetId);
-  const petMedications = medications.filter((m) => m.petId === selectedPetId);
+  const petMeals = useMemo(
+    () => meals.filter((m) => m.petId === selectedPetId),
+    [meals, selectedPetId]
+  );
+  const petMedications = useMemo(
+    () => medications.filter((m) => m.petId === selectedPetId),
+    [medications, selectedPetId]
+  );
+
+  // O(1) lookup maps for linked items
+  const mealMap = useMemo(
+    () => new Map(petMeals.map((m) => [m.id, m])),
+    [petMeals]
+  );
+  const medMap = useMemo(
+    () => new Map(petMedications.map((m) => [m.id, m])),
+    [petMedications]
+  );
 
   // Group events by hour for the timeline
-  const eventsByHour = new Map<number, typeof petEvents>();
-  for (const event of petEvents) {
-    const hour = parseInt(event.time.split(':')[0], 10);
-    const existing = eventsByHour.get(hour) || [];
-    existing.push(event);
-    eventsByHour.set(hour, existing);
-  }
+  const eventsByHour = useMemo(() => {
+    const map = new Map<number, typeof petEvents>();
+    for (const event of petEvents) {
+      const hour = parseInt(event.time.split(':')[0], 10);
+      const existing = map.get(hour) || [];
+      existing.push(event);
+      map.set(hour, existing);
+    }
+    return map;
+  }, [petEvents]);
 
   const resetForm = () => {
     setEventType('feeding');
@@ -108,6 +135,7 @@ export function ScheduleScreen({ navigation }: any) {
     setNotes('');
     setLinkedMealId(undefined);
     setLinkedMedicationId(undefined);
+    setNotificationEnabled(true);
     setEditingEvent(null);
   };
 
@@ -128,6 +156,7 @@ export function ScheduleScreen({ navigation }: any) {
     setNotes(event.notes || '');
     setLinkedMealId(event.linkedMealId);
     setLinkedMedicationId(event.linkedMedicationId);
+    setNotificationEnabled(event.notificationEnabled !== false);
     setModalVisible(true);
   };
 
@@ -144,17 +173,18 @@ export function ScheduleScreen({ navigation }: any) {
         EVENT_TYPES.find((t) => t.value === eventType)?.label ||
         'Event';
 
-      const eventData = {
+      const eventData: Record<string, any> = {
         id: editingEvent || generateId(),
         petId: selectedPetId!,
         type: eventType,
         title: eventTitle,
         time: time.padStart(5, '0'),
         days: selectedDays,
-        notes: notes.trim() || undefined,
-        linkedMealId: eventType === 'feeding' ? linkedMealId : undefined,
-        linkedMedicationId: eventType === 'medication' ? linkedMedicationId : undefined,
+        notificationEnabled,
       };
+      if (notes.trim()) eventData.notes = notes.trim();
+      if (eventType === 'feeding' && linkedMealId) eventData.linkedMealId = linkedMealId;
+      if (eventType === 'medication' && linkedMedicationId) eventData.linkedMedicationId = linkedMedicationId;
 
       if (editingEvent) {
         await updateScheduleEvent(eventData);
@@ -180,6 +210,21 @@ export function ScheduleScreen({ navigation }: any) {
     ]);
   };
 
+  const handleToggleEventNotification = async (eventId: string) => {
+    const event = scheduleEvents.find((e) => e.id === eventId);
+    if (!event) return;
+
+    const newValue = event.notificationEnabled === false;
+
+    // If enabling, ensure permissions are granted
+    if (newValue && permissionStatus !== 'granted') {
+      const granted = await requestPermissions();
+      if (!granted) return;
+    }
+
+    await updateScheduleEvent({ ...event, notificationEnabled: newValue });
+  };
+
   const getEventTypeInfo = (type: string) =>
     EVENT_TYPES.find((t) => t.value === type) || EVENT_TYPES[EVENT_TYPES.length - 1];
 
@@ -188,14 +233,14 @@ export function ScheduleScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Schedule"
-          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="calendar"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their schedule."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
       </View>
     );
@@ -205,7 +250,7 @@ export function ScheduleScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Schedule"
-        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       <ScrollView
@@ -248,8 +293,8 @@ export function ScheduleScreen({ navigation }: any) {
                     <View style={{ flex: 1 }}>
                       {hourEvents.map((event) => {
                         const typeInfo = getEventTypeInfo(event.type);
-                        const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
-                        const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
+                        const linkedMeal = event.linkedMealId ? mealMap.get(event.linkedMealId) : undefined;
+                        const linkedMed = event.linkedMedicationId ? medMap.get(event.linkedMedicationId) : undefined;
                         return (
                           <TouchableOpacity
                             key={event.id}
@@ -287,6 +332,17 @@ export function ScheduleScreen({ navigation }: any) {
                                 {event.days.length < 7 ? ` \u2022 ${event.days.join(', ')}` : ''}
                               </Text>
                             </View>
+                            <TouchableOpacity
+                              onPress={() => handleToggleEventNotification(event.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.eventBellBtn}
+                            >
+                              <Ionicons
+                                name={event.notificationEnabled !== false ? 'notifications' : 'notifications-off-outline'}
+                                size={16}
+                                color={event.notificationEnabled !== false ? typeInfo.color : theme.colors.textSecondary + '80'}
+                              />
+                            </TouchableOpacity>
                           </TouchableOpacity>
                         );
                       })}
@@ -317,7 +373,7 @@ export function ScheduleScreen({ navigation }: any) {
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
               onPress={() => {
                 setModalVisible(false);
@@ -600,6 +656,48 @@ export function ScheduleScreen({ navigation }: any) {
               style={{ height: 80 }}
             />
 
+            {/* Notification Toggle */}
+            <TouchableOpacity
+              onPress={() => setNotificationEnabled((prev) => !prev)}
+              activeOpacity={0.7}
+              style={[
+                styles.notifToggleRow,
+                {
+                  backgroundColor: theme.colors.inputBackground,
+                  borderColor: notificationEnabled ? theme.colors.primary : theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.notifToggleLabel}>
+                <Ionicons
+                  name={notificationEnabled ? 'notifications' : 'notifications-off-outline'}
+                  size={20}
+                  color={notificationEnabled ? theme.colors.primary : theme.colors.textSecondary}
+                />
+                <View>
+                  <Text style={[styles.notifToggleText, { color: theme.colors.text }]}>
+                    Notification
+                  </Text>
+                  <Text style={[styles.notifToggleHint, { color: theme.colors.textSecondary }]}>
+                    {notificationEnabled ? 'Reminder will be sent before this event' : 'No reminder for this event'}
+                  </Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.notifTogglePill,
+                  { backgroundColor: notificationEnabled ? theme.colors.primary : theme.colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.notifToggleKnob,
+                    notificationEnabled ? styles.notifToggleKnobOn : styles.notifToggleKnobOff,
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+
             {editingEvent && (
               <Button
                 title="Delete Event"
@@ -614,7 +712,7 @@ export function ScheduleScreen({ navigation }: any) {
               />
             )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 40 + insets.bottom }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -639,8 +737,8 @@ export function ScheduleScreen({ navigation }: any) {
               const event = scheduleEvents.find((e) => e.id === detailEvent);
               if (!event) return null;
               const typeInfo = getEventTypeInfo(event.type);
-              const linkedMeal = event.linkedMealId ? petMeals.find((m) => m.id === event.linkedMealId) : undefined;
-              const linkedMed = event.linkedMedicationId ? petMedications.find((m) => m.id === event.linkedMedicationId) : undefined;
+              const linkedMeal = event.linkedMealId ? mealMap.get(event.linkedMealId) : undefined;
+              const linkedMed = event.linkedMedicationId ? medMap.get(event.linkedMedicationId) : undefined;
 
               return (
                 <>
@@ -857,6 +955,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 1,
   },
+  eventBellBtn: {
+    padding: 4,
+    alignSelf: 'flex-start',
+  },
   // Modal
   modalContainer: {
     flex: 1,
@@ -932,6 +1034,53 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  notifToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  notifToggleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  notifToggleText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  notifToggleHint: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  notifTogglePill: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  notifToggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  notifToggleKnobOn: {
+    alignSelf: 'flex-end',
+  },
+  notifToggleKnobOff: {
+    alignSelf: 'flex-start',
   },
   deleteBtn: {
     marginTop: 16,

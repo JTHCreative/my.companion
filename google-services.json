@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "862637928628",
+    "project_id": "petfolio-3806c",
+    "storage_bucket": "petfolio-3806c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862637928628:android:30048af8d29bb75e3be7e1",
+        "android_client_info": {
+          "package_name": "com.mycompanion.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbpqd54URJc5CmG5W-xFI0bU_T3f9tztE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

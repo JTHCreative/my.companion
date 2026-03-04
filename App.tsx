@@ -4,7 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { AuthProvider } from './src/context/AuthContext';
 import { DataProvider } from './src/context/DataContext';
+import { NotificationProvider } from './src/context/NotificationContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/screens/SplashScreen';
 
@@ -31,10 +33,14 @@ function AppContent() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <DataProvider>
-          <AppNavigator />
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-        </DataProvider>
+        <AuthProvider>
+          <DataProvider>
+            <NotificationProvider>
+              <AppNavigator />
+              <StatusBar style={isDark ? 'light' : 'dark'} />
+            </NotificationProvider>
+          </DataProvider>
+        </AuthProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

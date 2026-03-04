@@ -266,12 +266,12 @@ export function PetAvatarHeader({
           <Logo size={30} iconOnly color={theme.colors.primary} />
           <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
             {title}
-            {onHelpPress ? (
-              <Text onPress={onHelpPress} style={styles.helpInline}>
-                {'  '}<Ionicons name="help-circle-outline" size={20} color={theme.colors.textSecondary} />
-              </Text>
-            ) : null}
           </Text>
+          {onHelpPress ? (
+            <TouchableOpacity onPress={onHelpPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="help-circle-outline" size={22} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
           {displayName ? (
@@ -310,9 +310,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-  },
-  helpInline: {
-    lineHeight: 26,
   },
   headerRight: {
     flexDirection: 'row',

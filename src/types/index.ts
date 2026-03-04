@@ -91,6 +91,21 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   reminderMinutesBefore: 15,
 };
 
+export interface Message {
+  id: string;
+  petId: string;
+  authorUid: string;
+  authorName: string;
+  text: string;
+  createdAt: number;
+  pinned: boolean;
+  replyTo?: {
+    id: string;
+    authorName: string;
+    text: string;
+  };
+}
+
 export interface SharedPetData {
   version: 1;
   pet: Omit<Pet, 'id' | 'profileImage'>;

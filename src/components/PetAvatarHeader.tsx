@@ -97,14 +97,14 @@ const SelectorPetItem = React.memo(function SelectorPetItem({ pet, isSelected, o
 interface PetAvatarHeaderProps {
   title: string;
   onAddPet: () => void;
-  /** Optional extra element rendered between the title and avatar (e.g. add button) */
-  rightAccessory?: React.ReactNode;
+  /** Optional callback; when provided, a (?) icon is shown next to the title */
+  onHelpPress?: () => void;
 }
 
 export function PetAvatarHeader({
   title,
   onAddPet,
-  rightAccessory,
+  onHelpPress,
 }: PetAvatarHeaderProps) {
   const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet, petSelectorOpen, setPetSelectorOpen } = useData();
@@ -267,9 +267,13 @@ export function PetAvatarHeader({
           <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
             {title}
           </Text>
+          {onHelpPress ? (
+            <TouchableOpacity onPress={onHelpPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="help-circle-outline" size={22} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
-          {rightAccessory}
           {displayName ? (
             <Text
               style={[styles.headerUserName, { color: theme.colors.textSecondary }]}

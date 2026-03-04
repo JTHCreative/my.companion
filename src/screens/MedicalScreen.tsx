@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -36,6 +37,7 @@ const FREQUENCY_OPTIONS = [
 
 export function MedicalScreen({ navigation }: any) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     selectedPet,
     selectedPetId,
@@ -473,7 +475,7 @@ export function MedicalScreen({ navigation }: any) {
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
               onPress={() => {
                 setModalMode('none');
@@ -549,7 +551,7 @@ export function MedicalScreen({ navigation }: any) {
               />
             )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 40 + insets.bottom }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -564,7 +566,7 @@ export function MedicalScreen({ navigation }: any) {
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
               onPress={() => {
                 setModalMode('none');
@@ -675,7 +677,7 @@ export function MedicalScreen({ navigation }: any) {
               />
             )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 40 + insets.bottom }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>

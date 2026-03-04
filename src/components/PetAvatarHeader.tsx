@@ -267,9 +267,9 @@ export function PetAvatarHeader({
           <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
             {title}
           </Text>
+          {rightAccessory}
         </View>
         <View style={styles.headerRight}>
-          {rightAccessory}
           {displayName ? (
             <Text
               style={[styles.headerUserName, { color: theme.colors.textSecondary }]}

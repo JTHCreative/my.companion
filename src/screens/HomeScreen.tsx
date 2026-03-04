@@ -189,7 +189,7 @@ function formatBirthday(birthday: string): string | null {
 
 function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet: any; navigation: any; onDetailEvent: (id: string) => void; onOpenGallery: () => void }) {
   const { theme } = useTheme();
-  const { scheduleEvents, meals, medications, vetInfo, updatePet } = useData();
+  const { scheduleEvents, meals, medications, vetInfo, updatePet, isOwner } = useData();
   const [showPetYears, setShowPetYears] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
@@ -232,11 +232,17 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         <TouchableOpacity
           style={styles.editCornerWrap}
           activeOpacity={0.7}
-          onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+          onPress={() => {
+            if (isOwner) {
+              navigation.navigate('EditPet', { petId: pet.id });
+            } else {
+              Alert.alert('View Only', 'Only the pet owner can edit the profile.');
+            }
+          }}
         >
-          <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
+          <View style={[styles.cornerTriangleRight, { backgroundColor: isOwner ? (theme.dark ? '#4A7A3A' : theme.colors.primary) : (theme.dark ? '#3A3A3A' : '#B0B0B0') }]} />
           <View style={styles.cornerIconRight}>
-            <Ionicons name="create-outline" size={25} color="#FFFFFF" />
+            <Ionicons name="create-outline" size={25} color={isOwner ? '#FFFFFF' : (theme.dark ? '#888888' : '#E0E0E0')} />
           </View>
         </TouchableOpacity>
 
@@ -301,17 +307,19 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
             </TouchableOpacity>
           )}
 
-          {/* Share button */}
-          <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
-            onPress={() => navigation.navigate('SharePet')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="share-outline" size={16} color={theme.colors.textSecondary} />
-            <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
-              Share
-            </Text>
-          </TouchableOpacity>
+          {/* Share button (owner only) */}
+          {isOwner && (
+            <TouchableOpacity
+              style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
+              onPress={() => navigation.navigate('SharePet')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={16} color={theme.colors.textSecondary} />
+              <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
+                Share
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Detail rows */}
@@ -319,22 +327,22 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
           {birthdayFormatted && (
             <TouchableOpacity
               style={styles.detailRow}
-              activeOpacity={0.6}
-              onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+              activeOpacity={isOwner ? 0.6 : 1}
+              onPress={isOwner ? () => navigation.navigate('EditPet', { petId: pet.id }) : undefined}
             >
               <View style={[styles.detailIcon, { backgroundColor: detailColors.birthday.bg }]}>
                 <Ionicons name="calendar-outline" size={16} color={detailColors.birthday.icon} />
               </View>
               <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Birthday</Text>
               <Text style={[styles.detailValue, { color: theme.colors.text }]}>{birthdayFormatted}</Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+              {isOwner && <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />}
             </TouchableOpacity>
           )}
           {pet.weight ? (
             <TouchableOpacity
               style={styles.detailRow}
-              activeOpacity={0.6}
-              onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+              activeOpacity={isOwner ? 0.6 : 1}
+              onPress={isOwner ? () => navigation.navigate('EditPet', { petId: pet.id }) : undefined}
             >
               <View style={[styles.detailIcon, { backgroundColor: detailColors.weight.bg }]}>
                 <Ionicons name="scale-outline" size={16} color={detailColors.weight.icon} />
@@ -343,7 +351,7 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
               <Text style={[styles.detailValue, { color: theme.colors.text }]}>
                 {pet.weight} {pet.weightUnit}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+              {isOwner && <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />}
             </TouchableOpacity>
           ) : null}
           {petVets.length > 0 && (

@@ -97,14 +97,14 @@ const SelectorPetItem = React.memo(function SelectorPetItem({ pet, isSelected, o
 interface PetAvatarHeaderProps {
   title: string;
   onAddPet: () => void;
-  /** Optional extra element rendered between the title and avatar (e.g. add button) */
-  rightAccessory?: React.ReactNode;
+  /** Optional callback; when provided, a (?) icon is shown next to the title */
+  onHelpPress?: () => void;
 }
 
 export function PetAvatarHeader({
   title,
   onAddPet,
-  rightAccessory,
+  onHelpPress,
 }: PetAvatarHeaderProps) {
   const { theme } = useTheme();
   const { pets, selectedPet, selectedPetId, selectPet, petSelectorOpen, setPetSelectorOpen } = useData();
@@ -266,12 +266,12 @@ export function PetAvatarHeader({
           <Logo size={30} iconOnly color={theme.colors.primary} />
           <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
             {title}
+            {onHelpPress ? (
+              <Text onPress={onHelpPress} style={styles.helpInline}>
+                {'  '}<Ionicons name="help-circle-outline" size={20} color={theme.colors.textSecondary} />
+              </Text>
+            ) : null}
           </Text>
-          {rightAccessory ? (
-            <View style={styles.headerTitleAccessory}>
-              {rightAccessory}
-            </View>
-          ) : null}
         </View>
         <View style={styles.headerRight}>
           {displayName ? (
@@ -311,9 +311,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
-  headerTitleAccessory: {
-    alignSelf: 'stretch',
-    justifyContent: 'center',
+  helpInline: {
+    lineHeight: 26,
   },
   headerRight: {
     flexDirection: 'row',

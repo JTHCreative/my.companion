@@ -72,6 +72,7 @@ export function ScheduleScreen({ navigation }: any) {
     deleteScheduleEvent,
     meals,
     medications,
+    isOwner,
   } = useData();
   const { prefs: notifPrefs, permissionStatus, requestPermissions } = useNotifications();
 
@@ -267,7 +268,7 @@ export function ScheduleScreen({ navigation }: any) {
               key={hour}
               activeOpacity={0.6}
               onPress={() => {
-                if (!hasEvents) {
+                if (!hasEvents && isOwner) {
                   openAddModalAtHour(hour);
                 }
               }}
@@ -300,7 +301,7 @@ export function ScheduleScreen({ navigation }: any) {
                             key={event.id}
                             activeOpacity={0.7}
                             onPress={() => setDetailEvent(event.id)}
-                            onLongPress={() => openEditModal(event.id)}
+                            onLongPress={isOwner ? () => openEditModal(event.id) : undefined}
                             style={[
                               styles.eventChip,
                               {
@@ -347,17 +348,19 @@ export function ScheduleScreen({ navigation }: any) {
                         );
                       })}
                     </View>
-                    <TouchableOpacity
-                      style={[styles.slotAddBtn, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}
-                      onPress={() => openAddModalAtHour(hour)}
-                      activeOpacity={0.6}
-                    >
-                      <Ionicons name="add" size={18} color={theme.colors.primary} />
-                    </TouchableOpacity>
+                    {isOwner && (
+                      <TouchableOpacity
+                        style={[styles.slotAddBtn, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}
+                        onPress={() => openAddModalAtHour(hour)}
+                        activeOpacity={0.6}
+                      >
+                        <Ionicons name="add" size={18} color={theme.colors.primary} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
                   <View style={styles.emptySlot}>
-                    <Ionicons name="add" size={16} color={theme.colors.textSecondary + '60'} />
+                    {isOwner && <Ionicons name="add" size={16} color={theme.colors.textSecondary + '60'} />}
                   </View>
                 )}
               </View>
@@ -850,16 +853,18 @@ export function ScheduleScreen({ navigation }: any) {
 
                   {/* Action buttons */}
                   <View style={styles.detailActions}>
-                    <TouchableOpacity
-                      style={[styles.detailEditBtn, { backgroundColor: theme.colors.primary }]}
-                      onPress={() => {
-                        setDetailEvent(null);
-                        openEditModal(event.id);
-                      }}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.detailEditBtnText}>Edit</Text>
-                    </TouchableOpacity>
+                    {isOwner && (
+                      <TouchableOpacity
+                        style={[styles.detailEditBtn, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => {
+                          setDetailEvent(null);
+                          openEditModal(event.id);
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+                        <Text style={styles.detailEditBtnText}>Edit</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                       style={[styles.detailCloseBtn, { backgroundColor: theme.colors.inputBackground }]}
                       onPress={() => setDetailEvent(null)}

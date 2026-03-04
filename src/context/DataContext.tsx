@@ -78,6 +78,8 @@ interface DataContextValue {
   lookupShareCode: (code: string) => Promise<SharedPetPreview | null>;
   joinSharedPet: (code: string) => Promise<string>;
 
+  isOwner: boolean;
+
   petSelectorOpen: boolean;
   setPetSelectorOpen: (open: boolean) => void;
 
@@ -330,6 +332,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const selectedPet = useMemo(
     () => pets.find((p) => p.id === selectedPetId) || null,
     [pets, selectedPetId]
+  );
+
+  const isOwner = useMemo(
+    () => !!user && !!selectedPet && selectedPet.ownerUid === user.uid,
+    [user, selectedPet]
   );
 
   // Auto-select first pet if none selected
@@ -754,6 +761,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     deleteMessage: deleteMessageFn,
     togglePinMessage: togglePinMessageFn,
     cleanupOldMessages: cleanupOldMessagesFn,
+    isOwner,
     createShareLink,
     lookupShareCode,
     joinSharedPet,
@@ -768,7 +776,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     vetInfo, addVetInfo, updateVetInfo, deleteVetInfo,
     medications, addMedication, updateMedication, deleteMedication,
     messages, addMessageFn, deleteMessageFn, togglePinMessageFn, cleanupOldMessagesFn,
-    createShareLink, lookupShareCode, joinSharedPet,
+    isOwner, createShareLink, lookupShareCode, joinSharedPet,
     petSelectorOpen, setPetSelectorOpen, loading,
   ]);
 

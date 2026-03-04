@@ -49,6 +49,7 @@ export function MedicalScreen({ navigation }: any) {
     addMedication,
     updateMedication,
     deleteMedication,
+    isOwner,
   } = useData();
 
   const [modalMode, setModalMode] = useState<ModalMode>('none');
@@ -275,34 +276,46 @@ export function MedicalScreen({ navigation }: any) {
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
             Veterinarian
           </Text>
-          <TouchableOpacity onPress={() => openVetModal()} style={styles.sectionAddBtn}>
-            <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
+          {isOwner && (
+            <TouchableOpacity onPress={() => openVetModal()} style={styles.sectionAddBtn}>
+              <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {petVets.length === 0 ? (
-          <Card>
-            <TouchableOpacity
-              style={styles.emptyCardContent}
-              onPress={() => openVetModal()}
-            >
-              <Ionicons
-                name="add-circle-outline"
-                size={24}
-                color={theme.colors.textSecondary}
-              />
-              <Text style={[styles.emptyCardText, { color: theme.colors.textSecondary }]}>
-                Add vet information
-              </Text>
-            </TouchableOpacity>
-          </Card>
+          isOwner ? (
+            <Card>
+              <TouchableOpacity
+                style={styles.emptyCardContent}
+                onPress={() => openVetModal()}
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={[styles.emptyCardText, { color: theme.colors.textSecondary }]}>
+                  Add vet information
+                </Text>
+              </TouchableOpacity>
+            </Card>
+          ) : (
+            <Card>
+              <View style={styles.emptyCardContent}>
+                <Text style={[styles.emptyCardText, { color: theme.colors.textSecondary }]}>
+                  No vet information yet
+                </Text>
+              </View>
+            </Card>
+          )
         ) : (
           petVets.map((vet) => (
             <TouchableOpacity
               key={vet.id}
-              activeOpacity={0.7}
-              onPress={() => openVetModal(vet.id)}
-              onLongPress={() => handleDeleteVet(vet.id)}
+              activeOpacity={isOwner ? 0.7 : 1}
+              onPress={isOwner ? () => openVetModal(vet.id) : undefined}
+              onLongPress={isOwner ? () => handleDeleteVet(vet.id) : undefined}
             >
               <Card>
                 <View style={styles.vetHeader}>
@@ -377,34 +390,46 @@ export function MedicalScreen({ navigation }: any) {
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
             Medications
           </Text>
-          <TouchableOpacity onPress={() => openMedModal()} style={styles.sectionAddBtn}>
-            <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
+          {isOwner && (
+            <TouchableOpacity onPress={() => openMedModal()} style={styles.sectionAddBtn}>
+              <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {petMeds.length === 0 ? (
-          <Card>
-            <TouchableOpacity
-              style={styles.emptyCardContent}
-              onPress={() => openMedModal()}
-            >
-              <Ionicons
-                name="add-circle-outline"
-                size={24}
-                color={theme.colors.textSecondary}
-              />
-              <Text style={[styles.emptyCardText, { color: theme.colors.textSecondary }]}>
-                Add medication
-              </Text>
-            </TouchableOpacity>
-          </Card>
+          isOwner ? (
+            <Card>
+              <TouchableOpacity
+                style={styles.emptyCardContent}
+                onPress={() => openMedModal()}
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={[styles.emptyCardText, { color: theme.colors.textSecondary }]}>
+                  Add medication
+                </Text>
+              </TouchableOpacity>
+            </Card>
+          ) : (
+            <Card>
+              <View style={styles.emptyCardContent}>
+                <Text style={[styles.emptyCardText, { color: theme.colors.textSecondary }]}>
+                  No medications yet
+                </Text>
+              </View>
+            </Card>
+          )
         ) : (
           petMeds.map((med) => (
             <TouchableOpacity
               key={med.id}
-              activeOpacity={0.7}
-              onPress={() => openMedModal(med.id)}
-              onLongPress={() => handleDeleteMed(med.id)}
+              activeOpacity={isOwner ? 0.7 : 1}
+              onPress={isOwner ? () => openMedModal(med.id) : undefined}
+              onLongPress={isOwner ? () => handleDeleteMed(med.id) : undefined}
             >
               <Card>
                 <View style={styles.medHeader}>

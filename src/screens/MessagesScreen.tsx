@@ -85,24 +85,8 @@ const MessageBubble = React.memo(function MessageBubble({
   const avatarColor = getAvatarColor(message.authorUid);
 
   const handleLongPress = () => {
-    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
-      { text: 'Reply', onPress: () => onReply(message) },
-    ];
-    if (isOwner) {
-      options.push({
-        text: message.pinned ? 'Unpin' : 'Pin',
-        onPress: () => onPin(message),
-      });
-    }
-    if (isMine || isOwner) {
-      options.push({
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => onDelete(message),
-      });
-    }
-    options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('Message', undefined, options);
+    if (!isMine && !isOwner) return;
+    onDelete(message);
   };
 
   return (
@@ -114,28 +98,54 @@ const MessageBubble = React.memo(function MessageBubble({
       <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
         <Text style={styles.avatarText}>{getInitials(message.authorName)}</Text>
       </View>
-      <View style={styles.bubbleContent}>
-        <View style={styles.bubbleHeader}>
-          <Text style={[styles.authorName, { color: theme.colors.text }]}>
-            {message.authorName}
-          </Text>
-          <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
-            {formatTimestamp(message.createdAt)}
-          </Text>
-        </View>
-        {message.replyTo && (
-          <View style={[styles.replyBar, { borderLeftColor: theme.colors.primary, backgroundColor: theme.colors.primaryLight }]}>
-            <Text style={[styles.replyAuthor, { color: theme.colors.primary }]} numberOfLines={1}>
-              {message.replyTo.authorName}
-            </Text>
-            <Text style={[styles.replyText, { color: theme.colors.textSecondary }]} numberOfLines={2}>
-              {message.replyTo.text}
+      <View style={[styles.bubbleContent, { borderColor: theme.colors.border, borderWidth: 1 }]}>
+        <View style={styles.bubbleInner}>
+          <View style={styles.bubbleTextArea}>
+            <View style={styles.bubbleHeader}>
+              <Text style={[styles.authorName, { color: theme.colors.text }]}>
+                {message.authorName}
+              </Text>
+              <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
+                {formatTimestamp(message.createdAt)}
+              </Text>
+            </View>
+            {message.replyTo && (
+              <View style={[styles.replyBar, { borderLeftColor: theme.colors.primary, backgroundColor: theme.colors.primaryLight }]}>
+                <Text style={[styles.replyAuthor, { color: theme.colors.primary }]} numberOfLines={1}>
+                  {message.replyTo.authorName}
+                </Text>
+                <Text style={[styles.replyText, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                  {message.replyTo.text}
+                </Text>
+              </View>
+            )}
+            <Text style={[styles.messageText, { color: theme.colors.text }]}>
+              {message.text}
             </Text>
           </View>
-        )}
-        <Text style={[styles.messageText, { color: theme.colors.text }]}>
-          {message.text}
-        </Text>
+          <View style={styles.bubbleActions}>
+            <TouchableOpacity
+              onPress={() => onReply(message)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={styles.actionBtn}
+            >
+              <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => onPin(message)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                style={styles.actionBtn}
+              >
+                <Ionicons
+                  name={message.pinned ? 'pin' : 'pin-outline'}
+                  size={18}
+                  color={message.pinned ? '#F59E0B' : theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -526,6 +536,25 @@ const styles = StyleSheet.create({
   },
   bubbleContent: {
     flex: 1,
+    borderRadius: 12,
+    padding: 10,
+  },
+  bubbleInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  bubbleTextArea: {
+    flex: 1,
+  },
+  bubbleActions: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+    marginLeft: 8,
+    paddingTop: 2,
+  },
+  actionBtn: {
+    padding: 4,
   },
   bubbleHeader: {
     flexDirection: 'row',

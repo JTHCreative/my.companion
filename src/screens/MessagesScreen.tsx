@@ -131,9 +131,20 @@ const MessageBubble = React.memo(function MessageBubble({
         <Text style={styles.avatarText}>{getInitials(message.authorName)}</Text>
       </View>
       <View style={[styles.bubbleContent, { borderColor: theme.colors.border, borderWidth: 1 }]}>
-        <View style={styles.bubbleInner}>
+        <View style={[styles.bubbleInner, !isMine && styles.bubbleInnerReverse]}>
+          {!isMine && (
+            <View style={styles.bubbleActions}>
+              <TouchableOpacity
+                onPress={() => onReply(message)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                style={styles.actionBtn}
+              >
+                <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.bubbleTextArea}>
-            <View style={styles.bubbleHeader}>
+            <View style={[styles.bubbleHeader, !isMine && styles.bubbleHeaderRight]}>
               <Text style={[styles.authorName, { color: theme.colors.text }]}>
                 {message.authorName}
               </Text>
@@ -151,19 +162,21 @@ const MessageBubble = React.memo(function MessageBubble({
                 </Text>
               </View>
             )}
-            <Text style={[styles.messageText, { color: theme.colors.text }]}>
+            <Text style={[styles.messageText, { color: theme.colors.text, textAlign: isMine ? 'left' : 'right' }]}>
               {message.text}
             </Text>
           </View>
-          <View style={styles.bubbleActions}>
-            <TouchableOpacity
-              onPress={() => onReply(message)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              style={styles.actionBtn}
-            >
-              <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+          {isMine && (
+            <View style={styles.bubbleActions}>
+              <TouchableOpacity
+                onPress={() => onReply(message)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                style={styles.actionBtn}
+              >
+                <Ionicons name="arrow-undo-outline" size={18} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -592,6 +605,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
+  bubbleInnerReverse: {
+    flexDirection: 'row',
+  },
   bubbleTextArea: {
     flex: 1,
   },
@@ -599,7 +615,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 8,
-    marginLeft: 8,
+    marginHorizontal: 8,
     paddingTop: 2,
   },
   actionBtn: {
@@ -610,6 +626,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 2,
+  },
+  bubbleHeaderRight: {
+    justifyContent: 'flex-end',
   },
   authorName: {
     fontSize: 14,

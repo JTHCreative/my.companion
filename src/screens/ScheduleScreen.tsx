@@ -171,18 +171,18 @@ export function ScheduleScreen({ navigation }: any) {
         EVENT_TYPES.find((t) => t.value === eventType)?.label ||
         'Event';
 
-      const eventData = {
+      const eventData: Record<string, any> = {
         id: editingEvent || generateId(),
         petId: selectedPetId!,
         type: eventType,
         title: eventTitle,
         time: time.padStart(5, '0'),
         days: selectedDays,
-        notes: notes.trim() || undefined,
-        linkedMealId: eventType === 'feeding' ? linkedMealId : undefined,
-        linkedMedicationId: eventType === 'medication' ? linkedMedicationId : undefined,
         notificationEnabled,
       };
+      if (notes.trim()) eventData.notes = notes.trim();
+      if (eventType === 'feeding' && linkedMealId) eventData.linkedMealId = linkedMealId;
+      if (eventType === 'medication' && linkedMedicationId) eventData.linkedMedicationId = linkedMedicationId;
 
       if (editingEvent) {
         await updateScheduleEvent(eventData);

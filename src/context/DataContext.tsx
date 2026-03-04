@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
-import { Pet, ScheduleEvent, Meal, VetInfo, Medication, SharedPetPreview } from '../types';
+import { Pet, ScheduleEvent, Meal, VetInfo, Medication, Message, SharedPetPreview } from '../types';
 import { generateId } from '../utils/generateId';
 import { generateShareCode } from '../utils/shareUtils';
 
@@ -36,6 +36,7 @@ interface PetDocument extends Pet {
   meals: Meal[];
   vetInfo: VetInfo[];
   medications: Medication[];
+  messages: Message[];
 }
 
 interface DataContextValue {
@@ -66,6 +67,12 @@ interface DataContextValue {
   addMedication: (med: Medication) => Promise<void>;
   updateMedication: (med: Medication) => Promise<void>;
   deleteMedication: (id: string) => Promise<void>;
+
+  messages: Message[];
+  addMessage: (msg: Message) => Promise<void>;
+  deleteMessage: (id: string) => Promise<void>;
+  togglePinMessage: (id: string, pinned: boolean) => Promise<void>;
+  cleanupOldMessages: () => Promise<void>;
 
   createShareLink: (petId: string) => Promise<string>;
   lookupShareCode: (code: string) => Promise<SharedPetPreview | null>;
@@ -117,7 +124,7 @@ function stripUndefined<T>(obj: T): T {
 
 // Extract Pet fields from a PetDocument (strip embedded arrays)
 function extractPet(petDoc: PetDocument): Pet {
-  const { scheduleEvents, meals, vetInfo, medications, ...pet } = petDoc;
+  const { scheduleEvents, meals, vetInfo, medications, messages, ...pet } = petDoc;
   return pet;
 }
 
@@ -169,6 +176,7 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
         meals: mealsList.filter((m) => m.petId === pet.id),
         vetInfo: vets.filter((v) => v.petId === pet.id),
         medications: meds.filter((m) => m.petId === pet.id),
+        messages: [],
       };
       batch.set(petRef(pet.id), petDocument);
     }
@@ -314,6 +322,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [petDocs]
   );
 
+  const messages = useMemo(
+    () => petDocs.flatMap((d) => (d.messages ?? []).map((m) => ({ ...m, petId: d.id }))),
+    [petDocs]
+  );
+
   const selectedPet = useMemo(
     () => pets.find((p) => p.id === selectedPetId) || null,
     [pets, selectedPetId]
@@ -350,6 +363,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       meals: [],
       vetInfo: [],
       medications: [],
+      messages: [],
     };
     await writePetDoc(newDoc);
     if (!selectedPetId) {
@@ -511,6 +525,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       medications: arrayRemove(toRemove),
     });
   }, [user, petDocs]);
+
+  // --- Message CRUD ---
+
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+  const addMessageFn = useCallback(async (msg: Message) => {
+    if (!user) return;
+    await updateDoc(petRef(msg.petId), {
+      messages: arrayUnion(stripUndefined(msg)),
+    });
+  }, [user]);
+
+  const deleteMessageFn = useCallback(async (id: string) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => (d.messages ?? []).some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const toRemove = (ownerDoc.messages ?? []).find((m) => m.id === id);
+    if (!toRemove) return;
+    await updateDoc(petRef(ownerDoc.id), {
+      messages: arrayRemove(toRemove),
+    });
+  }, [user, petDocs]);
+
+  const togglePinMessageFn = useCallback(async (id: string, pinned: boolean) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => (d.messages ?? []).some((m) => m.id === id));
+    if (!ownerDoc) return;
+    await updateDoc(petRef(ownerDoc.id), {
+      messages: (ownerDoc.messages ?? []).map((m) => (m.id === id ? { ...m, pinned } : m)),
+    });
+  }, [user, petDocs]);
+
+  const cleanupOldMessagesFn = useCallback(async () => {
+    if (!user || !selectedPetId) return;
+    const ownerDoc = findPetDoc(selectedPetId);
+    if (!ownerDoc) return;
+    const cutoff = Date.now() - THIRTY_DAYS_MS;
+    const currentMessages = ownerDoc.messages ?? [];
+    const filtered = currentMessages.filter((m) => m.pinned || m.createdAt >= cutoff);
+    if (filtered.length < currentMessages.length) {
+      await updateDoc(petRef(selectedPetId), { messages: filtered });
+    }
+  }, [user, selectedPetId, findPetDoc]);
 
   // --- Share link management ---
 
@@ -692,6 +749,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     addMedication,
     updateMedication,
     deleteMedication,
+    messages,
+    addMessage: addMessageFn,
+    deleteMessage: deleteMessageFn,
+    togglePinMessage: togglePinMessageFn,
+    cleanupOldMessages: cleanupOldMessagesFn,
     createShareLink,
     lookupShareCode,
     joinSharedPet,
@@ -705,6 +767,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     meals, addMeal, updateMeal, deleteMeal,
     vetInfo, addVetInfo, updateVetInfo, deleteVetInfo,
     medications, addMedication, updateMedication, deleteMedication,
+    messages, addMessageFn, deleteMessageFn, togglePinMessageFn, cleanupOldMessagesFn,
     createShareLink, lookupShareCode, joinSharedPet,
     petSelectorOpen, setPetSelectorOpen, loading,
   ]);

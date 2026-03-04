@@ -20,13 +20,6 @@ import { EmptyState } from '../components/EmptyState';
 import { Card } from '../components/Card';
 import { Message } from '../types';
 import { generateId } from '../utils/generateId';
-import {
-  subscribeToMessages,
-  addMessage,
-  deleteMessage,
-  togglePinMessage,
-  cleanupOldMessages,
-} from '../services/messages';
 
 function formatTimestamp(ts: number): string {
   const date = new Date(ts);
@@ -152,9 +145,16 @@ export function MessagesScreen({ navigation }: any) {
   const { theme } = useTheme();
   const { user, displayName } = useAuth();
   const insets = useSafeAreaInsets();
-  const { selectedPet, selectedPetId } = useData();
+  const {
+    selectedPet,
+    selectedPetId,
+    messages,
+    addMessage,
+    deleteMessage,
+    togglePinMessage,
+    cleanupOldMessages,
+  } = useData();
 
-  const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -162,31 +162,29 @@ export function MessagesScreen({ navigation }: any) {
 
   const isOwner = selectedPet?.ownerUid === user?.uid;
 
-  // Subscribe to messages & run cleanup
+  // Clean up old unpinned messages on mount
   useEffect(() => {
-    if (!selectedPetId) {
-      setMessages([]);
-      return;
+    if (selectedPetId) {
+      cleanupOldMessages().catch(() => {});
     }
+  }, [selectedPetId, cleanupOldMessages]);
 
-    // Clean up old unpinned messages on mount
-    cleanupOldMessages(selectedPetId).catch(() => {});
-
-    const unsub = subscribeToMessages(selectedPetId, (msgs) => {
-      setMessages(msgs);
-    });
-
-    return unsub;
-  }, [selectedPetId]);
+  // Filter messages for the selected pet
+  const petMessages = useMemo(
+    () => messages
+      .filter((m) => m.petId === selectedPetId)
+      .sort((a, b) => b.createdAt - a.createdAt),
+    [messages, selectedPetId],
+  );
 
   const pinnedMessages = useMemo(
-    () => messages.filter((m) => m.pinned),
-    [messages],
+    () => petMessages.filter((m) => m.pinned),
+    [petMessages],
   );
 
   const allMessages = useMemo(
-    () => [...messages].reverse(),
-    [messages],
+    () => [...petMessages].reverse(),
+    [petMessages],
   );
 
   const handleSend = useCallback(async () => {
@@ -220,7 +218,7 @@ export function MessagesScreen({ navigation }: any) {
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to send message.');
     }
-  }, [text, user, selectedPetId, displayName, replyingTo]);
+  }, [text, user, selectedPetId, displayName, replyingTo, addMessage]);
 
   const handleReply = useCallback((msg: Message) => {
     setReplyingTo(msg);
@@ -231,12 +229,12 @@ export function MessagesScreen({ navigation }: any) {
     async (msg: Message) => {
       if (!selectedPetId) return;
       try {
-        await togglePinMessage(selectedPetId, msg.id, !msg.pinned);
+        await togglePinMessage(msg.id, !msg.pinned);
       } catch (e: any) {
         Alert.alert('Error', e.message || 'Failed to update pin.');
       }
     },
-    [selectedPetId],
+    [selectedPetId, togglePinMessage],
   );
 
   const handleDelete = useCallback(
@@ -249,7 +247,7 @@ export function MessagesScreen({ navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteMessage(selectedPetId, msg.id);
+              await deleteMessage(msg.id);
             } catch (e: any) {
               Alert.alert('Error', e.message || 'Failed to delete.');
             }
@@ -257,7 +255,7 @@ export function MessagesScreen({ navigation }: any) {
         },
       ]);
     },
-    [selectedPetId],
+    [selectedPetId, deleteMessage],
   );
 
   const renderMessage = useCallback(

@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 4,
-    maxWidth: '85%',
+    maxWidth: '70%',
   },
   bubbleRowMine: {
     alignSelf: 'flex-start',
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bubbleContent: {
-    flex: 1,
+    flexShrink: 1,
     borderRadius: 12,
     padding: 10,
   },

@@ -12,12 +12,14 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 
 export function SettingsScreen({ navigation }: { navigation: any }) {
   const { theme, toggleTheme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user, displayName, signOut, updateDisplayName, updateUserEmail, updateUserPassword } = useAuth();
   const { prefs, permissionStatus, updatePrefs, requestPermissions } = useNotifications();
 
@@ -215,7 +217,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
         </TouchableOpacity>
@@ -223,7 +225,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         <View style={styles.backButton} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + insets.bottom }]} keyboardShouldPersistTaps="handled">
       {/* Theme Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
@@ -546,14 +548,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 60,
     paddingBottom: 14,
     borderBottomWidth: 1,
   },

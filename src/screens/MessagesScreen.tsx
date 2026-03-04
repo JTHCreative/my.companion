@@ -331,7 +331,7 @@ export function MessagesScreen({ navigation }: any) {
           title="Messages"
           onAddPet={() => navigation.navigate('AddPetChoice')}
           rightAccessory={
-            <TouchableOpacity onPress={() => setHelpVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginTop: 4 }}>
+            <TouchableOpacity onPress={() => setHelpVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="help-circle-outline" size={22} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           }

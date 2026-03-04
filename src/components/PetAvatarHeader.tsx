@@ -267,7 +267,11 @@ export function PetAvatarHeader({
           <Text style={[styles.headerTitle, { color: theme.colors.primary }]}>
             {title}
           </Text>
-          {rightAccessory}
+          {rightAccessory ? (
+            <View style={styles.headerTitleAccessory}>
+              {rightAccessory}
+            </View>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
           {displayName ? (
@@ -306,6 +310,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+  },
+  headerTitleAccessory: {
+    height: 32,
+    justifyContent: 'center',
   },
   headerRight: {
     flexDirection: 'row',

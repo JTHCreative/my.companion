@@ -608,6 +608,23 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {/* Delete Account */}
+              <TouchableOpacity
+                onPress={handleDeleteAccount}
+                disabled={deleting}
+                activeOpacity={0.7}
+                style={[styles.deleteAccountButton, { borderColor: theme.colors.danger }]}
+              >
+                {deleting ? (
+                  <ActivityIndicator size="small" color={theme.colors.danger} />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                    <Text style={[styles.deleteAccountText, { color: theme.colors.danger }]}>Delete Account</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -621,24 +638,6 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         >
           <Ionicons name="log-out-outline" size={22} color={theme.colors.danger} />
           <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <TouchableOpacity
-          onPress={handleDeleteAccount}
-          disabled={deleting}
-          activeOpacity={0.7}
-          style={[styles.signOutButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.danger }]}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color={theme.colors.danger} />
-          ) : (
-            <>
-              <Ionicons name="trash-outline" size={22} color={theme.colors.danger} />
-              <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Delete Account</Text>
-            </>
-          )}
         </TouchableOpacity>
       </View>
       </ScrollView>
@@ -821,6 +820,20 @@ const styles = StyleSheet.create({
   providerBadgeText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  deleteAccountText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   signOutButton: {
     flexDirection: 'row',

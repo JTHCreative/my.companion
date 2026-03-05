@@ -704,13 +704,15 @@ export function HomeScreen({ navigation }: any) {
           title="Petfolio"
           onAddPet={() => navigation.navigate('AddPetChoice')}
         />
-        <EmptyState
-          icon="paw"
-          title="Welcome to Petfolio"
-          subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
-          actionLabel="Add Your Pet"
-          onAction={() => navigation.navigate('AddPetChoice')}
-        />
+        <View style={{ flex: 1, paddingBottom: 80 }}>
+          <EmptyState
+            icon="paw"
+            title="Welcome to Petfolio"
+            subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
+            actionLabel="Add Your Pet"
+            onAction={() => navigation.navigate('AddPetChoice')}
+          />
+        </View>
       </View>
     );
   }

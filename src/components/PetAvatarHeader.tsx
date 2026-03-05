@@ -121,10 +121,16 @@ export function PetAvatarHeader({
       // Show user-initial fallback when no pet is selected
       const initial = displayName ? displayName.charAt(0).toUpperCase() : '';
       return (
-        <View
+        <TouchableOpacity
+          onPress={() => setPetSelectorOpen(!petSelectorOpen)}
+          activeOpacity={0.7}
           style={[
             styles.headerAvatar,
-            { borderColor: theme.colors.border },
+            {
+              borderColor: petSelectorOpen
+                ? theme.colors.primary
+                : theme.colors.border,
+            },
           ]}
         >
           <View
@@ -142,7 +148,7 @@ export function PetAvatarHeader({
               <Ionicons name="person" size={18} color={theme.colors.primary} />
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       );
     }
     return (

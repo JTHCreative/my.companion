@@ -498,7 +498,7 @@ export function MedicalScreen({ navigation }: any) {
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
@@ -589,7 +589,7 @@ export function MedicalScreen({ navigation }: any) {
       >
         <KeyboardAvoidingView
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
@@ -617,6 +617,7 @@ export function MedicalScreen({ navigation }: any) {
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.modalBodyContent}
+            keyboardShouldPersistTaps="handled"
           >
             <FormInput
               label="Medication Name"

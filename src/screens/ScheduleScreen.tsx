@@ -374,7 +374,7 @@ export function ScheduleScreen({ navigation }: any) {
       <Modal visible={modalVisible} animationType="slide" onRequestClose={() => { setModalVisible(false); resetForm(); }}>
         <KeyboardAvoidingView
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
@@ -402,6 +402,7 @@ export function ScheduleScreen({ navigation }: any) {
             style={styles.modalBody}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.modalBodyContent}
+            keyboardShouldPersistTaps="handled"
           >
             {/* Event Type Selector */}
             <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>

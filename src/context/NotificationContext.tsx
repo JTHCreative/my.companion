@@ -44,7 +44,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const raw = await AsyncStorage.getItem(PREFS_KEY);
       if (raw) {
         try {
-          setPrefs({ ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) });
+          const parsed = { ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) };
+          // Migrate old single-number format to array
+          if (typeof parsed.reminderMinutesBefore === 'number') {
+            parsed.reminderMinutesBefore = [parsed.reminderMinutesBefore];
+          }
+          setPrefs(parsed);
         } catch {
           // ignore corrupt data
         }

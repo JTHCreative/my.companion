@@ -82,13 +82,13 @@ export interface Medication {
 export interface NotificationPreferences {
   enabled: boolean;
   scheduleReminders: boolean;
-  reminderMinutesBefore: number; // minutes before event to send reminder
+  reminderMinutesBefore: number[]; // minutes before event to send reminder (supports multiple)
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   enabled: true,
   scheduleReminders: true,
-  reminderMinutesBefore: 15,
+  reminderMinutesBefore: [15],
 };
 
 export interface Message {

@@ -86,7 +86,23 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
     await updatePrefs({ scheduleReminders: !prefs.scheduleReminders });
   };
 
-  const reminderOptions = [5, 10, 15, 30] as const;
+  const reminderOptions = [0, 5, 10, 15, 30] as const;
+
+  const toggleReminderOption = (mins: number) => {
+    const current = Array.isArray(prefs.reminderMinutesBefore)
+      ? prefs.reminderMinutesBefore
+      : [prefs.reminderMinutesBefore];
+    const isSelected = current.includes(mins);
+    let updated: number[];
+    if (isSelected) {
+      updated = current.filter((m) => m !== mins);
+      // Must have at least one option selected
+      if (updated.length === 0) return;
+    } else {
+      updated = [...current, mins].sort((a, b) => a - b);
+    }
+    updatePrefs({ reminderMinutesBefore: updated });
+  };
 
   const handleSaveAccount = async () => {
     // Validate
@@ -370,40 +386,42 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
                       <Text style={[styles.settingText, { color: theme.colors.text }]}>Remind Me Before</Text>
                     </View>
                     <View style={styles.reminderOptions}>
-                      {reminderOptions.map((mins) => (
-                        <TouchableOpacity
-                          key={mins}
-                          onPress={() => updatePrefs({ reminderMinutesBefore: mins })}
-                          activeOpacity={0.7}
-                          style={[
-                            styles.reminderChip,
-                            {
-                              backgroundColor:
-                                prefs.reminderMinutesBefore === mins
+                      {reminderOptions.map((mins) => {
+                        const selected = Array.isArray(prefs.reminderMinutesBefore)
+                          ? prefs.reminderMinutesBefore.includes(mins)
+                          : prefs.reminderMinutesBefore === mins;
+                        return (
+                          <TouchableOpacity
+                            key={mins}
+                            onPress={() => toggleReminderOption(mins)}
+                            activeOpacity={0.7}
+                            style={[
+                              styles.reminderChip,
+                              {
+                                backgroundColor: selected
                                   ? theme.colors.primary
                                   : theme.colors.inputBackground,
-                              borderColor:
-                                prefs.reminderMinutesBefore === mins
+                                borderColor: selected
                                   ? theme.colors.primary
                                   : theme.colors.border,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.reminderChipText,
-                              {
-                                color:
-                                  prefs.reminderMinutesBefore === mins
-                                    ? theme.colors.textInverse
-                                    : theme.colors.text,
                               },
                             ]}
                           >
-                            {mins} min
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.reminderChipText,
+                                {
+                                  color: selected
+                                    ? theme.colors.textInverse
+                                    : theme.colors.text,
+                                },
+                              ]}
+                            >
+                              {mins === 0 ? 'At time' : `${mins} min`}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
                 </>

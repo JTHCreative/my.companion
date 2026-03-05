@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeAuth } from 'firebase/auth';
 import { getReactNativePersistence } from '@firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -26,5 +26,6 @@ export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
 
-// Native Firestore SDK — offline persistence is enabled by default
-export const db = firestore();
+export const db = initializeFirestore(app, {
+  localCache: memoryLocalCache(),
+});

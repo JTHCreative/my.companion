@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import firestore from '@react-native-firebase/firestore';
+import NetInfo from '@react-native-community/netinfo';
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  onSnapshot,
+  writeBatch,
+  query,
+  where,
+  arrayUnion,
+  arrayRemove,
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { Pet, ScheduleEvent, Meal, VetInfo, Medication, Message, SharedPetPreview } from '../types';
@@ -74,7 +89,7 @@ interface DataContextValue {
 
 const DataContext = createContext<DataContextValue>({} as DataContextValue);
 
-// AsyncStorage keys (used for migration and local preferences)
+// AsyncStorage keys (used for migration, local preferences, and offline cache)
 const ASYNC_KEYS = {
   pets: 'companion_pets',
   scheduleEvents: 'companion_schedule',
@@ -84,12 +99,82 @@ const ASYNC_KEYS = {
   selectedPetId: 'companion_selected_pet',
   migrated: 'companion_firestore_migrated',
   migratedToRoot: 'companion_migrated_root_pets',
+  offlineCache: 'companion_offline_cache',
+  writeQueue: 'companion_write_queue',
 };
+
+// --- Offline write queue ---
+// Each queued operation is a self-contained description of a Firestore write
+// that can be replayed when connectivity returns.
+
+type QueuedWrite =
+  | { type: 'set'; path: string; data: any }
+  | { type: 'update'; path: string; data: any }
+  | { type: 'delete'; path: string };
+
+async function getWriteQueue(): Promise<QueuedWrite[]> {
+  const raw = await AsyncStorage.getItem(ASYNC_KEYS.writeQueue);
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function appendToWriteQueue(op: QueuedWrite): Promise<void> {
+  const queue = await getWriteQueue();
+  queue.push(op);
+  await AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(queue));
+}
+
+async function clearWriteQueue(): Promise<void> {
+  await AsyncStorage.removeItem(ASYNC_KEYS.writeQueue);
+}
+
+async function flushWriteQueue(): Promise<void> {
+  const queue = await getWriteQueue();
+  if (queue.length === 0) return;
+
+  for (const op of queue) {
+    try {
+      const segments = op.path.split('/');
+      const ref = doc(db, segments[0], ...segments.slice(1));
+      switch (op.type) {
+        case 'set':
+          await setDoc(ref, op.data);
+          break;
+        case 'update':
+          await updateDoc(ref, op.data);
+          break;
+        case 'delete':
+          await deleteDoc(ref);
+          break;
+      }
+    } catch (error) {
+      console.warn('Failed to flush queued write, will retry later:', error);
+      // Keep remaining ops in queue and stop
+      const remaining = queue.slice(queue.indexOf(op));
+      await AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(remaining));
+      return;
+    }
+  }
+  await clearWriteQueue();
+}
+
+// --- Offline cache helpers ---
+
+async function saveOfflineCache(userId: string, docs: PetDocument[]): Promise<void> {
+  await AsyncStorage.setItem(
+    `${ASYNC_KEYS.offlineCache}_${userId}`,
+    JSON.stringify(docs),
+  );
+}
+
+async function loadOfflineCache(userId: string): Promise<PetDocument[]> {
+  const raw = await AsyncStorage.getItem(`${ASYNC_KEYS.offlineCache}_${userId}`);
+  return raw ? JSON.parse(raw) : [];
+}
 
 // --- Firestore helpers (root-level pets collection) ---
 
 function petRef(petId: string) {
-  return db.collection('pets').doc(petId);
+  return doc(db, 'pets', petId);
 }
 
 // Recursively strip undefined values from an object so Firestore never
@@ -118,7 +203,7 @@ function extractPet(petDoc: PetDocument): Pet {
 
 // Write a full PetDocument to Firestore
 async function writePetDoc(petDocument: PetDocument): Promise<void> {
-  await petRef(petDocument.id).set(petDocument);
+  await setDoc(petRef(petDocument.id), petDocument);
 }
 
 // --- Legacy migration: AsyncStorage → user-scoped Firestore (old path) ---
@@ -154,7 +239,7 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
 
   const hasData = pets.length > 0 || events.length > 0 || mealsList.length > 0 || vets.length > 0 || meds.length > 0;
   if (hasData) {
-    const batch = db.batch();
+    const batch = writeBatch(db);
     for (const pet of pets) {
       const petDocument: PetDocument = {
         ...pet,
@@ -181,11 +266,11 @@ async function migrateToRootCollection(userId: string): Promise<void> {
   const alreadyMigrated = await AsyncStorage.getItem(ASYNC_KEYS.migratedToRoot);
   if (alreadyMigrated === 'true') return;
 
-  const legacyRef = db.collection('users').doc(userId).collection('pets');
-  const snapshot = await legacyRef.get();
+  const legacyRef = collection(db, 'users', userId, 'pets');
+  const snapshot = await getDocs(legacyRef);
 
   if (!snapshot.empty) {
-    const batch = db.batch();
+    const batch = writeBatch(db);
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as PetDocument;
 
@@ -197,7 +282,7 @@ async function migrateToRootCollection(userId: string): Promise<void> {
       });
 
       // Delete old user-scoped doc
-      batch.delete(db.collection('users').doc(userId).collection('pets').doc(docSnap.id));
+      batch.delete(doc(db, 'users', userId, 'pets', docSnap.id));
     }
     await batch.commit();
   }
@@ -212,6 +297,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [petSelectorOpen, setPetSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const unsubRef = useRef<(() => void) | null>(null);
+  const isConnectedRef = useRef(true);
+
+  // Flush the write queue whenever connectivity is restored
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const connected = state.isConnected ?? true;
+      const wasDisconnected = !isConnectedRef.current;
+      isConnectedRef.current = connected;
+      if (connected && wasDisconnected) {
+        flushWriteQueue().catch((err) =>
+          console.warn('Write queue flush failed:', err),
+        );
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Helper: execute a Firestore write, or queue it if offline
+  const execOrQueue = useCallback(async (
+    op: QueuedWrite,
+    execute: () => Promise<void>,
+  ) => {
+    if (isConnectedRef.current) {
+      try {
+        await execute();
+        return;
+      } catch (error: any) {
+        // If it's a network error, fall through to queue
+        if (error?.code !== 'unavailable' && error?.message?.indexOf('network') === -1) {
+          throw error;
+        }
+      }
+    }
+    await appendToWriteQueue(op);
+  }, []);
 
   useEffect(() => {
     // Cleanup previous listener
@@ -232,6 +352,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     async function init() {
+      // Load cached data immediately so the UI has something to show
+      const cached = await loadOfflineCache(userId);
+      if (isMounted && cached.length > 0) {
+        setPetDocs(cached);
+        setLoading(false);
+      }
+
       // Only run legacy migration for accounts that existed before the
       // Firestore upgrade. Brand-new accounts (created within the last
       // 60 s) have nothing to migrate.
@@ -250,6 +377,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await migrateToRootCollection(userId);
       }
 
+      // Flush any pending writes from a previous offline session
+      await flushWriteQueue().catch(() => {});
+
       // Load selectedPetId from local storage (UI preference)
       const savedSelectedId = await AsyncStorage.getItem(ASYNC_KEYS.selectedPetId);
       if (isMounted && savedSelectedId) {
@@ -258,27 +388,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       // Real-time listener on root pets collection filtered by membership
       let isFirstSnapshot = true;
-      unsubRef.current = db
-        .collection('pets')
-        .where('members', 'array-contains', userId)
-        .onSnapshot((snapshot) => {
-          if (!isMounted) return;
-          const docs = snapshot.docs
-            .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
-            .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-          setPetDocs(docs);
-          if (isFirstSnapshot) {
-            isFirstSnapshot = false;
-            setLoading(false);
-          }
-        }, (error) => {
-          console.warn('Firestore snapshot error:', error);
-          // Still clear loading on error so the UI doesn't hang
-          if (isFirstSnapshot) {
-            isFirstSnapshot = false;
-            setLoading(false);
-          }
-        });
+      const q = query(
+        collection(db, 'pets'),
+        where('members', 'array-contains', userId),
+      );
+      unsubRef.current = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        const docs = snapshot.docs
+          .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
+          .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+        setPetDocs(docs);
+        // Persist snapshot to AsyncStorage for offline access
+        saveOfflineCache(userId, docs).catch(() => {});
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
+          setLoading(false);
+        }
+      }, (error) => {
+        console.warn('Firestore snapshot error:', error);
+        // Still clear loading on error so the UI doesn't hang
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
+          setLoading(false);
+        }
+      });
     }
 
     setLoading(true);
@@ -350,6 +483,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [petDocs]
   );
 
+  // Helper: apply a local optimistic update to petDocs and persist to cache
+  const applyLocalUpdate = useCallback((updater: (docs: PetDocument[]) => PetDocument[]) => {
+    setPetDocs((prev) => {
+      const next = updater(prev);
+      if (user) {
+        saveOfflineCache(user.uid, next).catch(() => {});
+      }
+      return next;
+    });
+  }, [user]);
+
   // --- Pet CRUD ---
 
   const addPet = useCallback(async (pet: Pet) => {
@@ -364,12 +508,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       medications: [],
       messages: [],
     };
-    await writePetDoc(newDoc);
+
+    // Optimistic local update
+    applyLocalUpdate((docs) => [...docs, newDoc]);
+
+    await execOrQueue(
+      { type: 'set', path: `pets/${pet.id}`, data: newDoc },
+      () => writePetDoc(newDoc),
+    );
     if (!selectedPetId) {
       setSelectedPetId(pet.id);
       await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, pet.id);
     }
-  }, [user, selectedPetId]);
+  }, [user, selectedPetId, execOrQueue, applyLocalUpdate]);
 
   const updatePet = useCallback(async (pet: Pet) => {
     if (!user) return;
@@ -384,9 +535,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (Object.keys(changes).length > 0) {
-      await petRef(pet.id).update(changes);
+      // Optimistic local update
+      applyLocalUpdate((docs) =>
+        docs.map((d) => (d.id === pet.id ? { ...d, ...changes } : d)),
+      );
+
+      await execOrQueue(
+        { type: 'update', path: `pets/${pet.id}`, data: changes },
+        () => updateDoc(petRef(pet.id), changes),
+      );
     }
-  }, [user, findPetDoc]);
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   const deletePet = useCallback(async (id: string) => {
     if (!user) return;
@@ -394,38 +553,60 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!existing) return;
 
     if (existing.ownerUid === user.uid) {
-      // Owner deletes the entire pet document
-      await petRef(id).delete();
+      // Optimistic local update
+      applyLocalUpdate((docs) => docs.filter((d) => d.id !== id));
+
+      await execOrQueue(
+        { type: 'delete', path: `pets/${id}` },
+        () => deleteDoc(petRef(id)),
+      );
     } else {
       // Non-owner leaves — remove themselves from members
-      await petRef(id).update({
-        members: firestore.FieldValue.arrayRemove(user.uid),
-      });
+      applyLocalUpdate((docs) => docs.filter((d) => d.id !== id));
+
+      await execOrQueue(
+        { type: 'update', path: `pets/${id}`, data: { members: arrayRemove(user.uid) } },
+        () => updateDoc(petRef(id), { members: arrayRemove(user.uid) }),
+      );
     }
 
     if (selectedPetId === id) {
       setSelectedPetId(null);
       await AsyncStorage.removeItem(ASYNC_KEYS.selectedPetId);
     }
-  }, [user, selectedPetId, findPetDoc]);
+  }, [user, selectedPetId, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   // --- Schedule CRUD ---
 
   const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
-    await petRef(event.petId).update({
-      scheduleEvents: firestore.FieldValue.arrayUnion(stripUndefined(event)),
-    });
-  }, [user]);
+    const clean = stripUndefined(event);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === event.petId ? { ...d, scheduleEvents: [...d.scheduleEvents, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${event.petId}`, data: { scheduleEvents: arrayUnion(clean) } },
+      () => updateDoc(petRef(event.petId), { scheduleEvents: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
 
   const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
     const existing = findPetDoc(event.petId);
     if (!existing) return;
-    await petRef(event.petId).update({
-      scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? stripUndefined(event) : e)),
-    });
-  }, [user, findPetDoc]);
+    const updated = existing.scheduleEvents.map((e) => (e.id === event.id ? stripUndefined(event) : e));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === event.petId ? { ...d, scheduleEvents: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${event.petId}`, data: { scheduleEvents: updated } },
+      () => updateDoc(petRef(event.petId), { scheduleEvents: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   const deleteScheduleEvent = useCallback(async (id: string) => {
     if (!user) return;
@@ -433,28 +614,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.scheduleEvents.find((e) => e.id === id);
     if (!toRemove) return;
-    await petRef(ownerDoc.id).update({
-      scheduleEvents: firestore.FieldValue.arrayRemove(toRemove),
-    });
-  }, [user, petDocs]);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, scheduleEvents: d.scheduleEvents.filter((e) => e.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { scheduleEvents: arrayRemove(toRemove) } },
+      () => updateDoc(petRef(ownerDoc.id), { scheduleEvents: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
 
   // --- Meal CRUD ---
 
   const addMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
-    await petRef(meal.petId).update({
-      meals: firestore.FieldValue.arrayUnion(stripUndefined(meal)),
-    });
-  }, [user]);
+    const clean = stripUndefined(meal);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === meal.petId ? { ...d, meals: [...d.meals, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${meal.petId}`, data: { meals: arrayUnion(clean) } },
+      () => updateDoc(petRef(meal.petId), { meals: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
 
   const updateMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
     const existing = findPetDoc(meal.petId);
     if (!existing) return;
-    await petRef(meal.petId).update({
-      meals: existing.meals.map((m) => (m.id === meal.id ? stripUndefined(meal) : m)),
-    });
-  }, [user, findPetDoc]);
+    const updated = existing.meals.map((m) => (m.id === meal.id ? stripUndefined(meal) : m));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === meal.petId ? { ...d, meals: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${meal.petId}`, data: { meals: updated } },
+      () => updateDoc(petRef(meal.petId), { meals: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   const deleteMeal = useCallback(async (id: string) => {
     if (!user) return;
@@ -462,28 +663,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.meals.find((m) => m.id === id);
     if (!toRemove) return;
-    await petRef(ownerDoc.id).update({
-      meals: firestore.FieldValue.arrayRemove(toRemove),
-    });
-  }, [user, petDocs]);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, meals: d.meals.filter((m) => m.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { meals: arrayRemove(toRemove) } },
+      () => updateDoc(petRef(ownerDoc.id), { meals: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
 
   // --- Vet CRUD ---
 
   const addVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
-    await petRef(vet.petId).update({
-      vetInfo: firestore.FieldValue.arrayUnion(stripUndefined(vet)),
-    });
-  }, [user]);
+    const clean = stripUndefined(vet);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === vet.petId ? { ...d, vetInfo: [...d.vetInfo, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${vet.petId}`, data: { vetInfo: arrayUnion(clean) } },
+      () => updateDoc(petRef(vet.petId), { vetInfo: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
 
   const updateVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
     const existing = findPetDoc(vet.petId);
     if (!existing) return;
-    await petRef(vet.petId).update({
-      vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? stripUndefined(vet) : v)),
-    });
-  }, [user, findPetDoc]);
+    const updated = existing.vetInfo.map((v) => (v.id === vet.id ? stripUndefined(vet) : v));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === vet.petId ? { ...d, vetInfo: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${vet.petId}`, data: { vetInfo: updated } },
+      () => updateDoc(petRef(vet.petId), { vetInfo: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   const deleteVetInfo = useCallback(async (id: string) => {
     if (!user) return;
@@ -491,28 +712,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.vetInfo.find((v) => v.id === id);
     if (!toRemove) return;
-    await petRef(ownerDoc.id).update({
-      vetInfo: firestore.FieldValue.arrayRemove(toRemove),
-    });
-  }, [user, petDocs]);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, vetInfo: d.vetInfo.filter((v) => v.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { vetInfo: arrayRemove(toRemove) } },
+      () => updateDoc(petRef(ownerDoc.id), { vetInfo: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
 
   // --- Medication CRUD ---
 
   const addMedication = useCallback(async (med: Medication) => {
     if (!user) return;
-    await petRef(med.petId).update({
-      medications: firestore.FieldValue.arrayUnion(stripUndefined(med)),
-    });
-  }, [user]);
+    const clean = stripUndefined(med);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === med.petId ? { ...d, medications: [...d.medications, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${med.petId}`, data: { medications: arrayUnion(clean) } },
+      () => updateDoc(petRef(med.petId), { medications: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
 
   const updateMedication = useCallback(async (med: Medication) => {
     if (!user) return;
     const existing = findPetDoc(med.petId);
     if (!existing) return;
-    await petRef(med.petId).update({
-      medications: existing.medications.map((m) => (m.id === med.id ? stripUndefined(med) : m)),
-    });
-  }, [user, findPetDoc]);
+    const updated = existing.medications.map((m) => (m.id === med.id ? stripUndefined(med) : m));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === med.petId ? { ...d, medications: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${med.petId}`, data: { medications: updated } },
+      () => updateDoc(petRef(med.petId), { medications: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   const deleteMedication = useCallback(async (id: string) => {
     if (!user) return;
@@ -520,10 +761,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.medications.find((m) => m.id === id);
     if (!toRemove) return;
-    await petRef(ownerDoc.id).update({
-      medications: firestore.FieldValue.arrayRemove(toRemove),
-    });
-  }, [user, petDocs]);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, medications: d.medications.filter((m) => m.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { medications: arrayRemove(toRemove) } },
+      () => updateDoc(petRef(ownerDoc.id), { medications: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
 
   // --- Message CRUD ---
 
@@ -531,10 +778,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addMessageFn = useCallback(async (msg: Message) => {
     if (!user) return;
-    await petRef(msg.petId).update({
-      messages: firestore.FieldValue.arrayUnion(stripUndefined(msg)),
-    });
-  }, [user]);
+    const clean = stripUndefined(msg);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === msg.petId ? { ...d, messages: [...(d.messages ?? []), clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${msg.petId}`, data: { messages: arrayUnion(clean) } },
+      () => updateDoc(petRef(msg.petId), { messages: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
 
   const deleteMessageFn = useCallback(async (id: string) => {
     if (!user) return;
@@ -542,19 +796,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = (ownerDoc.messages ?? []).find((m) => m.id === id);
     if (!toRemove) return;
-    await petRef(ownerDoc.id).update({
-      messages: firestore.FieldValue.arrayRemove(toRemove),
-    });
-  }, [user, petDocs]);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, messages: (d.messages ?? []).filter((m) => m.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { messages: arrayRemove(toRemove) } },
+      () => updateDoc(petRef(ownerDoc.id), { messages: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
 
   const togglePinMessageFn = useCallback(async (id: string, pinned: boolean) => {
     if (!user) return;
     const ownerDoc = petDocs.find((d) => (d.messages ?? []).some((m) => m.id === id));
     if (!ownerDoc) return;
-    await petRef(ownerDoc.id).update({
-      messages: (ownerDoc.messages ?? []).map((m) => (m.id === id ? { ...m, pinned } : m)),
-    });
-  }, [user, petDocs]);
+    const updated = (ownerDoc.messages ?? []).map((m) => (m.id === id ? { ...m, pinned } : m));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, messages: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { messages: updated } },
+      () => updateDoc(petRef(ownerDoc.id), { messages: updated }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
 
   const cleanupOldMessagesFn = useCallback(async () => {
     if (!user || !selectedPetId) return;
@@ -564,9 +831,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const currentMessages = ownerDoc.messages ?? [];
     const filtered = currentMessages.filter((m) => m.pinned || m.createdAt >= cutoff);
     if (filtered.length < currentMessages.length) {
-      await petRef(selectedPetId).update({ messages: filtered });
+      applyLocalUpdate((docs) =>
+        docs.map((d) => (d.id === selectedPetId ? { ...d, messages: filtered } : d)),
+      );
+
+      await execOrQueue(
+        { type: 'update', path: `pets/${selectedPetId}`, data: { messages: filtered } },
+        () => updateDoc(petRef(selectedPetId), { messages: filtered }),
+      );
     }
-  }, [user, selectedPetId, findPetDoc]);
+  }, [user, selectedPetId, findPetDoc, execOrQueue, applyLocalUpdate]);
 
   // --- Share link management ---
 
@@ -578,7 +852,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Return existing share code if one exists, and backfill preview data
     // for share links that were created before preview embedding.
     if (existing.shareCode) {
-      db.collection('shareLinks').doc(existing.shareCode).set({
+      setDoc(doc(db, 'shareLinks', existing.shareCode), {
         petId,
         ownerUid: user.uid,
         name: existing.name,
@@ -600,7 +874,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Create the share link lookup document with embedded preview data
     // so non-members can look up the pet without needing read access to
     // the pets collection.
-    await db.collection('shareLinks').doc(code).set({
+    await setDoc(doc(db, 'shareLinks', code), {
       petId,
       ownerUid: user.uid,
       createdAt: Date.now(),
@@ -616,7 +890,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Store the share code on the pet document
-    await petRef(petId).update({ shareCode: code });
+    await updateDoc(petRef(petId), { shareCode: code });
 
     return code;
   }, [user, findPetDoc]);
@@ -625,8 +899,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
 
     const trimmed = code.trim().toUpperCase();
-    const linkSnap = await db.collection('shareLinks').doc(trimmed).get();
-    if (!linkSnap.exists) return null;
+    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
+    if (!linkSnap.exists()) return null;
 
     const linkData = linkSnap.data() as {
       petId: string;
@@ -666,8 +940,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // try reading the pet document directly (works if user is already a member
     // or if rules allow it).
     try {
-      const petSnap = await petRef(linkData.petId).get();
-      if (!petSnap.exists) return null;
+      const petSnap = await getDoc(petRef(linkData.petId));
+      if (!petSnap.exists()) return null;
 
       const petData = petSnap.data() as PetDocument;
       return {
@@ -707,14 +981,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) throw new Error('Must be signed in');
 
     const trimmed = code.trim().toUpperCase();
-    const linkSnap = await db.collection('shareLinks').doc(trimmed).get();
-    if (!linkSnap.exists) throw new Error('Invalid share code');
+    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
+    if (!linkSnap.exists()) throw new Error('Invalid share code');
 
     const { petId } = linkSnap.data() as { petId: string };
 
     // Add current user to the pet's members array
-    await petRef(petId).update({
-      members: firestore.FieldValue.arrayUnion(user.uid),
+    await updateDoc(petRef(petId), {
+      members: arrayUnion(user.uid),
     });
 
     // Select this pet

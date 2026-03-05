@@ -194,11 +194,14 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
       await deleteAccount(password);
     } catch (error: any) {
       setDeleting(false);
+      console.error('Account deletion failed:', error.code, error.message);
       let message = 'Failed to delete account. Please try again.';
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         message = 'Incorrect password. Please try again.';
       } else if (error.code === 'auth/too-many-requests') {
         message = 'Too many attempts. Please try again later.';
+      } else if (error.message) {
+        message = error.message;
       }
       Alert.alert('Deletion Failed', message);
     }

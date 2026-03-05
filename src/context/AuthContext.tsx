@@ -145,33 +145,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 1. Delete all pet documents owned by this user
-    const ownedPetsQuery = query(
-      collection(db, 'pets'),
-      where('ownerUid', '==', uid),
-    );
-    const ownedSnapshot = await getDocs(ownedPetsQuery);
+    try {
+      const ownedPetsQuery = query(
+        collection(db, 'pets'),
+        where('ownerUid', '==', uid),
+      );
+      const ownedSnapshot = await getDocs(ownedPetsQuery);
 
-    if (!ownedSnapshot.empty) {
-      const batch = writeBatch(db);
-      for (const petDoc of ownedSnapshot.docs) {
-        // Delete associated shareLinks
-        const shareCode = petDoc.data().shareCode;
-        if (shareCode) {
-          batch.delete(doc(db, 'shareLinks', shareCode));
+      if (!ownedSnapshot.empty) {
+        const batch = writeBatch(db);
+        for (const petDoc of ownedSnapshot.docs) {
+          const shareCode = petDoc.data().shareCode;
+          if (shareCode) {
+            batch.delete(doc(db, 'shareLinks', shareCode));
+          }
+          batch.delete(petDoc.ref);
         }
-        batch.delete(petDoc.ref);
+        await batch.commit();
       }
-      await batch.commit();
-    }
 
-    // 2. Remove user from shared pets (where they're a member but not owner)
-    const sharedPetsQuery = query(
-      collection(db, 'pets'),
-      where('members', 'array-contains', uid),
-    );
-    const sharedSnapshot = await getDocs(sharedPetsQuery);
-    for (const petDoc of sharedSnapshot.docs) {
-      await updateDoc(petDoc.ref, { members: arrayRemove(uid) });
+      // 2. Remove user from shared pets (where they're a member but not owner)
+      const sharedPetsQuery = query(
+        collection(db, 'pets'),
+        where('members', 'array-contains', uid),
+      );
+      const sharedSnapshot = await getDocs(sharedPetsQuery);
+      for (const petDoc of sharedSnapshot.docs) {
+        await updateDoc(petDoc.ref, { members: arrayRemove(uid) });
+      }
+    } catch (firestoreError) {
+      console.warn('Firestore cleanup failed, proceeding with account deletion:', firestoreError);
     }
 
     // 3. Clear local storage

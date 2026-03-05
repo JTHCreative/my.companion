@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
   Modal,
   Animated as RNAnimated,
 } from 'react-native';
@@ -206,8 +207,29 @@ export function MessagesScreen({ navigation }: any) {
   const [text, setText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [helpVisible, setHelpVisible] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const flatListRef = useRef<FlatList>(null);
+
+  // Track keyboard visibility to adjust bottom padding
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+      // Scroll to end when keyboard opens
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const isOwner = selectedPet?.ownerUid === user?.uid;
 
@@ -346,8 +368,8 @@ export function MessagesScreen({ navigation }: any) {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
       <PetAvatarHeader
         title="Messages"
@@ -428,7 +450,7 @@ export function MessagesScreen({ navigation }: any) {
       />
 
       {/* Compose area */}
-      <View style={[styles.composeWrapper, { borderTopColor: theme.colors.border, paddingBottom: Math.max(insets.bottom, 8) + 56 }]}>
+      <View style={[styles.composeWrapper, { borderTopColor: theme.colors.border, paddingBottom: keyboardVisible ? 8 : Math.max(insets.bottom, 8) + 56 }]}>
         {replyingTo && (
           <View style={[styles.replyPreview, { backgroundColor: theme.colors.primaryLight, borderLeftColor: theme.colors.primary }]}>
             <View style={styles.replyPreviewContent}>

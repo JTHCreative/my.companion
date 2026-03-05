@@ -19,7 +19,6 @@ import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { useNetwork } from './NetworkContext';
 import { Pet, ScheduleEvent, Meal, VetInfo, Medication, Message, SharedPetPreview } from '../types';
-import { generateId } from '../utils/generateId';
 import { generateShareCode } from '../utils/shareUtils';
 
 /**
@@ -469,6 +468,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         unsubRef.current();
         unsubRef.current = null;
       }
+      // Clear debounce timers to prevent writes after unmount
+      if (cachePersistTimer) clearTimeout(cachePersistTimer);
+      if (queuePersistTimer) clearTimeout(queuePersistTimer);
     };
   }, [user]);
 

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithCredential,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
@@ -9,8 +10,10 @@ import {
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
+  GoogleAuthProvider,
   User,
 } from 'firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { auth } from '../firebase';
 
 interface AuthContextValue {
@@ -18,6 +21,7 @@ interface AuthContextValue {
   initializing: boolean;
   displayName: string;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
@@ -30,11 +34,21 @@ const AuthContext = createContext<AuthContextValue>({
   initializing: true,
   displayName: '',
   signIn: async () => {},
+  signInWithGoogle: async () => {},
   signUp: async () => {},
   signOut: async () => {},
   updateDisplayName: async () => {},
   updateUserEmail: async () => {},
   updateUserPassword: async () => {},
+});
+
+// TODO: Replace with your web client ID from Firebase Console
+// Enable Google Sign-In provider in Firebase Console, then copy the Web Client ID here.
+// It will look like: 862637928628-xxxxxxxx.apps.googleusercontent.com
+const GOOGLE_WEB_CLIENT_ID = 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
+
+GoogleSignin.configure({
+  webClientId: GOOGLE_WEB_CLIENT_ID,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -53,6 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const signInWithGoogleHandler = async () => {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
+    const idToken = response.data?.idToken;
+    if (!idToken) {
+      throw new Error('Google Sign-In failed: no ID token returned.');
+    }
+    const credential = GoogleAuthProvider.credential(idToken);
+    await signInWithCredential(auth, credential);
   };
 
   const signUp = async (email: string, password: string, name?: string) => {
@@ -93,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initializing,
       displayName,
       signIn,
+      signInWithGoogle: signInWithGoogleHandler,
       signUp,
       signOut,
       updateDisplayName,

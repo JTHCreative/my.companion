@@ -8,8 +8,6 @@ import {
   updateProfile,
   updateEmail,
   updatePassword,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
   GoogleAuthProvider,
   User,
 } from 'firebase/auth';
@@ -25,8 +23,8 @@ interface AuthContextValue {
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
-  updateUserEmail: (newEmail: string, currentPassword: string) => Promise<void>;
-  updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateUserEmail: (newEmail: string) => Promise<void>;
+  updateUserPassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -38,8 +36,8 @@ const AuthContext = createContext<AuthContextValue>({
   signUp: async () => {},
   signOut: async () => {},
   updateDisplayName: async () => {},
-  updateUserEmail: async () => {},
-  updateUserPassword: async () => {},
+  updateUserEmail: async (_newEmail: string) => {},
+  updateUserPassword: async (_newPassword: string) => {},
 });
 
 const GOOGLE_WEB_CLIENT_ID = '862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com';
@@ -95,17 +93,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setDisplayName(name);
   };
 
-  const updateUserEmail = async (newEmail: string, currentPassword: string) => {
-    if (!auth.currentUser || !auth.currentUser.email) throw new Error('Not signed in');
-    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
-    await reauthenticateWithCredential(auth.currentUser, credential);
+  const updateUserEmail = async (newEmail: string) => {
+    if (!auth.currentUser) throw new Error('Not signed in');
     await updateEmail(auth.currentUser, newEmail);
   };
 
-  const updateUserPassword = async (currentPassword: string, newPassword: string) => {
-    if (!auth.currentUser || !auth.currentUser.email) throw new Error('Not signed in');
-    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
-    await reauthenticateWithCredential(auth.currentUser, credential);
+  const updateUserPassword = async (newPassword: string) => {
+    if (!auth.currentUser) throw new Error('Not signed in');
     await updatePassword(auth.currentUser, newPassword);
   };
 

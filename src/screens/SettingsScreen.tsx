@@ -26,15 +26,16 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [notificationsExpanded, setNotificationsExpanded] = useState(false);
 
+  // Detect if user signed in via Google
+  const isGoogleUser = user?.providerData?.some((p) => p.providerId === 'google.com') ?? false;
+
   // Editable fields
   const [editName, setEditName] = useState(displayName);
   const [editEmail, setEditEmail] = useState(user?.email || '');
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
   // Visibility toggles
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -45,7 +46,6 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
     if (!accountExpanded) {
       setEditName(displayName);
       setEditEmail(user?.email || '');
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
     }
@@ -110,25 +110,23 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
       Alert.alert('Error', 'User name cannot be empty.');
       return;
     }
-    if (editEmail.trim() === '' || !/\S+@\S+\.\S+/.test(editEmail.trim())) {
-      Alert.alert('Error', 'Please enter a valid email.');
-      return;
-    }
 
-    const emailChanged = editEmail.trim() !== user?.email;
-    const passwordChanged = newPassword.length > 0;
+    const emailChanged = !isGoogleUser && editEmail.trim() !== user?.email;
+    const passwordChanged = !isGoogleUser && newPassword.length > 0;
 
-    if ((emailChanged || passwordChanged) && !currentPassword) {
-      Alert.alert('Error', 'Current password is required to update email or password.');
-      return;
-    }
-    if (passwordChanged && newPassword.length < 6) {
-      Alert.alert('Error', 'New password must be at least 6 characters.');
-      return;
-    }
-    if (passwordChanged && newPassword !== confirmNewPassword) {
-      Alert.alert('Error', 'New passwords do not match.');
-      return;
+    if (!isGoogleUser) {
+      if (editEmail.trim() === '' || !/\S+@\S+\.\S+/.test(editEmail.trim())) {
+        Alert.alert('Error', 'Please enter a valid email.');
+        return;
+      }
+      if (passwordChanged && newPassword.length < 6) {
+        Alert.alert('Error', 'New password must be at least 6 characters.');
+        return;
+      }
+      if (passwordChanged && newPassword !== confirmNewPassword) {
+        Alert.alert('Error', 'New passwords do not match.');
+        return;
+      }
     }
 
     setSaving(true);
@@ -138,26 +136,23 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         await updateDisplayName(editName.trim());
       }
 
-      // Update email if changed
+      // Update email if changed (email users only)
       if (emailChanged) {
-        await updateUserEmail(editEmail.trim(), currentPassword);
+        await updateUserEmail(editEmail.trim());
       }
 
-      // Update password if changed
+      // Update password if changed (email users only)
       if (passwordChanged) {
-        await updateUserPassword(currentPassword, newPassword);
+        await updateUserPassword(newPassword);
       }
 
       Alert.alert('Success', 'Account settings updated.');
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
       setAccountExpanded(false);
     } catch (error: any) {
       let message = 'Failed to update. Please try again.';
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = 'Current password is incorrect.';
-      } else if (error.code === 'auth/email-already-in-use') {
+      if (error.code === 'auth/email-already-in-use') {
         message = 'That email is already in use by another account.';
       } else if (error.code === 'auth/requires-recent-login') {
         message = 'Please sign out and sign back in, then try again.';
@@ -315,9 +310,9 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
           NOTIFICATIONS
         </Text>
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          {/* Master toggle */}
+          {/* Expandable header */}
           <TouchableOpacity
-            onPress={handleToggleNotifications}
+            onPress={() => setNotificationsExpanded(!notificationsExpanded)}
             activeOpacity={0.7}
             style={styles.settingRow}
           >
@@ -327,106 +322,131 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
                 size={22}
                 color={theme.colors.primary}
               />
-              <Text style={[styles.settingText, { color: theme.colors.text }]}>Notifications</Text>
+              <Text style={[styles.settingText, { color: theme.colors.text }]}>Notification Settings</Text>
             </View>
-            <View
-              style={[
-                styles.togglePill,
-                { backgroundColor: prefs.enabled ? theme.colors.primary : theme.colors.inputBackground },
-              ]}
-            >
-              <View
-                style={[
-                  styles.toggleKnob,
-                  prefs.enabled ? styles.toggleKnobOn : styles.toggleKnobOff,
-                ]}
-              />
-            </View>
+            <Ionicons
+              name={notificationsExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
 
-          {prefs.enabled && (
-            <>
-              {/* Divider */}
-              <View style={{ height: 1, backgroundColor: theme.colors.border, marginHorizontal: 16 }} />
-
-              {/* Schedule Reminders toggle */}
+          {notificationsExpanded && (
+            <View style={[styles.accountContent, { borderTopColor: theme.colors.border }]}>
+              {/* Master toggle */}
               <TouchableOpacity
-                onPress={handleToggleScheduleReminders}
+                onPress={handleToggleNotifications}
                 activeOpacity={0.7}
                 style={styles.settingRow}
               >
                 <View style={styles.settingLabel}>
-                  <Ionicons name="alarm-outline" size={22} color={theme.colors.primary} />
-                  <Text style={[styles.settingText, { color: theme.colors.text }]}>Schedule Reminders</Text>
+                  <Ionicons
+                    name={prefs.enabled ? 'notifications' : 'notifications-off-outline'}
+                    size={22}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={[styles.settingText, { color: theme.colors.text }]}>Enable Notifications</Text>
                 </View>
                 <View
                   style={[
                     styles.togglePill,
-                    { backgroundColor: prefs.scheduleReminders ? theme.colors.primary : theme.colors.inputBackground },
+                    { backgroundColor: prefs.enabled ? theme.colors.primary : theme.colors.inputBackground },
                   ]}
                 >
                   <View
                     style={[
                       styles.toggleKnob,
-                      prefs.scheduleReminders ? styles.toggleKnobOn : styles.toggleKnobOff,
+                      prefs.enabled ? styles.toggleKnobOn : styles.toggleKnobOff,
                     ]}
                   />
                 </View>
               </TouchableOpacity>
 
-              {prefs.scheduleReminders && (
+              {prefs.enabled && (
                 <>
                   {/* Divider */}
-                  <View style={{ height: 1, backgroundColor: theme.colors.border, marginHorizontal: 16 }} />
+                  <View style={{ height: 1, backgroundColor: theme.colors.border, marginHorizontal: 0 }} />
 
-                  {/* Reminder timing */}
-                  <View style={[styles.settingRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
+                  {/* Schedule Reminders toggle */}
+                  <TouchableOpacity
+                    onPress={handleToggleScheduleReminders}
+                    activeOpacity={0.7}
+                    style={styles.settingRow}
+                  >
                     <View style={styles.settingLabel}>
-                      <Ionicons name="time-outline" size={22} color={theme.colors.primary} />
-                      <Text style={[styles.settingText, { color: theme.colors.text }]}>Remind Me Before</Text>
+                      <Ionicons name="alarm-outline" size={22} color={theme.colors.primary} />
+                      <Text style={[styles.settingText, { color: theme.colors.text }]}>Schedule Reminders</Text>
                     </View>
-                    <View style={styles.reminderOptions}>
-                      {reminderOptions.map((mins) => {
-                        const selected = Array.isArray(prefs.reminderMinutesBefore)
-                          ? prefs.reminderMinutesBefore.includes(mins)
-                          : prefs.reminderMinutesBefore === mins;
-                        return (
-                          <TouchableOpacity
-                            key={mins}
-                            onPress={() => toggleReminderOption(mins)}
-                            activeOpacity={0.7}
-                            style={[
-                              styles.reminderChip,
-                              {
-                                backgroundColor: selected
-                                  ? theme.colors.primary
-                                  : theme.colors.inputBackground,
-                                borderColor: selected
-                                  ? theme.colors.primary
-                                  : theme.colors.border,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.reminderChipText,
-                                {
-                                  color: selected
-                                    ? theme.colors.textInverse
-                                    : theme.colors.text,
-                                },
-                              ]}
-                            >
-                              {mins === 0 ? 'At time' : `${mins} min`}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                    <View
+                      style={[
+                        styles.togglePill,
+                        { backgroundColor: prefs.scheduleReminders ? theme.colors.primary : theme.colors.inputBackground },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.toggleKnob,
+                          prefs.scheduleReminders ? styles.toggleKnobOn : styles.toggleKnobOff,
+                        ]}
+                      />
                     </View>
-                  </View>
+                  </TouchableOpacity>
+
+                  {prefs.scheduleReminders && (
+                    <>
+                      {/* Divider */}
+                      <View style={{ height: 1, backgroundColor: theme.colors.border, marginHorizontal: 0 }} />
+
+                      {/* Reminder timing */}
+                      <View style={[styles.settingRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
+                        <View style={styles.settingLabel}>
+                          <Ionicons name="time-outline" size={22} color={theme.colors.primary} />
+                          <Text style={[styles.settingText, { color: theme.colors.text }]}>Remind Me Before</Text>
+                        </View>
+                        <View style={styles.reminderOptions}>
+                          {reminderOptions.map((mins) => {
+                            const selected = Array.isArray(prefs.reminderMinutesBefore)
+                              ? prefs.reminderMinutesBefore.includes(mins)
+                              : prefs.reminderMinutesBefore === mins;
+                            return (
+                              <TouchableOpacity
+                                key={mins}
+                                onPress={() => toggleReminderOption(mins)}
+                                activeOpacity={0.7}
+                                style={[
+                                  styles.reminderChip,
+                                  {
+                                    backgroundColor: selected
+                                      ? theme.colors.primary
+                                      : theme.colors.inputBackground,
+                                    borderColor: selected
+                                      ? theme.colors.primary
+                                      : theme.colors.border,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.reminderChipText,
+                                    {
+                                      color: selected
+                                        ? theme.colors.textInverse
+                                        : theme.colors.text,
+                                    },
+                                  ]}
+                                >
+                                  {mins === 0 ? 'At time' : `${mins} min`}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </>
+                  )}
                 </>
               )}
-            </>
+            </View>
           )}
         </View>
       </View>
@@ -455,6 +475,16 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
 
           {accountExpanded && (
             <View style={[styles.accountContent, { borderTopColor: theme.colors.border }]}>
+              {/* Google sign-in indicator */}
+              {isGoogleUser && (
+                <View style={[styles.providerBadge, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border }]}>
+                  <Ionicons name="logo-google" size={16} color={theme.colors.textSecondary} />
+                  <Text style={[styles.providerBadgeText, { color: theme.colors.textSecondary }]}>
+                    Signed in with Google
+                  </Text>
+                </View>
+              )}
+
               {/* User Name */}
               <View style={styles.accountFieldContainer}>
                 <Text style={[styles.accountFieldLabel, { color: theme.colors.textSecondary }]}>User Name</Text>
@@ -475,55 +505,50 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
                 />
               </View>
 
-              {/* Email */}
-              <View style={styles.accountFieldContainer}>
-                <Text style={[styles.accountFieldLabel, { color: theme.colors.textSecondary }]}>Email</Text>
-                <TextInput
-                  style={[
-                    styles.accountInput,
-                    {
-                      backgroundColor: theme.colors.inputBackground,
-                      color: theme.colors.text,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                  placeholder="you@example.com"
-                  placeholderTextColor={theme.colors.tabBarInactive}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
+              {/* Email & Password — only for email/password users */}
+              {!isGoogleUser && (
+                <>
+                  {/* Email */}
+                  <View style={styles.accountFieldContainer}>
+                    <Text style={[styles.accountFieldLabel, { color: theme.colors.textSecondary }]}>Email</Text>
+                    <TextInput
+                      style={[
+                        styles.accountInput,
+                        {
+                          backgroundColor: theme.colors.inputBackground,
+                          color: theme.colors.text,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      value={editEmail}
+                      onChangeText={setEditEmail}
+                      placeholder="you@example.com"
+                      placeholderTextColor={theme.colors.tabBarInactive}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
 
-              {/* Current Password */}
-              {renderPasswordInput(
-                'Current Password',
-                currentPassword,
-                setCurrentPassword,
-                'Required to change email or password',
-                showCurrentPassword,
-                () => setShowCurrentPassword(!showCurrentPassword),
-              )}
+                  {/* New Password */}
+                  {renderPasswordInput(
+                    'New Password',
+                    newPassword,
+                    setNewPassword,
+                    'Leave blank to keep current',
+                    showNewPassword,
+                    () => setShowNewPassword(!showNewPassword),
+                  )}
 
-              {/* New Password */}
-              {renderPasswordInput(
-                'New Password',
-                newPassword,
-                setNewPassword,
-                'Leave blank to keep current',
-                showNewPassword,
-                () => setShowNewPassword(!showNewPassword),
-              )}
-
-              {/* Confirm New Password */}
-              {renderPasswordInput(
-                'Confirm New Password',
-                confirmNewPassword,
-                setConfirmNewPassword,
-                'Re-enter new password',
-                showConfirmPassword,
-                () => setShowConfirmPassword(!showConfirmPassword),
+                  {/* Confirm New Password */}
+                  {renderPasswordInput(
+                    'Confirm New Password',
+                    confirmNewPassword,
+                    setConfirmNewPassword,
+                    'Re-enter new password',
+                    showConfirmPassword,
+                    () => setShowConfirmPassword(!showConfirmPassword),
+                  )}
+                </>
               )}
 
               {/* Save Button */}
@@ -723,6 +748,19 @@ const styles = StyleSheet.create({
   reminderChipText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  providerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  providerBadgeText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   signOutButton: {
     flexDirection: 'row',

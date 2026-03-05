@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image, View, Text, ImageStyle, ViewStyle, StyleProp } from 'react-native';
 
 interface PetImageProps {
@@ -28,6 +28,10 @@ export function PetImage({
   resizeMode,
 }: PetImageProps) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
 
   if (failed) {
     const letter = petName ? petName.charAt(0).toUpperCase() : '?';

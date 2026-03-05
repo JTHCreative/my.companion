@@ -66,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogleHandler = async () => {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    await GoogleSignin.signOut();
     const response = await GoogleSignin.signIn();
     const idToken = response.data?.idToken;
     if (!idToken) {

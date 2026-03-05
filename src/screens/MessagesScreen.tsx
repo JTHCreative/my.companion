@@ -354,13 +354,15 @@ export function MessagesScreen({ navigation }: any) {
           onAddPet={() => navigation.navigate('AddPetChoice')}
           onHelpPress={() => setHelpVisible(true)}
         />
-        <EmptyState
-          icon="chatbubbles"
-          title="No Pet Selected"
-          subtitle="Add a pet first to use the message board."
-          actionLabel="Add Pet"
-          onAction={() => navigation.navigate('AddPetChoice')}
-        />
+        <View style={{ flex: 1, paddingBottom: 80 }}>
+          <EmptyState
+            icon="chatbubbles"
+            title="No Pet Selected"
+            subtitle="Add a pet first to use the message board."
+            actionLabel="Add Pet"
+            onAction={() => navigation.navigate('AddPetChoice')}
+          />
+        </View>
       </View>
     );
   }

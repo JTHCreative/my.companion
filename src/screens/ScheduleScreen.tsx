@@ -235,13 +235,15 @@ export function ScheduleScreen({ navigation }: any) {
           title="Schedule"
           onAddPet={() => navigation.navigate('AddPetChoice')}
         />
-        <EmptyState
-          icon="calendar"
-          title="No Pet Selected"
-          subtitle="Add a pet first to manage their schedule."
-          actionLabel="Add Pet"
-          onAction={() => navigation.navigate('AddPetChoice')}
-        />
+        <View style={{ flex: 1, paddingBottom: 80 }}>
+          <EmptyState
+            icon="calendar"
+            title="No Pet Selected"
+            subtitle="Add a pet first to manage their schedule."
+            actionLabel="Add Pet"
+            onAction={() => navigation.navigate('AddPetChoice')}
+          />
+        </View>
       </View>
     );
   }

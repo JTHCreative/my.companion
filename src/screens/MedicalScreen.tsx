@@ -246,13 +246,15 @@ export function MedicalScreen({ navigation }: any) {
           title="Medical"
           onAddPet={() => navigation.navigate('AddPetChoice')}
         />
-        <EmptyState
-          icon="medkit"
-          title="No Pet Selected"
-          subtitle="Add a pet first to manage their medical information."
-          actionLabel="Add Pet"
-          onAction={() => navigation.navigate('AddPetChoice')}
-        />
+        <View style={{ flex: 1, paddingBottom: 80 }}>
+          <EmptyState
+            icon="medkit"
+            title="No Pet Selected"
+            subtitle="Add a pet first to manage their medical information."
+            actionLabel="Add Pet"
+            onAction={() => navigation.navigate('AddPetChoice')}
+          />
+        </View>
       </View>
     );
   }

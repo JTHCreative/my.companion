@@ -8,7 +8,6 @@ import {
 } from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ScheduleEvent, Pet } from '../types';
 
@@ -75,8 +74,7 @@ export async function registerPushToken(userId: string): Promise<string | null> 
   try {
     const token = await getToken(messagingInstance);
 
-    await setDoc(
-      doc(db, 'userTokens', userId),
+    await db.collection('userTokens').doc(userId).set(
       {
         fcmToken: token,
         platform: Platform.OS,

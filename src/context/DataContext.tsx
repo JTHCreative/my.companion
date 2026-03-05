@@ -1,20 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  onSnapshot,
-  writeBatch,
-  query,
-  where,
-  arrayUnion,
-  arrayRemove,
-} from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { Pet, ScheduleEvent, Meal, VetInfo, Medication, Message, SharedPetPreview } from '../types';
@@ -103,7 +89,7 @@ const ASYNC_KEYS = {
 // --- Firestore helpers (root-level pets collection) ---
 
 function petRef(petId: string) {
-  return doc(db, 'pets', petId);
+  return db.collection('pets').doc(petId);
 }
 
 // Recursively strip undefined values from an object so Firestore never
@@ -132,7 +118,7 @@ function extractPet(petDoc: PetDocument): Pet {
 
 // Write a full PetDocument to Firestore
 async function writePetDoc(petDocument: PetDocument): Promise<void> {
-  await setDoc(petRef(petDocument.id), petDocument);
+  await petRef(petDocument.id).set(petDocument);
 }
 
 // --- Legacy migration: AsyncStorage → user-scoped Firestore (old path) ---
@@ -168,7 +154,7 @@ async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
 
   const hasData = pets.length > 0 || events.length > 0 || mealsList.length > 0 || vets.length > 0 || meds.length > 0;
   if (hasData) {
-    const batch = writeBatch(db);
+    const batch = db.batch();
     for (const pet of pets) {
       const petDocument: PetDocument = {
         ...pet,
@@ -195,11 +181,11 @@ async function migrateToRootCollection(userId: string): Promise<void> {
   const alreadyMigrated = await AsyncStorage.getItem(ASYNC_KEYS.migratedToRoot);
   if (alreadyMigrated === 'true') return;
 
-  const legacyRef = collection(db, 'users', userId, 'pets');
-  const snapshot = await getDocs(legacyRef);
+  const legacyRef = db.collection('users').doc(userId).collection('pets');
+  const snapshot = await legacyRef.get();
 
   if (!snapshot.empty) {
-    const batch = writeBatch(db);
+    const batch = db.batch();
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data() as PetDocument;
 
@@ -211,7 +197,7 @@ async function migrateToRootCollection(userId: string): Promise<void> {
       });
 
       // Delete old user-scoped doc
-      batch.delete(doc(db, 'users', userId, 'pets', docSnap.id));
+      batch.delete(db.collection('users').doc(userId).collection('pets').doc(docSnap.id));
     }
     await batch.commit();
   }
@@ -272,28 +258,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       // Real-time listener on root pets collection filtered by membership
       let isFirstSnapshot = true;
-      const q = query(
-        collection(db, 'pets'),
-        where('members', 'array-contains', userId),
-      );
-      unsubRef.current = onSnapshot(q, (snapshot) => {
-        if (!isMounted) return;
-        const docs = snapshot.docs
-          .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
-          .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-        setPetDocs(docs);
-        if (isFirstSnapshot) {
-          isFirstSnapshot = false;
-          setLoading(false);
-        }
-      }, (error) => {
-        console.warn('Firestore snapshot error:', error);
-        // Still clear loading on error so the UI doesn't hang
-        if (isFirstSnapshot) {
-          isFirstSnapshot = false;
-          setLoading(false);
-        }
-      });
+      unsubRef.current = db
+        .collection('pets')
+        .where('members', 'array-contains', userId)
+        .onSnapshot((snapshot) => {
+          if (!isMounted) return;
+          const docs = snapshot.docs
+            .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
+            .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+          setPetDocs(docs);
+          if (isFirstSnapshot) {
+            isFirstSnapshot = false;
+            setLoading(false);
+          }
+        }, (error) => {
+          console.warn('Firestore snapshot error:', error);
+          // Still clear loading on error so the UI doesn't hang
+          if (isFirstSnapshot) {
+            isFirstSnapshot = false;
+            setLoading(false);
+          }
+        });
     }
 
     setLoading(true);
@@ -399,7 +384,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (Object.keys(changes).length > 0) {
-      await updateDoc(petRef(pet.id), changes);
+      await petRef(pet.id).update(changes);
     }
   }, [user, findPetDoc]);
 
@@ -410,11 +395,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     if (existing.ownerUid === user.uid) {
       // Owner deletes the entire pet document
-      await deleteDoc(petRef(id));
+      await petRef(id).delete();
     } else {
       // Non-owner leaves — remove themselves from members
-      await updateDoc(petRef(id), {
-        members: arrayRemove(user.uid),
+      await petRef(id).update({
+        members: firestore.FieldValue.arrayRemove(user.uid),
       });
     }
 
@@ -428,8 +413,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
     if (!user) return;
-    await updateDoc(petRef(event.petId), {
-      scheduleEvents: arrayUnion(stripUndefined(event)),
+    await petRef(event.petId).update({
+      scheduleEvents: firestore.FieldValue.arrayUnion(stripUndefined(event)),
     });
   }, [user]);
 
@@ -437,7 +422,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const existing = findPetDoc(event.petId);
     if (!existing) return;
-    await updateDoc(petRef(event.petId), {
+    await petRef(event.petId).update({
       scheduleEvents: existing.scheduleEvents.map((e) => (e.id === event.id ? stripUndefined(event) : e)),
     });
   }, [user, findPetDoc]);
@@ -448,8 +433,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.scheduleEvents.find((e) => e.id === id);
     if (!toRemove) return;
-    await updateDoc(petRef(ownerDoc.id), {
-      scheduleEvents: arrayRemove(toRemove),
+    await petRef(ownerDoc.id).update({
+      scheduleEvents: firestore.FieldValue.arrayRemove(toRemove),
     });
   }, [user, petDocs]);
 
@@ -457,8 +442,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addMeal = useCallback(async (meal: Meal) => {
     if (!user) return;
-    await updateDoc(petRef(meal.petId), {
-      meals: arrayUnion(stripUndefined(meal)),
+    await petRef(meal.petId).update({
+      meals: firestore.FieldValue.arrayUnion(stripUndefined(meal)),
     });
   }, [user]);
 
@@ -466,7 +451,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const existing = findPetDoc(meal.petId);
     if (!existing) return;
-    await updateDoc(petRef(meal.petId), {
+    await petRef(meal.petId).update({
       meals: existing.meals.map((m) => (m.id === meal.id ? stripUndefined(meal) : m)),
     });
   }, [user, findPetDoc]);
@@ -477,8 +462,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.meals.find((m) => m.id === id);
     if (!toRemove) return;
-    await updateDoc(petRef(ownerDoc.id), {
-      meals: arrayRemove(toRemove),
+    await petRef(ownerDoc.id).update({
+      meals: firestore.FieldValue.arrayRemove(toRemove),
     });
   }, [user, petDocs]);
 
@@ -486,8 +471,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addVetInfo = useCallback(async (vet: VetInfo) => {
     if (!user) return;
-    await updateDoc(petRef(vet.petId), {
-      vetInfo: arrayUnion(stripUndefined(vet)),
+    await petRef(vet.petId).update({
+      vetInfo: firestore.FieldValue.arrayUnion(stripUndefined(vet)),
     });
   }, [user]);
 
@@ -495,7 +480,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const existing = findPetDoc(vet.petId);
     if (!existing) return;
-    await updateDoc(petRef(vet.petId), {
+    await petRef(vet.petId).update({
       vetInfo: existing.vetInfo.map((v) => (v.id === vet.id ? stripUndefined(vet) : v)),
     });
   }, [user, findPetDoc]);
@@ -506,8 +491,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.vetInfo.find((v) => v.id === id);
     if (!toRemove) return;
-    await updateDoc(petRef(ownerDoc.id), {
-      vetInfo: arrayRemove(toRemove),
+    await petRef(ownerDoc.id).update({
+      vetInfo: firestore.FieldValue.arrayRemove(toRemove),
     });
   }, [user, petDocs]);
 
@@ -515,8 +500,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addMedication = useCallback(async (med: Medication) => {
     if (!user) return;
-    await updateDoc(petRef(med.petId), {
-      medications: arrayUnion(stripUndefined(med)),
+    await petRef(med.petId).update({
+      medications: firestore.FieldValue.arrayUnion(stripUndefined(med)),
     });
   }, [user]);
 
@@ -524,7 +509,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const existing = findPetDoc(med.petId);
     if (!existing) return;
-    await updateDoc(petRef(med.petId), {
+    await petRef(med.petId).update({
       medications: existing.medications.map((m) => (m.id === med.id ? stripUndefined(med) : m)),
     });
   }, [user, findPetDoc]);
@@ -535,8 +520,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = ownerDoc.medications.find((m) => m.id === id);
     if (!toRemove) return;
-    await updateDoc(petRef(ownerDoc.id), {
-      medications: arrayRemove(toRemove),
+    await petRef(ownerDoc.id).update({
+      medications: firestore.FieldValue.arrayRemove(toRemove),
     });
   }, [user, petDocs]);
 
@@ -546,8 +531,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addMessageFn = useCallback(async (msg: Message) => {
     if (!user) return;
-    await updateDoc(petRef(msg.petId), {
-      messages: arrayUnion(stripUndefined(msg)),
+    await petRef(msg.petId).update({
+      messages: firestore.FieldValue.arrayUnion(stripUndefined(msg)),
     });
   }, [user]);
 
@@ -557,8 +542,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!ownerDoc) return;
     const toRemove = (ownerDoc.messages ?? []).find((m) => m.id === id);
     if (!toRemove) return;
-    await updateDoc(petRef(ownerDoc.id), {
-      messages: arrayRemove(toRemove),
+    await petRef(ownerDoc.id).update({
+      messages: firestore.FieldValue.arrayRemove(toRemove),
     });
   }, [user, petDocs]);
 
@@ -566,7 +551,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const ownerDoc = petDocs.find((d) => (d.messages ?? []).some((m) => m.id === id));
     if (!ownerDoc) return;
-    await updateDoc(petRef(ownerDoc.id), {
+    await petRef(ownerDoc.id).update({
       messages: (ownerDoc.messages ?? []).map((m) => (m.id === id ? { ...m, pinned } : m)),
     });
   }, [user, petDocs]);
@@ -579,7 +564,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const currentMessages = ownerDoc.messages ?? [];
     const filtered = currentMessages.filter((m) => m.pinned || m.createdAt >= cutoff);
     if (filtered.length < currentMessages.length) {
-      await updateDoc(petRef(selectedPetId), { messages: filtered });
+      await petRef(selectedPetId).update({ messages: filtered });
     }
   }, [user, selectedPetId, findPetDoc]);
 
@@ -593,7 +578,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Return existing share code if one exists, and backfill preview data
     // for share links that were created before preview embedding.
     if (existing.shareCode) {
-      setDoc(doc(db, 'shareLinks', existing.shareCode), {
+      db.collection('shareLinks').doc(existing.shareCode).set({
         petId,
         ownerUid: user.uid,
         name: existing.name,
@@ -615,7 +600,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Create the share link lookup document with embedded preview data
     // so non-members can look up the pet without needing read access to
     // the pets collection.
-    await setDoc(doc(db, 'shareLinks', code), {
+    await db.collection('shareLinks').doc(code).set({
       petId,
       ownerUid: user.uid,
       createdAt: Date.now(),
@@ -631,7 +616,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Store the share code on the pet document
-    await updateDoc(petRef(petId), { shareCode: code });
+    await petRef(petId).update({ shareCode: code });
 
     return code;
   }, [user, findPetDoc]);
@@ -640,8 +625,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
 
     const trimmed = code.trim().toUpperCase();
-    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
-    if (!linkSnap.exists()) return null;
+    const linkSnap = await db.collection('shareLinks').doc(trimmed).get();
+    if (!linkSnap.exists) return null;
 
     const linkData = linkSnap.data() as {
       petId: string;
@@ -681,8 +666,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // try reading the pet document directly (works if user is already a member
     // or if rules allow it).
     try {
-      const petSnap = await getDoc(petRef(linkData.petId));
-      if (!petSnap.exists()) return null;
+      const petSnap = await petRef(linkData.petId).get();
+      if (!petSnap.exists) return null;
 
       const petData = petSnap.data() as PetDocument;
       return {
@@ -722,14 +707,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) throw new Error('Must be signed in');
 
     const trimmed = code.trim().toUpperCase();
-    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
-    if (!linkSnap.exists()) throw new Error('Invalid share code');
+    const linkSnap = await db.collection('shareLinks').doc(trimmed).get();
+    if (!linkSnap.exists) throw new Error('Invalid share code');
 
     const { petId } = linkSnap.data() as { petId: string };
 
     // Add current user to the pet's members array
-    await updateDoc(petRef(petId), {
-      members: arrayUnion(user.uid),
+    await petRef(petId).update({
+      members: firestore.FieldValue.arrayUnion(user.uid),
     });
 
     // Select this pet

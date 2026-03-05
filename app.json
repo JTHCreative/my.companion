@@ -27,13 +27,22 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.mycompanion.app",
-      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-image-picker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0a8465a7-7db8-4a0a-ae13-ed48e6d1b8c7"
+      }
+    }
   }
 }

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import {
   collection,
   doc,
@@ -18,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
+import { useNetwork } from './NetworkContext';
 import { Pet, ScheduleEvent, Meal, VetInfo, Medication, Message, SharedPetPreview } from '../types';
 import { generateId } from '../utils/generateId';
 import { generateShareCode } from '../utils/shareUtils';
@@ -104,34 +104,53 @@ const ASYNC_KEYS = {
 };
 
 // --- Offline write queue ---
-// Each queued operation is a self-contained description of a Firestore write
-// that can be replayed when connectivity returns.
+// Each queued operation is a self-contained, JSON-serializable description
+// of a Firestore write. arrayUnion/arrayRemove are stored declaratively
+// (not as Firebase sentinel objects) and reconstructed at flush time.
 
 type QueuedWrite =
   | { type: 'set'; path: string; data: any }
   | { type: 'update'; path: string; data: any }
-  | { type: 'delete'; path: string };
+  | { type: 'delete'; path: string }
+  | { type: 'arrayUnion'; path: string; field: string; value: any }
+  | { type: 'arrayRemove'; path: string; field: string; value: any };
 
-async function getWriteQueue(): Promise<QueuedWrite[]> {
-  const raw = await AsyncStorage.getItem(ASYNC_KEYS.writeQueue);
-  return raw ? JSON.parse(raw) : [];
+// In-memory queue with debounced persist to avoid race conditions
+// from concurrent read-modify-write cycles on AsyncStorage.
+let writeQueueMemory: QueuedWrite[] = [];
+let queuePersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function persistQueueDebounced(): void {
+  if (queuePersistTimer) clearTimeout(queuePersistTimer);
+  queuePersistTimer = setTimeout(() => {
+    AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(writeQueueMemory)).catch(() => {});
+  }, 300);
 }
 
-async function appendToWriteQueue(op: QueuedWrite): Promise<void> {
-  const queue = await getWriteQueue();
-  queue.push(op);
-  await AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(queue));
+async function loadWriteQueueFromStorage(): Promise<void> {
+  const raw = await AsyncStorage.getItem(ASYNC_KEYS.writeQueue);
+  writeQueueMemory = raw ? JSON.parse(raw) : [];
+}
+
+function appendToWriteQueue(op: QueuedWrite): void {
+  writeQueueMemory.push(op);
+  persistQueueDebounced();
 }
 
 async function clearWriteQueue(): Promise<void> {
+  writeQueueMemory = [];
+  if (queuePersistTimer) clearTimeout(queuePersistTimer);
   await AsyncStorage.removeItem(ASYNC_KEYS.writeQueue);
 }
 
 async function flushWriteQueue(): Promise<void> {
-  const queue = await getWriteQueue();
-  if (queue.length === 0) return;
+  if (writeQueueMemory.length === 0) return;
 
-  for (const op of queue) {
+  // Snapshot the current queue and work through it
+  const queue = [...writeQueueMemory];
+
+  for (let i = 0; i < queue.length; i++) {
+    const op = queue[i];
     try {
       const segments = op.path.split('/');
       const ref = doc(db, segments[0], ...segments.slice(1));
@@ -145,12 +164,18 @@ async function flushWriteQueue(): Promise<void> {
         case 'delete':
           await deleteDoc(ref);
           break;
+        case 'arrayUnion':
+          await updateDoc(ref, { [op.field]: arrayUnion(op.value) });
+          break;
+        case 'arrayRemove':
+          await updateDoc(ref, { [op.field]: arrayRemove(op.value) });
+          break;
       }
     } catch (error) {
       console.warn('Failed to flush queued write, will retry later:', error);
-      // Keep remaining ops in queue and stop
-      const remaining = queue.slice(queue.indexOf(op));
-      await AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(remaining));
+      // Keep remaining ops in memory and persist
+      writeQueueMemory = queue.slice(i);
+      await AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(writeQueueMemory));
       return;
     }
   }
@@ -159,11 +184,23 @@ async function flushWriteQueue(): Promise<void> {
 
 // --- Offline cache helpers ---
 
-async function saveOfflineCache(userId: string, docs: PetDocument[]): Promise<void> {
-  await AsyncStorage.setItem(
-    `${ASYNC_KEYS.offlineCache}_${userId}`,
-    JSON.stringify(docs),
-  );
+// Debounced cache writer to coalesce rapid updates (optimistic + snapshot)
+let cachePersistTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingCacheUserId: string | null = null;
+let pendingCacheDocs: PetDocument[] | null = null;
+
+function saveOfflineCacheDebounced(userId: string, docs: PetDocument[]): void {
+  pendingCacheUserId = userId;
+  pendingCacheDocs = docs;
+  if (cachePersistTimer) clearTimeout(cachePersistTimer);
+  cachePersistTimer = setTimeout(() => {
+    if (pendingCacheUserId && pendingCacheDocs) {
+      AsyncStorage.setItem(
+        `${ASYNC_KEYS.offlineCache}_${pendingCacheUserId}`,
+        JSON.stringify(pendingCacheDocs),
+      ).catch(() => {});
+    }
+  }, 1000);
 }
 
 async function loadOfflineCache(userId: string): Promise<PetDocument[]> {
@@ -292,27 +329,31 @@ async function migrateToRootCollection(userId: string): Promise<void> {
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { isConnected } = useNetwork();
   const [petDocs, setPetDocs] = useState<PetDocument[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [petSelectorOpen, setPetSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const unsubRef = useRef<(() => void) | null>(null);
+  // Keep a ref in sync with context so callbacks don't need isConnected
+  // in their dependency arrays (avoids recreating all CRUD callbacks on
+  // connectivity changes).
   const isConnectedRef = useRef(true);
 
-  // Flush the write queue whenever connectivity is restored
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      const connected = state.isConnected ?? true;
-      const wasDisconnected = !isConnectedRef.current;
-      isConnectedRef.current = connected;
-      if (connected && wasDisconnected) {
-        flushWriteQueue().catch((err) =>
-          console.warn('Write queue flush failed:', err),
-        );
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+  // Flush the write queue whenever connectivity is restored
+  const prevConnectedRef = useRef(true);
+  useEffect(() => {
+    if (isConnected && !prevConnectedRef.current) {
+      flushWriteQueue().catch((err) =>
+        console.warn('Write queue flush failed:', err),
+      );
+    }
+    prevConnectedRef.current = isConnected;
+  }, [isConnected]);
 
   // Helper: execute a Firestore write, or queue it if offline
   const execOrQueue = useCallback(async (
@@ -330,7 +371,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    await appendToWriteQueue(op);
+    appendToWriteQueue(op);
   }, []);
 
   useEffect(() => {
@@ -352,11 +393,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     async function init() {
-      // Load cached data immediately so the UI has something to show
-      const cached = await loadOfflineCache(userId);
+      // Load cached data and selected pet ID in parallel
+      const [cached, savedSelectedId] = await Promise.all([
+        loadOfflineCache(userId),
+        AsyncStorage.getItem(ASYNC_KEYS.selectedPetId),
+      ]);
+
       if (isMounted && cached.length > 0) {
         setPetDocs(cached);
         setLoading(false);
+      }
+      if (isMounted && savedSelectedId) {
+        setSelectedPetId(savedSelectedId);
       }
 
       // Only run legacy migration for accounts that existed before the
@@ -377,15 +425,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await migrateToRootCollection(userId);
       }
 
-      // Flush any pending writes from a previous offline session
-      await flushWriteQueue().catch(() => {});
-
-      // Load selectedPetId from local storage (UI preference)
-      const savedSelectedId = await AsyncStorage.getItem(ASYNC_KEYS.selectedPetId);
-      if (isMounted && savedSelectedId) {
-        setSelectedPetId(savedSelectedId);
-      }
-
       // Real-time listener on root pets collection filtered by membership
       let isFirstSnapshot = true;
       const q = query(
@@ -398,8 +437,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
           .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
         setPetDocs(docs);
-        // Persist snapshot to AsyncStorage for offline access
-        saveOfflineCache(userId, docs).catch(() => {});
+        // Persist snapshot to AsyncStorage for offline access (debounced)
+        saveOfflineCacheDebounced(userId, docs);
         if (isFirstSnapshot) {
           isFirstSnapshot = false;
           setLoading(false);
@@ -412,6 +451,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
       });
+
+      // Flush pending writes after the snapshot listener is active
+      // so reconciliation happens through the listener.
+      await loadWriteQueueFromStorage();
+      flushWriteQueue().catch((err) =>
+        console.warn('Initial write queue flush failed:', err),
+      );
     }
 
     setLoading(true);
@@ -488,7 +534,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPetDocs((prev) => {
       const next = updater(prev);
       if (user) {
-        saveOfflineCache(user.uid, next).catch(() => {});
+        saveOfflineCacheDebounced(user.uid, next);
       }
       return next;
     });
@@ -552,20 +598,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const existing = findPetDoc(id);
     if (!existing) return;
 
-    if (existing.ownerUid === user.uid) {
-      // Optimistic local update
-      applyLocalUpdate((docs) => docs.filter((d) => d.id !== id));
+    // Optimistic local update (same for owner and non-owner)
+    applyLocalUpdate((docs) => docs.filter((d) => d.id !== id));
 
+    if (existing.ownerUid === user.uid) {
       await execOrQueue(
         { type: 'delete', path: `pets/${id}` },
         () => deleteDoc(petRef(id)),
       );
     } else {
       // Non-owner leaves — remove themselves from members
-      applyLocalUpdate((docs) => docs.filter((d) => d.id !== id));
-
       await execOrQueue(
-        { type: 'update', path: `pets/${id}`, data: { members: arrayRemove(user.uid) } },
+        { type: 'arrayRemove', path: `pets/${id}`, field: 'members', value: user.uid },
         () => updateDoc(petRef(id), { members: arrayRemove(user.uid) }),
       );
     }
@@ -587,7 +631,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${event.petId}`, data: { scheduleEvents: arrayUnion(clean) } },
+      { type: 'arrayUnion', path: `pets/${event.petId}`, field: 'scheduleEvents', value: clean },
       () => updateDoc(petRef(event.petId), { scheduleEvents: arrayUnion(clean) }),
     );
   }, [user, execOrQueue, applyLocalUpdate]);
@@ -620,7 +664,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${ownerDoc.id}`, data: { scheduleEvents: arrayRemove(toRemove) } },
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'scheduleEvents', value: toRemove },
       () => updateDoc(petRef(ownerDoc.id), { scheduleEvents: arrayRemove(toRemove) }),
     );
   }, [user, petDocs, execOrQueue, applyLocalUpdate]);
@@ -636,7 +680,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${meal.petId}`, data: { meals: arrayUnion(clean) } },
+      { type: 'arrayUnion', path: `pets/${meal.petId}`, field: 'meals', value: clean },
       () => updateDoc(petRef(meal.petId), { meals: arrayUnion(clean) }),
     );
   }, [user, execOrQueue, applyLocalUpdate]);
@@ -669,7 +713,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${ownerDoc.id}`, data: { meals: arrayRemove(toRemove) } },
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'meals', value: toRemove },
       () => updateDoc(petRef(ownerDoc.id), { meals: arrayRemove(toRemove) }),
     );
   }, [user, petDocs, execOrQueue, applyLocalUpdate]);
@@ -685,7 +729,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${vet.petId}`, data: { vetInfo: arrayUnion(clean) } },
+      { type: 'arrayUnion', path: `pets/${vet.petId}`, field: 'vetInfo', value: clean },
       () => updateDoc(petRef(vet.petId), { vetInfo: arrayUnion(clean) }),
     );
   }, [user, execOrQueue, applyLocalUpdate]);
@@ -718,7 +762,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${ownerDoc.id}`, data: { vetInfo: arrayRemove(toRemove) } },
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'vetInfo', value: toRemove },
       () => updateDoc(petRef(ownerDoc.id), { vetInfo: arrayRemove(toRemove) }),
     );
   }, [user, petDocs, execOrQueue, applyLocalUpdate]);
@@ -734,7 +778,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${med.petId}`, data: { medications: arrayUnion(clean) } },
+      { type: 'arrayUnion', path: `pets/${med.petId}`, field: 'medications', value: clean },
       () => updateDoc(petRef(med.petId), { medications: arrayUnion(clean) }),
     );
   }, [user, execOrQueue, applyLocalUpdate]);
@@ -767,7 +811,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${ownerDoc.id}`, data: { medications: arrayRemove(toRemove) } },
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'medications', value: toRemove },
       () => updateDoc(petRef(ownerDoc.id), { medications: arrayRemove(toRemove) }),
     );
   }, [user, petDocs, execOrQueue, applyLocalUpdate]);
@@ -785,7 +829,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${msg.petId}`, data: { messages: arrayUnion(clean) } },
+      { type: 'arrayUnion', path: `pets/${msg.petId}`, field: 'messages', value: clean },
       () => updateDoc(petRef(msg.petId), { messages: arrayUnion(clean) }),
     );
   }, [user, execOrQueue, applyLocalUpdate]);
@@ -802,7 +846,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     await execOrQueue(
-      { type: 'update', path: `pets/${ownerDoc.id}`, data: { messages: arrayRemove(toRemove) } },
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'messages', value: toRemove },
       () => updateDoc(petRef(ownerDoc.id), { messages: arrayRemove(toRemove) }),
     );
   }, [user, petDocs, execOrQueue, applyLocalUpdate]);

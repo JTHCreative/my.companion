@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  Modal,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -183,6 +184,25 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
   };
 
   const [deleting, setDeleting] = useState(false);
+  const [deletePasswordModalVisible, setDeletePasswordModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+
+  const performDeletion = async (password?: string) => {
+    setDeleting(true);
+    setDeletePasswordModalVisible(false);
+    try {
+      await deleteAccount(password);
+    } catch (error: any) {
+      setDeleting(false);
+      let message = 'Failed to delete account. Please try again.';
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        message = 'Incorrect password. Please try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please try again later.';
+      }
+      Alert.alert('Deletion Failed', message);
+    }
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -194,30 +214,12 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
           text: 'Delete Account',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
-              'Final Confirmation',
-              'This will permanently delete your account and all associated data. Are you absolutely sure?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Yes, Delete Everything',
-                  style: 'destructive',
-                  onPress: async () => {
-                    setDeleting(true);
-                    try {
-                      await deleteAccount();
-                    } catch (error: any) {
-                      setDeleting(false);
-                      let message = 'Failed to delete account. Please try again.';
-                      if (error.code === 'auth/requires-recent-login') {
-                        message = 'For security, please sign out and sign back in, then try again.';
-                      }
-                      Alert.alert('Deletion Failed', message);
-                    }
-                  },
-                },
-              ],
-            );
+            if (isGoogleUser) {
+              performDeletion();
+            } else {
+              setDeletePassword('');
+              setDeletePasswordModalVisible(true);
+            }
           },
         },
       ],
@@ -641,6 +643,62 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         </TouchableOpacity>
       </View>
       </ScrollView>
+
+      {/* Password confirmation modal for email account deletion */}
+      <Modal
+        visible={deletePasswordModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeletePasswordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Confirm Password</Text>
+            <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
+              Enter your password to permanently delete your account.
+            </Text>
+            <TextInput
+              style={[
+                styles.accountInput,
+                {
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              placeholder="Password"
+              placeholderTextColor={theme.colors.tabBarInactive}
+              secureTextEntry
+              autoCapitalize="none"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setDeletePasswordModalVisible(false)}
+                activeOpacity={0.7}
+                style={[styles.modalButton, { backgroundColor: theme.colors.inputBackground }]}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!deletePassword) {
+                    Alert.alert('Error', 'Password is required.');
+                    return;
+                  }
+                  performDeletion(deletePassword);
+                }}
+                activeOpacity={0.7}
+                style={[styles.modalButton, { backgroundColor: theme.colors.danger }]}
+              >
+                <Text style={[styles.modalButtonText, { color: '#fff' }]}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -847,5 +905,41 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalContent: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

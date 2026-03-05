@@ -3,12 +3,14 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithCredential,
+  reauthenticateWithCredential,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   deleteUser,
   updateProfile,
   updateEmail,
   updatePassword,
+  EmailAuthProvider,
   GoogleAuthProvider,
   User,
 } from 'firebase/auth';
@@ -38,7 +40,7 @@ interface AuthContextValue {
   updateDisplayName: (name: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
   updateUserPassword: (newPassword: string) => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (password?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -118,10 +120,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await updatePassword(auth.currentUser, newPassword);
   };
 
-  const deleteAccount = async () => {
+  const deleteAccount = async (password?: string) => {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('Not signed in');
     const uid = currentUser.uid;
+
+    // Re-authenticate before destructive operation
+    const isGoogleUser = currentUser.providerData.some(
+      (p) => p.providerId === 'google.com',
+    );
+
+    if (isGoogleUser) {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error('Google re-authentication failed.');
+      const credential = GoogleAuthProvider.credential(idToken);
+      await reauthenticateWithCredential(currentUser, credential);
+    } else {
+      if (!password) throw new Error('Password is required to delete account.');
+      if (!currentUser.email) throw new Error('No email on account.');
+      const credential = EmailAuthProvider.credential(currentUser.email, password);
+      await reauthenticateWithCredential(currentUser, credential);
+    }
 
     // 1. Delete all pet documents owned by this user
     const ownedPetsQuery = query(

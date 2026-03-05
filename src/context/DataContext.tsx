@@ -1,7 +1,43 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Pet, ScheduleEvent, Meal, VetInfo, Medication, SharedPetData } from '../types';
-import { generateId } from '../utils/generateId';
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  onSnapshot,
+  writeBatch,
+  query,
+  where,
+  arrayUnion,
+  arrayRemove,
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from './AuthContext';
+import { useNetwork } from './NetworkContext';
+import { Pet, ScheduleEvent, Meal, VetInfo, Medication, Message, SharedPetPreview } from '../types';
+import { generateShareCode } from '../utils/shareUtils';
+
+/**
+ * Firestore document shape: each pet document embeds all related data
+ * to minimize read costs (1 collection listener instead of 5).
+ *
+ * Structure: pets/{petId} → PetDocument
+ * Queried by: where('members', 'array-contains', uid)
+ */
+interface PetDocument extends Pet {
+  ownerUid: string;
+  members: string[];
+  shareCode?: string;
+  scheduleEvents: ScheduleEvent[];
+  meals: Meal[];
+  vetInfo: VetInfo[];
+  medications: Medication[];
+  messages: Message[];
+}
 
 interface DataContextValue {
   pets: Pet[];
@@ -32,7 +68,17 @@ interface DataContextValue {
   updateMedication: (med: Medication) => Promise<void>;
   deleteMedication: (id: string) => Promise<void>;
 
-  importPetData: (data: SharedPetData) => Promise<string>;
+  messages: Message[];
+  addMessage: (msg: Message) => Promise<void>;
+  deleteMessage: (id: string) => Promise<void>;
+  togglePinMessage: (id: string, pinned: boolean) => Promise<void>;
+  cleanupOldMessages: () => Promise<void>;
+
+  createShareLink: (petId: string) => Promise<string>;
+  lookupShareCode: (code: string) => Promise<SharedPetPreview | null>;
+  joinSharedPet: (code: string) => Promise<string>;
+
+  isOwner: boolean;
 
   petSelectorOpen: boolean;
   setPetSelectorOpen: (open: boolean) => void;
@@ -42,313 +88,1012 @@ interface DataContextValue {
 
 const DataContext = createContext<DataContextValue>({} as DataContextValue);
 
-const KEYS = {
+// AsyncStorage keys (used for migration, local preferences, and offline cache)
+const ASYNC_KEYS = {
   pets: 'companion_pets',
   scheduleEvents: 'companion_schedule',
   meals: 'companion_meals',
   vetInfo: 'companion_vets',
   medications: 'companion_medications',
   selectedPetId: 'companion_selected_pet',
+  migrated: 'companion_firestore_migrated',
+  migratedToRoot: 'companion_migrated_root_pets',
+  offlineCache: 'companion_offline_cache',
+  writeQueue: 'companion_write_queue',
 };
 
-async function loadData<T>(key: string): Promise<T[]> {
-  const data = await AsyncStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+// --- Offline write queue ---
+// Each queued operation is a self-contained, JSON-serializable description
+// of a Firestore write. arrayUnion/arrayRemove are stored declaratively
+// (not as Firebase sentinel objects) and reconstructed at flush time.
+
+type QueuedWrite =
+  | { type: 'set'; path: string; data: any }
+  | { type: 'update'; path: string; data: any }
+  | { type: 'delete'; path: string }
+  | { type: 'arrayUnion'; path: string; field: string; value: any }
+  | { type: 'arrayRemove'; path: string; field: string; value: any };
+
+// In-memory queue with debounced persist to avoid race conditions
+// from concurrent read-modify-write cycles on AsyncStorage.
+let writeQueueMemory: QueuedWrite[] = [];
+let queuePersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function persistQueueDebounced(): void {
+  if (queuePersistTimer) clearTimeout(queuePersistTimer);
+  queuePersistTimer = setTimeout(() => {
+    AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(writeQueueMemory)).catch(() => {});
+  }, 300);
 }
 
-async function saveData<T>(key: string, data: T[]): Promise<void> {
-  await AsyncStorage.setItem(key, JSON.stringify(data));
+async function loadWriteQueueFromStorage(): Promise<void> {
+  const raw = await AsyncStorage.getItem(ASYNC_KEYS.writeQueue);
+  writeQueueMemory = raw ? JSON.parse(raw) : [];
+}
+
+function appendToWriteQueue(op: QueuedWrite): void {
+  writeQueueMemory.push(op);
+  persistQueueDebounced();
+}
+
+async function clearWriteQueue(): Promise<void> {
+  writeQueueMemory = [];
+  if (queuePersistTimer) clearTimeout(queuePersistTimer);
+  await AsyncStorage.removeItem(ASYNC_KEYS.writeQueue);
+}
+
+async function flushWriteQueue(): Promise<void> {
+  if (writeQueueMemory.length === 0) return;
+
+  // Snapshot the current queue and work through it
+  const queue = [...writeQueueMemory];
+
+  for (let i = 0; i < queue.length; i++) {
+    const op = queue[i];
+    try {
+      const segments = op.path.split('/');
+      const ref = doc(db, segments[0], ...segments.slice(1));
+      switch (op.type) {
+        case 'set':
+          await setDoc(ref, op.data);
+          break;
+        case 'update':
+          await updateDoc(ref, op.data);
+          break;
+        case 'delete':
+          await deleteDoc(ref);
+          break;
+        case 'arrayUnion':
+          await updateDoc(ref, { [op.field]: arrayUnion(op.value) });
+          break;
+        case 'arrayRemove':
+          await updateDoc(ref, { [op.field]: arrayRemove(op.value) });
+          break;
+      }
+    } catch (error) {
+      console.warn('Failed to flush queued write, will retry later:', error);
+      // Keep remaining ops in memory and persist
+      writeQueueMemory = queue.slice(i);
+      await AsyncStorage.setItem(ASYNC_KEYS.writeQueue, JSON.stringify(writeQueueMemory));
+      return;
+    }
+  }
+  await clearWriteQueue();
+}
+
+// --- Offline cache helpers ---
+
+// Debounced cache writer to coalesce rapid updates (optimistic + snapshot)
+let cachePersistTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingCacheUserId: string | null = null;
+let pendingCacheDocs: PetDocument[] | null = null;
+
+function saveOfflineCacheDebounced(userId: string, docs: PetDocument[]): void {
+  pendingCacheUserId = userId;
+  pendingCacheDocs = docs;
+  if (cachePersistTimer) clearTimeout(cachePersistTimer);
+  cachePersistTimer = setTimeout(() => {
+    if (pendingCacheUserId && pendingCacheDocs) {
+      AsyncStorage.setItem(
+        `${ASYNC_KEYS.offlineCache}_${pendingCacheUserId}`,
+        JSON.stringify(pendingCacheDocs),
+      ).catch(() => {});
+    }
+  }, 1000);
+}
+
+async function loadOfflineCache(userId: string): Promise<PetDocument[]> {
+  const raw = await AsyncStorage.getItem(`${ASYNC_KEYS.offlineCache}_${userId}`);
+  return raw ? JSON.parse(raw) : [];
+}
+
+// --- Firestore helpers (root-level pets collection) ---
+
+function petRef(petId: string) {
+  return doc(db, 'pets', petId);
+}
+
+// Recursively strip undefined values from an object so Firestore never
+// receives invalid data (arrayUnion/arrayRemove/updateDoc all reject undefined).
+function stripUndefined<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map(stripUndefined) as unknown as T;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = stripUndefined(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+// Extract Pet fields from a PetDocument (strip embedded arrays)
+function extractPet(petDoc: PetDocument): Pet {
+  const { scheduleEvents, meals, vetInfo, medications, messages, ...pet } = petDoc;
+  return pet;
+}
+
+// Write a full PetDocument to Firestore
+async function writePetDoc(petDocument: PetDocument): Promise<void> {
+  await setDoc(petRef(petDocument.id), petDocument);
+}
+
+// --- Legacy migration: AsyncStorage → user-scoped Firestore (old path) ---
+// This migrates pre-Firestore data directly into the root pets collection
+// with proper ownership fields, so no second migration is needed.
+async function migrateAsyncStorageToFirestore(userId: string): Promise<void> {
+  const globalKey = ASYNC_KEYS.migrated;
+  const alreadyMigrated = await AsyncStorage.getItem(globalKey);
+  if (alreadyMigrated === 'true') return;
+
+  const [petsRaw, eventsRaw, mealsRaw, vetsRaw, medsRaw] = await Promise.all([
+    AsyncStorage.getItem(ASYNC_KEYS.pets),
+    AsyncStorage.getItem(ASYNC_KEYS.scheduleEvents),
+    AsyncStorage.getItem(ASYNC_KEYS.meals),
+    AsyncStorage.getItem(ASYNC_KEYS.vetInfo),
+    AsyncStorage.getItem(ASYNC_KEYS.medications),
+  ]);
+
+  // Clear legacy keys immediately
+  await Promise.all([
+    AsyncStorage.removeItem(ASYNC_KEYS.pets),
+    AsyncStorage.removeItem(ASYNC_KEYS.scheduleEvents),
+    AsyncStorage.removeItem(ASYNC_KEYS.meals),
+    AsyncStorage.removeItem(ASYNC_KEYS.vetInfo),
+    AsyncStorage.removeItem(ASYNC_KEYS.medications),
+  ]);
+
+  const pets: Pet[] = petsRaw ? JSON.parse(petsRaw) : [];
+  const events: ScheduleEvent[] = eventsRaw ? JSON.parse(eventsRaw) : [];
+  const mealsList: Meal[] = mealsRaw ? JSON.parse(mealsRaw) : [];
+  const vets: VetInfo[] = vetsRaw ? JSON.parse(vetsRaw) : [];
+  const meds: Medication[] = medsRaw ? JSON.parse(medsRaw) : [];
+
+  const hasData = pets.length > 0 || events.length > 0 || mealsList.length > 0 || vets.length > 0 || meds.length > 0;
+  if (hasData) {
+    const batch = writeBatch(db);
+    for (const pet of pets) {
+      const petDocument: PetDocument = {
+        ...pet,
+        ownerUid: userId,
+        members: [userId],
+        scheduleEvents: events.filter((e) => e.petId === pet.id),
+        meals: mealsList.filter((m) => m.petId === pet.id),
+        vetInfo: vets.filter((v) => v.petId === pet.id),
+        medications: meds.filter((m) => m.petId === pet.id),
+        messages: [],
+      };
+      batch.set(petRef(pet.id), petDocument);
+    }
+    await batch.commit();
+  }
+
+  await AsyncStorage.setItem(globalKey, 'true');
+}
+
+// --- Migration: user-scoped Firestore → root pets collection ---
+// For users who already migrated to users/{uid}/pets before the
+// real-time sharing update.
+async function migrateToRootCollection(userId: string): Promise<void> {
+  const alreadyMigrated = await AsyncStorage.getItem(ASYNC_KEYS.migratedToRoot);
+  if (alreadyMigrated === 'true') return;
+
+  const legacyRef = collection(db, 'users', userId, 'pets');
+  const snapshot = await getDocs(legacyRef);
+
+  if (!snapshot.empty) {
+    const batch = writeBatch(db);
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data() as PetDocument;
+
+      // Write to root collection with ownership fields
+      batch.set(petRef(docSnap.id), {
+        ...data,
+        ownerUid: data.ownerUid || userId,
+        members: data.members || [userId],
+      });
+
+      // Delete old user-scoped doc
+      batch.delete(doc(db, 'users', userId, 'pets', docSnap.id));
+    }
+    await batch.commit();
+  }
+
+  await AsyncStorage.setItem(ASYNC_KEYS.migratedToRoot, 'true');
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [pets, setPets] = useState<Pet[]>([]);
+  const { user } = useAuth();
+  const { isConnected } = useNetwork();
+  const [petDocs, setPetDocs] = useState<PetDocument[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
-  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [vetInfo, setVetInfo] = useState<VetInfo[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
   const [petSelectorOpen, setPetSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const unsubRef = useRef<(() => void) | null>(null);
+  // Keep a ref in sync with context so callbacks don't need isConnected
+  // in their dependency arrays (avoids recreating all CRUD callbacks on
+  // connectivity changes).
+  const isConnectedRef = useRef(true);
 
   useEffect(() => {
-    (async () => {
-      const [p, s, m, v, med, selId] = await Promise.all([
-        loadData<Pet>(KEYS.pets),
-        loadData<ScheduleEvent>(KEYS.scheduleEvents),
-        loadData<Meal>(KEYS.meals),
-        loadData<VetInfo>(KEYS.vetInfo),
-        loadData<Medication>(KEYS.medications),
-        AsyncStorage.getItem(KEYS.selectedPetId),
-      ]);
-      setPets(p);
-      setScheduleEvents(s);
-      setMeals(m);
-      setVetInfo(v);
-      setMedications(med);
-      if (selId) setSelectedPetId(selId);
-      else if (p.length > 0) setSelectedPetId(p[0].id);
-      setLoading(false);
-    })();
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+  // Flush the write queue whenever connectivity is restored
+  const prevConnectedRef = useRef(true);
+  useEffect(() => {
+    if (isConnected && !prevConnectedRef.current) {
+      flushWriteQueue().catch((err) =>
+        console.warn('Write queue flush failed:', err),
+      );
+    }
+    prevConnectedRef.current = isConnected;
+  }, [isConnected]);
+
+  // Helper: execute a Firestore write, or queue it if offline
+  const execOrQueue = useCallback(async (
+    op: QueuedWrite,
+    execute: () => Promise<void>,
+  ) => {
+    if (isConnectedRef.current) {
+      try {
+        await execute();
+        return;
+      } catch (error: any) {
+        // If it's a network error, fall through to queue
+        if (error?.code !== 'unavailable' && error?.message?.indexOf('network') === -1) {
+          throw error;
+        }
+      }
+    }
+    appendToWriteQueue(op);
   }, []);
 
-  const selectedPet = pets.find((p) => p.id === selectedPetId) || null;
+  useEffect(() => {
+    // Cleanup previous listener
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
+    }
+
+    if (!user) {
+      setPetDocs([]);
+      setSelectedPetId(null);
+      AsyncStorage.removeItem(ASYNC_KEYS.selectedPetId);
+      setLoading(false);
+      return;
+    }
+
+    const userId = user.uid;
+    let isMounted = true;
+
+    async function init() {
+      // Load cached data and selected pet ID in parallel
+      const [cached, savedSelectedId] = await Promise.all([
+        loadOfflineCache(userId),
+        AsyncStorage.getItem(ASYNC_KEYS.selectedPetId),
+      ]);
+
+      if (isMounted && cached.length > 0) {
+        setPetDocs(cached);
+        setLoading(false);
+      }
+      if (isMounted && savedSelectedId) {
+        setSelectedPetId(savedSelectedId);
+      }
+
+      // Only run legacy migration for accounts that existed before the
+      // Firestore upgrade. Brand-new accounts (created within the last
+      // 60 s) have nothing to migrate.
+      const createdAt = user!.metadata.creationTime
+        ? new Date(user!.metadata.creationTime).getTime()
+        : 0;
+      const isNewAccount = Date.now() - createdAt < 60_000;
+
+      if (isNewAccount) {
+        await AsyncStorage.setItem(ASYNC_KEYS.migrated, 'true');
+        await AsyncStorage.setItem(ASYNC_KEYS.migratedToRoot, 'true');
+      } else {
+        // Run AsyncStorage → Firestore migration (writes to root pets/ now)
+        await migrateAsyncStorageToFirestore(userId);
+        // Move any existing user-scoped pets to root collection
+        await migrateToRootCollection(userId);
+      }
+
+      // Real-time listener on root pets collection filtered by membership
+      let isFirstSnapshot = true;
+      const q = query(
+        collection(db, 'pets'),
+        where('members', 'array-contains', userId),
+      );
+      unsubRef.current = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        const docs = snapshot.docs
+          .map((d) => ({ ...d.data(), id: d.id } as PetDocument))
+          .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+        setPetDocs(docs);
+        // Persist snapshot to AsyncStorage for offline access (debounced)
+        saveOfflineCacheDebounced(userId, docs);
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
+          setLoading(false);
+        }
+      }, (error) => {
+        console.warn('Firestore snapshot error:', error);
+        // Still clear loading on error so the UI doesn't hang
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
+          setLoading(false);
+        }
+      });
+
+      // Flush pending writes after the snapshot listener is active
+      // so reconciliation happens through the listener.
+      await loadWriteQueueFromStorage();
+      flushWriteQueue().catch((err) =>
+        console.warn('Initial write queue flush failed:', err),
+      );
+    }
+
+    setLoading(true);
+    init();
+
+    return () => {
+      isMounted = false;
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
+      // Clear debounce timers to prevent writes after unmount
+      if (cachePersistTimer) clearTimeout(cachePersistTimer);
+      if (queuePersistTimer) clearTimeout(queuePersistTimer);
+    };
+  }, [user]);
+
+  // Derive flat arrays from embedded PetDocuments (same API for consumers)
+  const pets = useMemo(() => petDocs.map(extractPet), [petDocs]);
+
+  const scheduleEvents = useMemo(
+    () => petDocs.flatMap((d) => d.scheduleEvents ?? []),
+    [petDocs]
+  );
+
+  const meals = useMemo(
+    () => petDocs.flatMap((d) => d.meals ?? []),
+    [petDocs]
+  );
+
+  const vetInfo = useMemo(
+    () => petDocs.flatMap((d) => d.vetInfo ?? []),
+    [petDocs]
+  );
+
+  const medications = useMemo(
+    () => petDocs.flatMap((d) => d.medications ?? []),
+    [petDocs]
+  );
+
+  const messages = useMemo(
+    () => petDocs.flatMap((d) => (d.messages ?? []).map((m) => ({ ...m, petId: d.id }))),
+    [petDocs]
+  );
+
+  const selectedPet = useMemo(
+    () => pets.find((p) => p.id === selectedPetId) || null,
+    [pets, selectedPetId]
+  );
+
+  const isOwner = useMemo(
+    () => !!user && !!selectedPet && selectedPet.ownerUid === user.uid,
+    [user, selectedPet]
+  );
+
+  // Auto-select first pet if none selected
+  useEffect(() => {
+    if (!loading && pets.length > 0 && !selectedPetId) {
+      setSelectedPetId(pets[0].id);
+      AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, pets[0].id);
+    }
+  }, [loading, pets, selectedPetId]);
 
   const selectPet = useCallback((id: string) => {
     setSelectedPetId(id);
-    AsyncStorage.setItem(KEYS.selectedPetId, id);
+    AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, id);
   }, []);
 
-  // Pet CRUD
+  // Helper: find a PetDocument by id from current state
+  const findPetDoc = useCallback(
+    (petId: string): PetDocument | undefined => petDocs.find((d) => d.id === petId),
+    [petDocs]
+  );
+
+  // Helper: apply a local optimistic update to petDocs and persist to cache
+  const applyLocalUpdate = useCallback((updater: (docs: PetDocument[]) => PetDocument[]) => {
+    setPetDocs((prev) => {
+      const next = updater(prev);
+      if (user) {
+        saveOfflineCacheDebounced(user.uid, next);
+      }
+      return next;
+    });
+  }, [user]);
+
+  // --- Pet CRUD ---
+
   const addPet = useCallback(async (pet: Pet) => {
-    let next: Pet[] = [];
-    setPets((prev) => {
-      next = [...prev, pet];
-      return next;
-    });
-    await saveData(KEYS.pets, next);
-    if (!selectedPetId) {
-      setSelectedPetId(pet.id);
-      await AsyncStorage.setItem(KEYS.selectedPetId, pet.id);
-    }
-  }, [selectedPetId]);
-
-  const updatePet = useCallback(async (pet: Pet) => {
-    let next: Pet[] = [];
-    setPets((prev) => {
-      next = prev.map((p) => (p.id === pet.id ? pet : p));
-      return next;
-    });
-    await saveData(KEYS.pets, next);
-  }, []);
-
-  const deletePet = useCallback(async (id: string) => {
-    let nextPets: Pet[] = [];
-    let nextEvents: ScheduleEvent[] = [];
-    let nextMeals: Meal[] = [];
-    let nextVets: VetInfo[] = [];
-    let nextMeds: Medication[] = [];
-    setPets((prev) => { nextPets = prev.filter((p) => p.id !== id); return nextPets; });
-    setScheduleEvents((prev) => { nextEvents = prev.filter((e) => e.petId !== id); return nextEvents; });
-    setMeals((prev) => { nextMeals = prev.filter((m) => m.petId !== id); return nextMeals; });
-    setVetInfo((prev) => { nextVets = prev.filter((v) => v.petId !== id); return nextVets; });
-    setMedications((prev) => { nextMeds = prev.filter((m) => m.petId !== id); return nextMeds; });
-    await Promise.all([
-      saveData(KEYS.pets, nextPets),
-      saveData(KEYS.scheduleEvents, nextEvents),
-      saveData(KEYS.meals, nextMeals),
-      saveData(KEYS.vetInfo, nextVets),
-      saveData(KEYS.medications, nextMeds),
-    ]);
-    if (selectedPetId === id) {
-      setSelectedPetId(null);
-      await AsyncStorage.removeItem(KEYS.selectedPetId);
-    }
-  }, [selectedPetId]);
-
-  // Schedule CRUD
-  const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
-    let next: ScheduleEvent[] = [];
-    setScheduleEvents((prev) => {
-      next = [...prev, event];
-      return next;
-    });
-    await saveData(KEYS.scheduleEvents, next);
-  }, []);
-
-  const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
-    let next: ScheduleEvent[] = [];
-    setScheduleEvents((prev) => {
-      next = prev.map((e) => (e.id === event.id ? event : e));
-      return next;
-    });
-    await saveData(KEYS.scheduleEvents, next);
-  }, []);
-
-  const deleteScheduleEvent = useCallback(async (id: string) => {
-    let next: ScheduleEvent[] = [];
-    setScheduleEvents((prev) => {
-      next = prev.filter((e) => e.id !== id);
-      return next;
-    });
-    await saveData(KEYS.scheduleEvents, next);
-  }, []);
-
-  // Meal CRUD
-  const addMeal = useCallback(async (meal: Meal) => {
-    let next: Meal[] = [];
-    setMeals((prev) => {
-      next = [...prev, meal];
-      return next;
-    });
-    await saveData(KEYS.meals, next);
-  }, []);
-
-  const updateMeal = useCallback(async (meal: Meal) => {
-    let next: Meal[] = [];
-    setMeals((prev) => {
-      next = prev.map((m) => (m.id === meal.id ? meal : m));
-      return next;
-    });
-    await saveData(KEYS.meals, next);
-  }, []);
-
-  const deleteMeal = useCallback(async (id: string) => {
-    let next: Meal[] = [];
-    setMeals((prev) => {
-      next = prev.filter((m) => m.id !== id);
-      return next;
-    });
-    await saveData(KEYS.meals, next);
-  }, []);
-
-  // Vet CRUD
-  const addVetInfo = useCallback(async (vet: VetInfo) => {
-    let next: VetInfo[] = [];
-    setVetInfo((prev) => {
-      next = [...prev, vet];
-      return next;
-    });
-    await saveData(KEYS.vetInfo, next);
-  }, []);
-
-  const updateVetInfo = useCallback(async (vet: VetInfo) => {
-    let next: VetInfo[] = [];
-    setVetInfo((prev) => {
-      next = prev.map((v) => (v.id === vet.id ? vet : v));
-      return next;
-    });
-    await saveData(KEYS.vetInfo, next);
-  }, []);
-
-  const deleteVetInfo = useCallback(async (id: string) => {
-    let next: VetInfo[] = [];
-    setVetInfo((prev) => {
-      next = prev.filter((v) => v.id !== id);
-      return next;
-    });
-    await saveData(KEYS.vetInfo, next);
-  }, []);
-
-  // Medication CRUD
-  const addMedication = useCallback(async (med: Medication) => {
-    let next: Medication[] = [];
-    setMedications((prev) => {
-      next = [...prev, med];
-      return next;
-    });
-    await saveData(KEYS.medications, next);
-  }, []);
-
-  const updateMedication = useCallback(async (med: Medication) => {
-    let next: Medication[] = [];
-    setMedications((prev) => {
-      next = prev.map((m) => (m.id === med.id ? med : m));
-      return next;
-    });
-    await saveData(KEYS.medications, next);
-  }, []);
-
-  const deleteMedication = useCallback(async (id: string) => {
-    let next: Medication[] = [];
-    setMedications((prev) => {
-      next = prev.filter((m) => m.id !== id);
-      return next;
-    });
-    await saveData(KEYS.medications, next);
-  }, []);
-
-  // Import a shared pet's full data
-  const importPetData = useCallback(async (data: SharedPetData): Promise<string> => {
-    const petId = generateId();
-    const newPet: Pet = {
-      ...data.pet,
-      id: petId,
-      profileImage: null,
+    if (!user) return;
+    const newDoc: PetDocument = {
+      ...pet,
+      ownerUid: user.uid,
+      members: [user.uid],
+      scheduleEvents: [],
+      meals: [],
+      vetInfo: [],
+      medications: [],
+      messages: [],
     };
 
-    const newEvents: ScheduleEvent[] = data.scheduleEvents.map((e) => ({
-      ...e,
-      id: generateId(),
+    // Optimistic local update
+    applyLocalUpdate((docs) => [...docs, newDoc]);
+
+    await execOrQueue(
+      { type: 'set', path: `pets/${pet.id}`, data: newDoc },
+      () => writePetDoc(newDoc),
+    );
+    if (!selectedPetId) {
+      setSelectedPetId(pet.id);
+      await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, pet.id);
+    }
+  }, [user, selectedPetId, execOrQueue, applyLocalUpdate]);
+
+  const updatePet = useCallback(async (pet: Pet) => {
+    if (!user) return;
+    const existing = findPetDoc(pet.id);
+    if (!existing) return;
+    // Only send changed pet fields, not embedded arrays
+    const { scheduleEvents, meals, vetInfo, medications, ...existingPetFields } = existing;
+    const changes: Record<string, any> = {};
+    for (const key of Object.keys(pet) as (keyof Pet)[]) {
+      if (pet[key] !== existingPetFields[key]) {
+        changes[key] = pet[key];
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      // Optimistic local update
+      applyLocalUpdate((docs) =>
+        docs.map((d) => (d.id === pet.id ? { ...d, ...changes } : d)),
+      );
+
+      await execOrQueue(
+        { type: 'update', path: `pets/${pet.id}`, data: changes },
+        () => updateDoc(petRef(pet.id), changes),
+      );
+    }
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  const deletePet = useCallback(async (id: string) => {
+    if (!user) return;
+    const existing = findPetDoc(id);
+    if (!existing) return;
+
+    // Optimistic local update (same for owner and non-owner)
+    applyLocalUpdate((docs) => docs.filter((d) => d.id !== id));
+
+    if (existing.ownerUid === user.uid) {
+      await execOrQueue(
+        { type: 'delete', path: `pets/${id}` },
+        () => deleteDoc(petRef(id)),
+      );
+    } else {
+      // Non-owner leaves — remove themselves from members
+      await execOrQueue(
+        { type: 'arrayRemove', path: `pets/${id}`, field: 'members', value: user.uid },
+        () => updateDoc(petRef(id), { members: arrayRemove(user.uid) }),
+      );
+    }
+
+    if (selectedPetId === id) {
+      setSelectedPetId(null);
+      await AsyncStorage.removeItem(ASYNC_KEYS.selectedPetId);
+    }
+  }, [user, selectedPetId, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  // --- Schedule CRUD ---
+
+  const addScheduleEvent = useCallback(async (event: ScheduleEvent) => {
+    if (!user) return;
+    const clean = stripUndefined(event);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === event.petId ? { ...d, scheduleEvents: [...d.scheduleEvents, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayUnion', path: `pets/${event.petId}`, field: 'scheduleEvents', value: clean },
+      () => updateDoc(petRef(event.petId), { scheduleEvents: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
+
+  const updateScheduleEvent = useCallback(async (event: ScheduleEvent) => {
+    if (!user) return;
+    const existing = findPetDoc(event.petId);
+    if (!existing) return;
+    const updated = existing.scheduleEvents.map((e) => (e.id === event.id ? stripUndefined(event) : e));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === event.petId ? { ...d, scheduleEvents: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${event.petId}`, data: { scheduleEvents: updated } },
+      () => updateDoc(petRef(event.petId), { scheduleEvents: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  const deleteScheduleEvent = useCallback(async (id: string) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => d.scheduleEvents.some((e) => e.id === id));
+    if (!ownerDoc) return;
+    const toRemove = ownerDoc.scheduleEvents.find((e) => e.id === id);
+    if (!toRemove) return;
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, scheduleEvents: d.scheduleEvents.filter((e) => e.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'scheduleEvents', value: toRemove },
+      () => updateDoc(petRef(ownerDoc.id), { scheduleEvents: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
+
+  // --- Meal CRUD ---
+
+  const addMeal = useCallback(async (meal: Meal) => {
+    if (!user) return;
+    const clean = stripUndefined(meal);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === meal.petId ? { ...d, meals: [...d.meals, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayUnion', path: `pets/${meal.petId}`, field: 'meals', value: clean },
+      () => updateDoc(petRef(meal.petId), { meals: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
+
+  const updateMeal = useCallback(async (meal: Meal) => {
+    if (!user) return;
+    const existing = findPetDoc(meal.petId);
+    if (!existing) return;
+    const updated = existing.meals.map((m) => (m.id === meal.id ? stripUndefined(meal) : m));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === meal.petId ? { ...d, meals: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${meal.petId}`, data: { meals: updated } },
+      () => updateDoc(petRef(meal.petId), { meals: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  const deleteMeal = useCallback(async (id: string) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => d.meals.some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const toRemove = ownerDoc.meals.find((m) => m.id === id);
+    if (!toRemove) return;
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, meals: d.meals.filter((m) => m.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'meals', value: toRemove },
+      () => updateDoc(petRef(ownerDoc.id), { meals: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
+
+  // --- Vet CRUD ---
+
+  const addVetInfo = useCallback(async (vet: VetInfo) => {
+    if (!user) return;
+    const clean = stripUndefined(vet);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === vet.petId ? { ...d, vetInfo: [...d.vetInfo, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayUnion', path: `pets/${vet.petId}`, field: 'vetInfo', value: clean },
+      () => updateDoc(petRef(vet.petId), { vetInfo: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
+
+  const updateVetInfo = useCallback(async (vet: VetInfo) => {
+    if (!user) return;
+    const existing = findPetDoc(vet.petId);
+    if (!existing) return;
+    const updated = existing.vetInfo.map((v) => (v.id === vet.id ? stripUndefined(vet) : v));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === vet.petId ? { ...d, vetInfo: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${vet.petId}`, data: { vetInfo: updated } },
+      () => updateDoc(petRef(vet.petId), { vetInfo: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  const deleteVetInfo = useCallback(async (id: string) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => d.vetInfo.some((v) => v.id === id));
+    if (!ownerDoc) return;
+    const toRemove = ownerDoc.vetInfo.find((v) => v.id === id);
+    if (!toRemove) return;
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, vetInfo: d.vetInfo.filter((v) => v.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'vetInfo', value: toRemove },
+      () => updateDoc(petRef(ownerDoc.id), { vetInfo: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
+
+  // --- Medication CRUD ---
+
+  const addMedication = useCallback(async (med: Medication) => {
+    if (!user) return;
+    const clean = stripUndefined(med);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === med.petId ? { ...d, medications: [...d.medications, clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayUnion', path: `pets/${med.petId}`, field: 'medications', value: clean },
+      () => updateDoc(petRef(med.petId), { medications: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
+
+  const updateMedication = useCallback(async (med: Medication) => {
+    if (!user) return;
+    const existing = findPetDoc(med.petId);
+    if (!existing) return;
+    const updated = existing.medications.map((m) => (m.id === med.id ? stripUndefined(med) : m));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === med.petId ? { ...d, medications: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${med.petId}`, data: { medications: updated } },
+      () => updateDoc(petRef(med.petId), { medications: updated }),
+    );
+  }, [user, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  const deleteMedication = useCallback(async (id: string) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => d.medications.some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const toRemove = ownerDoc.medications.find((m) => m.id === id);
+    if (!toRemove) return;
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, medications: d.medications.filter((m) => m.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'medications', value: toRemove },
+      () => updateDoc(petRef(ownerDoc.id), { medications: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
+
+  // --- Message CRUD ---
+
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+  const addMessageFn = useCallback(async (msg: Message) => {
+    if (!user) return;
+    const clean = stripUndefined(msg);
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === msg.petId ? { ...d, messages: [...(d.messages ?? []), clean] } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayUnion', path: `pets/${msg.petId}`, field: 'messages', value: clean },
+      () => updateDoc(petRef(msg.petId), { messages: arrayUnion(clean) }),
+    );
+  }, [user, execOrQueue, applyLocalUpdate]);
+
+  const deleteMessageFn = useCallback(async (id: string) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => (d.messages ?? []).some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const toRemove = (ownerDoc.messages ?? []).find((m) => m.id === id);
+    if (!toRemove) return;
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, messages: (d.messages ?? []).filter((m) => m.id !== id) } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'arrayRemove', path: `pets/${ownerDoc.id}`, field: 'messages', value: toRemove },
+      () => updateDoc(petRef(ownerDoc.id), { messages: arrayRemove(toRemove) }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
+
+  const togglePinMessageFn = useCallback(async (id: string, pinned: boolean) => {
+    if (!user) return;
+    const ownerDoc = petDocs.find((d) => (d.messages ?? []).some((m) => m.id === id));
+    if (!ownerDoc) return;
+    const updated = (ownerDoc.messages ?? []).map((m) => (m.id === id ? { ...m, pinned } : m));
+
+    applyLocalUpdate((docs) =>
+      docs.map((d) => (d.id === ownerDoc.id ? { ...d, messages: updated } : d)),
+    );
+
+    await execOrQueue(
+      { type: 'update', path: `pets/${ownerDoc.id}`, data: { messages: updated } },
+      () => updateDoc(petRef(ownerDoc.id), { messages: updated }),
+    );
+  }, [user, petDocs, execOrQueue, applyLocalUpdate]);
+
+  const cleanupOldMessagesFn = useCallback(async () => {
+    if (!user || !selectedPetId) return;
+    const ownerDoc = findPetDoc(selectedPetId);
+    if (!ownerDoc) return;
+    const cutoff = Date.now() - THIRTY_DAYS_MS;
+    const currentMessages = ownerDoc.messages ?? [];
+    const filtered = currentMessages.filter((m) => m.pinned || m.createdAt >= cutoff);
+    if (filtered.length < currentMessages.length) {
+      applyLocalUpdate((docs) =>
+        docs.map((d) => (d.id === selectedPetId ? { ...d, messages: filtered } : d)),
+      );
+
+      await execOrQueue(
+        { type: 'update', path: `pets/${selectedPetId}`, data: { messages: filtered } },
+        () => updateDoc(petRef(selectedPetId), { messages: filtered }),
+      );
+    }
+  }, [user, selectedPetId, findPetDoc, execOrQueue, applyLocalUpdate]);
+
+  // --- Share link management ---
+
+  const createShareLink = useCallback(async (petId: string): Promise<string> => {
+    if (!user) throw new Error('Must be signed in');
+    const existing = findPetDoc(petId);
+    if (!existing) throw new Error('Pet not found');
+
+    // Return existing share code if one exists, and backfill preview data
+    // for share links that were created before preview embedding.
+    if (existing.shareCode) {
+      setDoc(doc(db, 'shareLinks', existing.shareCode), {
+        petId,
+        ownerUid: user.uid,
+        name: existing.name,
+        type: existing.type,
+        breed: existing.breed,
+        weight: existing.weight,
+        weightUnit: existing.weightUnit,
+        scheduleEventCount: existing.scheduleEvents?.length ?? 0,
+        mealCount: existing.meals?.length ?? 0,
+        medicationCount: existing.medications?.length ?? 0,
+        vetInfoCount: existing.vetInfo?.length ?? 0,
+      }, { merge: true }).catch(() => {});
+      return existing.shareCode;
+    }
+
+    // Generate a new share code
+    const code = generateShareCode();
+
+    // Create the share link lookup document with embedded preview data
+    // so non-members can look up the pet without needing read access to
+    // the pets collection.
+    await setDoc(doc(db, 'shareLinks', code), {
       petId,
-    }));
+      ownerUid: user.uid,
+      createdAt: Date.now(),
+      name: existing.name,
+      type: existing.type,
+      breed: existing.breed,
+      weight: existing.weight,
+      weightUnit: existing.weightUnit,
+      scheduleEventCount: existing.scheduleEvents?.length ?? 0,
+      mealCount: existing.meals?.length ?? 0,
+      medicationCount: existing.medications?.length ?? 0,
+      vetInfoCount: existing.vetInfo?.length ?? 0,
+    });
 
-    const newMeals: Meal[] = data.meals.map((m) => ({
-      ...m,
-      id: generateId(),
-      petId,
-    }));
+    // Store the share code on the pet document
+    await updateDoc(petRef(petId), { shareCode: code });
 
-    const newVets: VetInfo[] = data.vetInfo.map((v) => ({
-      ...v,
-      id: generateId(),
-      petId,
-    }));
+    return code;
+  }, [user, findPetDoc]);
 
-    const newMeds: Medication[] = data.medications.map((med) => ({
-      ...med,
-      id: generateId(),
-      petId,
-    }));
+  const lookupShareCode = useCallback(async (code: string): Promise<SharedPetPreview | null> => {
+    if (!user) return null;
 
-    let nextPets: Pet[] = [];
-    let nextEvents: ScheduleEvent[] = [];
-    let nextMeals: Meal[] = [];
-    let nextVets: VetInfo[] = [];
-    let nextMeds: Medication[] = [];
+    const trimmed = code.trim().toUpperCase();
+    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
+    if (!linkSnap.exists()) return null;
 
-    setPets((prev) => { nextPets = [...prev, newPet]; return nextPets; });
-    setScheduleEvents((prev) => { nextEvents = [...prev, ...newEvents]; return nextEvents; });
-    setMeals((prev) => { nextMeals = [...prev, ...newMeals]; return nextMeals; });
-    setVetInfo((prev) => { nextVets = [...prev, ...newVets]; return nextVets; });
-    setMedications((prev) => { nextMeds = [...prev, ...newMeds]; return nextMeds; });
+    const linkData = linkSnap.data() as {
+      petId: string;
+      name?: string;
+      type?: string;
+      breed?: string;
+      weight?: string;
+      weightUnit?: 'lbs' | 'kg';
+      scheduleEventCount?: number;
+      mealCount?: number;
+      medicationCount?: number;
+      vetInfoCount?: number;
+    };
 
-    await Promise.all([
-      saveData(KEYS.pets, nextPets),
-      saveData(KEYS.scheduleEvents, nextEvents),
-      saveData(KEYS.meals, nextMeals),
-      saveData(KEYS.vetInfo, nextVets),
-      saveData(KEYS.medications, nextMeds),
-    ]);
+    // Check local state to see if the user already has access
+    const alreadyMember = petDocs.some((d) => d.id === linkData.petId);
 
-    // Auto-select the newly imported pet
+    // Use preview data embedded in the shareLinks document so non-members
+    // don't need read access to the pets collection.
+    if (linkData.name) {
+      return {
+        petId: linkData.petId,
+        name: linkData.name,
+        type: (linkData.type ?? 'dog') as SharedPetPreview['type'],
+        breed: linkData.breed ?? '',
+        weight: linkData.weight ?? '',
+        weightUnit: linkData.weightUnit ?? 'lbs',
+        scheduleEventCount: linkData.scheduleEventCount ?? 0,
+        mealCount: linkData.mealCount ?? 0,
+        medicationCount: linkData.medicationCount ?? 0,
+        vetInfoCount: linkData.vetInfoCount ?? 0,
+        alreadyMember,
+      };
+    }
+
+    // Fallback for share links created before preview data was embedded:
+    // try reading the pet document directly (works if user is already a member
+    // or if rules allow it).
+    try {
+      const petSnap = await getDoc(petRef(linkData.petId));
+      if (!petSnap.exists()) return null;
+
+      const petData = petSnap.data() as PetDocument;
+      return {
+        petId: linkData.petId,
+        name: petData.name,
+        type: petData.type,
+        breed: petData.breed,
+        weight: petData.weight,
+        weightUnit: petData.weightUnit,
+        scheduleEventCount: petData.scheduleEvents?.length ?? 0,
+        mealCount: petData.meals?.length ?? 0,
+        medicationCount: petData.medications?.length ?? 0,
+        vetInfoCount: petData.vetInfo?.length ?? 0,
+        alreadyMember,
+      };
+    } catch {
+      // Permission denied — the share link exists but the pet document
+      // is not readable by this user. Return minimal preview so the user
+      // can still attempt to join.
+      return {
+        petId: linkData.petId,
+        name: 'Shared Pet',
+        type: 'dog',
+        breed: '',
+        weight: '',
+        weightUnit: 'lbs',
+        scheduleEventCount: 0,
+        mealCount: 0,
+        medicationCount: 0,
+        vetInfoCount: 0,
+        alreadyMember,
+      };
+    }
+  }, [user, petDocs]);
+
+  const joinSharedPet = useCallback(async (code: string): Promise<string> => {
+    if (!user) throw new Error('Must be signed in');
+
+    const trimmed = code.trim().toUpperCase();
+    const linkSnap = await getDoc(doc(db, 'shareLinks', trimmed));
+    if (!linkSnap.exists()) throw new Error('Invalid share code');
+
+    const { petId } = linkSnap.data() as { petId: string };
+
+    // Add current user to the pet's members array
+    await updateDoc(petRef(petId), {
+      members: arrayUnion(user.uid),
+    });
+
+    // Select this pet
     setSelectedPetId(petId);
-    await AsyncStorage.setItem(KEYS.selectedPetId, petId);
+    await AsyncStorage.setItem(ASYNC_KEYS.selectedPetId, petId);
 
     return petId;
-  }, []);
+  }, [user]);
+
+  const contextValue = useMemo<DataContextValue>(() => ({
+    pets,
+    selectedPetId,
+    selectedPet,
+    selectPet,
+    addPet,
+    updatePet,
+    deletePet,
+    scheduleEvents,
+    addScheduleEvent,
+    updateScheduleEvent,
+    deleteScheduleEvent,
+    meals,
+    addMeal,
+    updateMeal,
+    deleteMeal,
+    vetInfo,
+    addVetInfo,
+    updateVetInfo,
+    deleteVetInfo,
+    medications,
+    addMedication,
+    updateMedication,
+    deleteMedication,
+    messages,
+    addMessage: addMessageFn,
+    deleteMessage: deleteMessageFn,
+    togglePinMessage: togglePinMessageFn,
+    cleanupOldMessages: cleanupOldMessagesFn,
+    isOwner,
+    createShareLink,
+    lookupShareCode,
+    joinSharedPet,
+    petSelectorOpen,
+    setPetSelectorOpen,
+    loading,
+  }), [
+    pets, selectedPetId, selectedPet, selectPet,
+    addPet, updatePet, deletePet,
+    scheduleEvents, addScheduleEvent, updateScheduleEvent, deleteScheduleEvent,
+    meals, addMeal, updateMeal, deleteMeal,
+    vetInfo, addVetInfo, updateVetInfo, deleteVetInfo,
+    medications, addMedication, updateMedication, deleteMedication,
+    messages, addMessageFn, deleteMessageFn, togglePinMessageFn, cleanupOldMessagesFn,
+    isOwner, createShareLink, lookupShareCode, joinSharedPet,
+    petSelectorOpen, setPetSelectorOpen, loading,
+  ]);
 
   return (
-    <DataContext.Provider
-      value={{
-        pets,
-        selectedPetId,
-        selectedPet,
-        selectPet,
-        addPet,
-        updatePet,
-        deletePet,
-        scheduleEvents,
-        addScheduleEvent,
-        updateScheduleEvent,
-        deleteScheduleEvent,
-        meals,
-        addMeal,
-        updateMeal,
-        deleteMeal,
-        vetInfo,
-        addVetInfo,
-        updateVetInfo,
-        deleteVetInfo,
-        medications,
-        addMedication,
-        updateMedication,
-        deleteMedication,
-        importPetData,
-        petSelectorOpen,
-        setPetSelectorOpen,
-        loading,
-      }}
-    >
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -23,6 +24,7 @@ import { PetAvatarHeader } from '../components/PetAvatarHeader';
 
 export function MealsScreen({ navigation }: any) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     selectedPet,
     selectedPetId,
@@ -31,6 +33,7 @@ export function MealsScreen({ navigation }: any) {
     updateMeal,
     deleteMeal,
     scheduleEvents,
+    isOwner,
   } = useData();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -40,9 +43,18 @@ export function MealsScreen({ navigation }: any) {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [notes, setNotes] = useState('');
 
-  const petMeals = meals.filter((m) => m.petId === selectedPetId);
-  const mealItems = petMeals.filter((m) => m.type === 'meal');
-  const treatItems = petMeals.filter((m) => m.type === 'treat');
+  const petMeals = useMemo(
+    () => meals.filter((m) => m.petId === selectedPetId),
+    [meals, selectedPetId]
+  );
+  const mealItems = useMemo(
+    () => petMeals.filter((m) => m.type === 'meal'),
+    [petMeals]
+  );
+  const treatItems = useMemo(
+    () => petMeals.filter((m) => m.type === 'treat'),
+    [petMeals]
+  );
 
   const resetForm = () => {
     setName('');
@@ -147,9 +159,23 @@ export function MealsScreen({ navigation }: any) {
     }
   };
 
-  // Find schedule events linked to each meal
-  const getLinkedEvents = (mealId: string) =>
-    scheduleEvents.filter((e) => e.linkedMealId === mealId);
+  // Pre-build a map of mealId → linked schedule events for O(1) lookup
+  const linkedEventsMap = useMemo(() => {
+    const map = new Map<string, typeof scheduleEvents>();
+    for (const e of scheduleEvents) {
+      if (e.linkedMealId) {
+        const existing = map.get(e.linkedMealId) || [];
+        existing.push(e);
+        map.set(e.linkedMealId, existing);
+      }
+    }
+    return map;
+  }, [scheduleEvents]);
+
+  const getLinkedEvents = useCallback(
+    (mealId: string) => linkedEventsMap.get(mealId) || [],
+    [linkedEventsMap]
+  );
 
   const formatTime = (t: string): string => {
     const [h, m] = t.split(':').map(Number);
@@ -163,14 +189,14 @@ export function MealsScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <PetAvatarHeader
           title="Meals"
-          onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="restaurant"
           title="No Pet Selected"
           subtitle="Add a pet first to manage their meals and treats."
           actionLabel="Add Pet"
-          onAction={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
       </View>
     );
@@ -180,11 +206,13 @@ export function MealsScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <PetAvatarHeader
         title="Meals"
-        onAddPet={() => navigation.navigate('HomeTab', { screen: 'AddPet' })}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
         rightAccessory={
-          <TouchableOpacity onPress={() => openAddModal()} style={styles.addButton}>
-            <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
-          </TouchableOpacity>
+          isOwner ? (
+            <TouchableOpacity onPress={() => openAddModal()} style={styles.addButton}>
+              <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
+            </TouchableOpacity>
+          ) : undefined
         }
       />
 
@@ -192,9 +220,9 @@ export function MealsScreen({ navigation }: any) {
         <EmptyState
           icon="restaurant-outline"
           title="No Meals Yet"
-          subtitle={`Track ${selectedPet.name}'s meals and favorite treats.`}
-          actionLabel="Add Meal"
-          onAction={() => openAddModal()}
+          subtitle={isOwner ? `Track ${selectedPet.name}'s meals and favorite treats.` : `${selectedPet.name}'s meals will appear here.`}
+          actionLabel={isOwner ? "Add Meal" : undefined}
+          onAction={isOwner ? () => openAddModal() : undefined}
         />
       ) : (
         <ScrollView
@@ -217,22 +245,24 @@ export function MealsScreen({ navigation }: any) {
                 return (
                   <TouchableOpacity
                     key={meal.id}
-                    activeOpacity={0.7}
-                    onPress={() => openEditModal(meal.id)}
-                    onLongPress={() => handleDelete(meal.id)}
+                    activeOpacity={isOwner ? 0.7 : 1}
+                    onPress={isOwner ? () => openEditModal(meal.id) : undefined}
+                    onLongPress={isOwner ? () => handleDelete(meal.id) : undefined}
                   >
                     <Card>
                       <View style={styles.mealCardHeader}>
                         <Text style={[styles.mealName, styles.mealNameFlex, { color: theme.colors.text }]}>
                           {meal.name}
                         </Text>
-                        <TouchableOpacity
-                          onPress={() => handleCopyMeal(meal.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          style={styles.copyBtn}
-                        >
-                          <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
-                        </TouchableOpacity>
+                        {isOwner && (
+                          <TouchableOpacity
+                            onPress={() => handleCopyMeal(meal.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={styles.copyBtn}
+                          >
+                            <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
+                          </TouchableOpacity>
+                        )}
                       </View>
                       {meal.ingredients && meal.ingredients.length > 0 && (
                         <View style={styles.ingredientsList}>
@@ -291,22 +321,24 @@ export function MealsScreen({ navigation }: any) {
               {treatItems.map((treat) => (
                 <TouchableOpacity
                   key={treat.id}
-                  activeOpacity={0.7}
-                  onPress={() => openEditModal(treat.id)}
-                  onLongPress={() => handleDelete(treat.id)}
+                  activeOpacity={isOwner ? 0.7 : 1}
+                  onPress={isOwner ? () => openEditModal(treat.id) : undefined}
+                  onLongPress={isOwner ? () => handleDelete(treat.id) : undefined}
                 >
                   <Card>
                     <View style={styles.mealCardHeader}>
                       <Text style={[styles.mealName, styles.mealNameFlex, { color: theme.colors.text }]}>
                         {treat.name}
                       </Text>
-                      <TouchableOpacity
-                        onPress={() => handleCopyMeal(treat.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={styles.copyBtn}
-                      >
-                        <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
-                      </TouchableOpacity>
+                      {isOwner && (
+                        <TouchableOpacity
+                          onPress={() => handleCopyMeal(treat.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={styles.copyBtn}
+                        >
+                          <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                      )}
                     </View>
                     {treat.ingredients && treat.ingredients.length > 0 && (
                       <View style={styles.ingredientsList}>
@@ -333,23 +365,25 @@ export function MealsScreen({ navigation }: any) {
             </>
           )}
 
-          {/* Add Buttons */}
-          <View style={styles.addButtonsRow}>
-            <Button
-              title="Add Meal"
-              onPress={() => openAddModal('meal')}
-              variant="secondary"
-              style={styles.addItemBtn}
-              icon={<Ionicons name="restaurant-outline" size={18} color={theme.colors.primary} />}
-            />
-            <Button
-              title="Add Treat"
-              onPress={() => openAddModal('treat')}
-              variant="secondary"
-              style={styles.addItemBtn}
-              icon={<Ionicons name="heart-outline" size={18} color={theme.colors.primary} />}
-            />
-          </View>
+          {/* Add Buttons (owner only) */}
+          {isOwner && (
+            <View style={styles.addButtonsRow}>
+              <Button
+                title="Add Meal"
+                onPress={() => openAddModal('meal')}
+                variant="secondary"
+                style={styles.addItemBtn}
+                icon={<Ionicons name="restaurant-outline" size={18} color={theme.colors.primary} />}
+              />
+              <Button
+                title="Add Treat"
+                onPress={() => openAddModal('treat')}
+                variant="secondary"
+                style={styles.addItemBtn}
+                icon={<Ionicons name="heart-outline" size={18} color={theme.colors.primary} />}
+              />
+            </View>
+          )}
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -361,7 +395,7 @@ export function MealsScreen({ navigation }: any) {
           style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
             <TouchableOpacity
               onPress={() => {
                 setModalVisible(false);
@@ -566,7 +600,7 @@ export function MealsScreen({ navigation }: any) {
               />
             )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 40 + insets.bottom }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>

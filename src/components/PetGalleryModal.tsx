@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../context/ThemeContext';
+import { PetImage } from './PetImage';
 import { Pet } from '../types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -26,6 +27,7 @@ interface PetGalleryModalProps {
   pet: Pet;
   onClose: () => void;
   onUpdateGallery: (images: string[]) => void;
+  onUpdateProfileImage: (uri: string) => void;
 }
 
 export function PetGalleryModal({
@@ -33,6 +35,7 @@ export function PetGalleryModal({
   pet,
   onClose,
   onUpdateGallery,
+  onUpdateProfileImage,
 }: PetGalleryModalProps) {
   const { theme } = useTheme();
   const [viewingImage, setViewingImage] = useState<string | null>(null);
@@ -107,6 +110,51 @@ export function PetGalleryModal({
     handleDeleteImage(index);
   };
 
+  const handleEditProfileImage = () => {
+    Alert.alert('Profile Photo', 'Choose an option', [
+      { text: 'Take Photo', onPress: async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Camera access is required to take photos.');
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+        if (!result.canceled) {
+          onUpdateProfileImage(result.assets[0].uri);
+        }
+      }},
+      { text: 'Choose from Library', onPress: async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+        if (!result.canceled) {
+          onUpdateProfileImage(result.assets[0].uri);
+        }
+      }},
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleSetAsProfilePicture = (uri: string) => {
+    Alert.alert('Set as Profile Picture', 'Use this photo as the profile picture?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Set as Profile',
+        onPress: () => {
+          onUpdateProfileImage(uri);
+          setViewingImage(null);
+        },
+      },
+    ]);
+  };
+
   const renderGridCells = () => {
     const cells = [];
 
@@ -127,7 +175,15 @@ export function PetGalleryModal({
               },
             ]}
           >
-            <Image source={{ uri: galleryImages[i] }} style={styles.gridImage} />
+            <PetImage
+              uri={galleryImages[i]}
+              petName={pet.name}
+              style={styles.gridImage}
+              fallbackStyle={[styles.gridImage, { borderRadius: 8 }]}
+              fallbackFontSize={24}
+              fallbackBg={theme.colors.inputBackground}
+              fallbackColor={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
         );
       } else if (i === galleryImages.length) {
@@ -201,21 +257,32 @@ export function PetGalleryModal({
           </View>
 
           {/* Profile image as first display */}
-          {pet.profileImage && (
+          <View style={styles.profileSection}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => setViewingImage(pet.profileImage)}
-              style={styles.profileSection}
+              onPress={() => pet.profileImage ? setViewingImage(pet.profileImage) : handleEditProfileImage()}
             >
-              <Image
-                source={{ uri: pet.profileImage }}
+              <PetImage
+                uri={pet.profileImage || undefined}
+                petName={pet.name}
                 style={[styles.profilePreview, { borderColor: theme.colors.border }]}
+                fallbackStyle={[styles.profilePreview, { borderColor: theme.colors.border, borderRadius: 40 }]}
+                fallbackFontSize={32}
+                fallbackBg={theme.colors.inputBackground}
+                fallbackColor={theme.colors.textSecondary}
               />
-              <Text style={[styles.profileLabel, { color: theme.colors.textSecondary }]}>
-                Profile Photo
-              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleEditProfileImage}
+                style={[styles.editProfileBadge, { backgroundColor: theme.colors.primary }]}
+              >
+                <Ionicons name="pencil" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
             </TouchableOpacity>
-          )}
+            <Text style={[styles.profileLabel, { color: theme.colors.textSecondary }]}>
+              Profile Photo
+            </Text>
+          </View>
 
           {/* Grid */}
           <View style={styles.gridContainer}>
@@ -239,11 +306,7 @@ export function PetGalleryModal({
         transparent
         onRequestClose={() => setViewingImage(null)}
       >
-        <TouchableOpacity
-          style={styles.fullscreenOverlay}
-          activeOpacity={1}
-          onPress={() => setViewingImage(null)}
-        >
+        <View style={styles.fullscreenOverlay}>
           <View style={styles.fullscreenCloseRow}>
             <TouchableOpacity
               onPress={() => setViewingImage(null)}
@@ -253,13 +316,35 @@ export function PetGalleryModal({
             </TouchableOpacity>
           </View>
           {viewingImage && (
-            <Image
-              source={{ uri: viewingImage }}
-              style={styles.fullscreenImage}
-              resizeMode="contain"
-            />
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => setViewingImage(null)}
+              style={styles.fullscreenImageContainer}
+            >
+              <PetImage
+                uri={viewingImage}
+                petName={pet.name}
+                style={styles.fullscreenImage}
+                fallbackStyle={[styles.fullscreenImage, { borderRadius: 12 }]}
+                fallbackFontSize={64}
+                fallbackBg="rgba(255,255,255,0.1)"
+                fallbackColor="#FFFFFF"
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+          {/* Set as Profile Picture button — only for gallery images */}
+          {viewingImage && viewingImage !== pet.profileImage && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleSetAsProfilePicture(viewingImage)}
+              style={styles.setProfileButton}
+            >
+              <Ionicons name="person-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.setProfileButtonText}>Set as Profile Picture</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </Modal>
     </>
   );
@@ -343,6 +428,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  editProfileBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
   fullscreenOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
@@ -358,8 +455,28 @@ const styles = StyleSheet.create({
   fullscreenCloseBtn: {
     padding: 8,
   },
+  fullscreenImageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   fullscreenImage: {
     width: SCREEN_WIDTH - 20,
     height: SCREEN_WIDTH - 20,
+  },
+  setProfileButton: {
+    position: 'absolute',
+    bottom: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  setProfileButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

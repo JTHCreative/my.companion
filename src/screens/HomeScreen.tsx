@@ -23,6 +23,7 @@ import { Card } from '../components/Card';
 import { EmptyState } from '../components/EmptyState';
 import { PetAvatarHeader } from '../components/PetAvatarHeader';
 import { PetGalleryModal } from '../components/PetGalleryModal';
+import { PetImage } from '../components/PetImage';
 import { generateId } from '../utils/generateId';
 
 const PET_TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -188,7 +189,7 @@ function formatBirthday(birthday: string): string | null {
 
 function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet: any; navigation: any; onDetailEvent: (id: string) => void; onOpenGallery: () => void }) {
   const { theme } = useTheme();
-  const { scheduleEvents, meals, medications, vetInfo, updatePet } = useData();
+  const { scheduleEvents, meals, medications, vetInfo, updatePet, isOwner } = useData();
   const [showPetYears, setShowPetYears] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
@@ -231,11 +232,17 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         <TouchableOpacity
           style={styles.editCornerWrap}
           activeOpacity={0.7}
-          onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+          onPress={() => {
+            if (isOwner) {
+              navigation.navigate('EditPet', { petId: pet.id });
+            } else {
+              Alert.alert('View Only', 'Only the pet owner can edit the profile.');
+            }
+          }}
         >
-          <View style={[styles.cornerTriangleRight, { backgroundColor: theme.dark ? '#4A7A3A' : theme.colors.primary }]} />
+          <View style={[styles.cornerTriangleRight, { backgroundColor: isOwner ? (theme.dark ? '#4A7A3A' : theme.colors.primary) : (theme.dark ? '#3A3A3A' : '#B0B0B0') }]} />
           <View style={styles.cornerIconRight}>
-            <Ionicons name="create-outline" size={25} color="#FFFFFF" />
+            <Ionicons name="create-outline" size={25} color={isOwner ? '#FFFFFF' : (theme.dark ? '#888888' : '#E0E0E0')} />
           </View>
         </TouchableOpacity>
 
@@ -244,7 +251,15 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
           <TouchableOpacity activeOpacity={0.7} onPress={onOpenGallery} style={styles.profileImageWrap}>
             {pet.profileImage ? (
               <View style={[styles.profileImageRing, { borderColor: typeColor.icon }]}>
-                <Image source={{ uri: pet.profileImage }} style={styles.profileImage} />
+                <PetImage
+                  uri={pet.profileImage}
+                  petName={pet.name}
+                  style={styles.profileImage}
+                  fallbackStyle={[styles.profileImage, { backgroundColor: typeColor.bg }]}
+                  fallbackFontSize={36}
+                  fallbackBg={typeColor.bg}
+                  fallbackColor={typeColor.icon}
+                />
               </View>
             ) : (
               <View
@@ -292,17 +307,19 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
             </TouchableOpacity>
           )}
 
-          {/* Share button */}
-          <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
-            onPress={() => navigation.navigate('SharePet')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="share-outline" size={16} color={theme.colors.textSecondary} />
-            <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
-              Share
-            </Text>
-          </TouchableOpacity>
+          {/* Share button (owner only) */}
+          {isOwner && (
+            <TouchableOpacity
+              style={[styles.shareButton, { backgroundColor: theme.colors.inputBackground }]}
+              onPress={() => navigation.navigate('SharePet')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={16} color={theme.colors.textSecondary} />
+              <Text style={[styles.shareButtonText, { color: theme.colors.textSecondary }]}>
+                Share
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Detail rows */}
@@ -310,22 +327,22 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
           {birthdayFormatted && (
             <TouchableOpacity
               style={styles.detailRow}
-              activeOpacity={0.6}
-              onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+              activeOpacity={isOwner ? 0.6 : 1}
+              onPress={isOwner ? () => navigation.navigate('EditPet', { petId: pet.id }) : undefined}
             >
               <View style={[styles.detailIcon, { backgroundColor: detailColors.birthday.bg }]}>
                 <Ionicons name="calendar-outline" size={16} color={detailColors.birthday.icon} />
               </View>
               <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Birthday</Text>
               <Text style={[styles.detailValue, { color: theme.colors.text }]}>{birthdayFormatted}</Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+              {isOwner && <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />}
             </TouchableOpacity>
           )}
           {pet.weight ? (
             <TouchableOpacity
               style={styles.detailRow}
-              activeOpacity={0.6}
-              onPress={() => navigation.navigate('EditPet', { petId: pet.id })}
+              activeOpacity={isOwner ? 0.6 : 1}
+              onPress={isOwner ? () => navigation.navigate('EditPet', { petId: pet.id }) : undefined}
             >
               <View style={[styles.detailIcon, { backgroundColor: detailColors.weight.bg }]}>
                 <Ionicons name="scale-outline" size={16} color={detailColors.weight.icon} />
@@ -334,7 +351,7 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
               <Text style={[styles.detailValue, { color: theme.colors.text }]}>
                 {pet.weight} {pet.weightUnit}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+              {isOwner && <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />}
             </TouchableOpacity>
           ) : null}
           {petVets.length > 0 && (
@@ -563,9 +580,9 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         onPress={() => navigation.navigate('ImportPet')}
         activeOpacity={0.7}
       >
-        <Ionicons name="cloud-download-outline" size={16} color={theme.colors.primary} />
+        <Ionicons name="people-outline" size={16} color={theme.colors.primary} />
         <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-          Import a shared pet
+          Join a shared pet
         </Text>
       </TouchableOpacity>
 
@@ -632,6 +649,18 @@ export function HomeScreen({ navigation }: any) {
     },
   );
 
+  // Ensure correct scroll position when ScrollView first renders
+  // (contentOffset prop is unreliable; the mount useEffect fires before
+  // the ScrollView exists when transitioning from 0→1 pets)
+  const hasInitialScrolled = useRef(false);
+  const handleCarouselLayout = () => {
+    if (!hasInitialScrolled.current) {
+      hasInitialScrolled.current = true;
+      const target = BOUNCE_MAX + currentIndex * SNAP_OFFSET;
+      scrollRef.current?.scrollTo({ x: target, animated: false });
+    }
+  };
+
   // Sync scroll position when pet changes externally (e.g. header avatar tap)
   useEffect(() => {
     if (currentIndex !== lastScrollIndex.current) {
@@ -673,29 +702,15 @@ export function HomeScreen({ navigation }: any) {
       >
         <PetAvatarHeader
           title="Petfolio"
-          onAddPet={() => navigation.navigate('AddPet')}
+          onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <EmptyState
           icon="paw"
           title="Welcome to Petfolio"
           subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
           actionLabel="Add Your Pet"
-          onAction={() => navigation.navigate('AddPet')}
+          onAction={() => navigation.navigate('AddPetChoice')}
         />
-        <TouchableOpacity
-          style={styles.importLink}
-          onPress={() => navigation.navigate('ImportPet')}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="cloud-download-outline"
-            size={16}
-            color={theme.colors.primary}
-          />
-          <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-            Import a shared pet
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -706,7 +721,7 @@ export function HomeScreen({ navigation }: any) {
     >
       <PetAvatarHeader
         title="Petfolio"
-        onAddPet={() => navigation.navigate('AddPet')}
+        onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 
       {pets.length > 0 && (
@@ -723,6 +738,7 @@ export function HomeScreen({ navigation }: any) {
           overScrollMode="never"
           contentContainerStyle={{ paddingLeft: BOUNCE_MAX + PAGE_PEEK, paddingRight: BOUNCE_MAX + PAGE_PEEK }}
           contentOffset={initialOffset.current}
+          onLayout={handleCarouselLayout}
           onScroll={onScroll}
           scrollEventThrottle={16}
           onScrollEndDrag={handleDragEnd}
@@ -1041,6 +1057,9 @@ export function HomeScreen({ navigation }: any) {
           onClose={() => setGalleryPetId(null)}
           onUpdateGallery={async (images) => {
             await updatePet({ ...galleryPet, galleryImages: images });
+          }}
+          onUpdateProfileImage={async (uri) => {
+            await updatePet({ ...galleryPet, profileImage: uri });
           }}
         />
       )}

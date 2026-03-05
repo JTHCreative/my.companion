@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "862637928628",
+    "project_id": "petfolio-3806c",
+    "storage_bucket": "petfolio-3806c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862637928628:android:30048af8d29bb75e3be7e1",
+        "android_client_info": {
+          "package_name": "com.mycompanion.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "862637928628-1tbjd70dtdivq30on312ljv16lmjvmas.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mycompanion.app",
+            "certificate_hash": "dc490ffbabed01baab7e2b2a6c3ccef45de98a91"
+          }
+        },
+        {
+          "client_id": "862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbpqd54URJc5CmG5W-xFI0bU_T3f9tztE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "862637928628-n2qe387gc765jrs92ifpidcdhii6s815.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompanion.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

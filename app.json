@@ -1,10 +1,14 @@
 {
+  "cli": {
+    "appVersionSource": "local"
+  },
   "expo": {
     "name": "Petfolio",
     "slug": "my-companion",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "mycompanion",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,9 +19,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mycompanion.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Petfolio needs access to your camera to take pet profile photos.",
-        "NSPhotoLibraryUsageDescription": "Petfolio needs access to your photo library to select pet profile photos."
+        "NSPhotoLibraryUsageDescription": "Petfolio needs access to your photo library to select pet profile photos.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -26,7 +34,9 @@
         "backgroundColor": "#6FA85C"
       },
       "edgeToEdgeEnabled": true,
+      "googleServicesFile": "./google-services.json",
       "package": "com.mycompanion.app",
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -37,7 +47,33 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-image-picker"
+      "expo-dev-client",
+      "expo-image-picker",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/messaging",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6FA85C"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.1.20",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          },
+          "ios": {
+            "useFrameworks": "static",
+            "deploymentTarget": "16.0"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

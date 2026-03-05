@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { generateId } from '../utils/generateId';
 import { useTheme } from '../context/ThemeContext';
@@ -34,6 +35,7 @@ const PET_TYPES: { value: PetType; label: string; icon: keyof typeof MaterialCom
 
 export function AddEditPetScreen({ navigation, route }: any) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { pets, addPet, updatePet, deletePet } = useData();
   const petId = route.params?.petId;
   const existingPet = pets.find((p) => p.id === petId);
@@ -52,6 +54,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(
     existingPet?.profileImage || null
   );
+  const [imageFailed, setImageFailed] = useState(false);
   const [birthday, setBirthday] = useState(existingPet?.birthday || '');
 
   const pickImage = async () => {
@@ -64,6 +67,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
 
     if (!result.canceled) {
       setProfileImage(result.assets[0].uri);
+      setImageFailed(false);
     }
   };
 
@@ -82,6 +86,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
 
     if (!result.canceled) {
       setProfileImage(result.assets[0].uri);
+      setImageFailed(false);
     }
   };
 
@@ -90,7 +95,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
       { text: 'Take Photo', onPress: takePhoto },
       { text: 'Choose from Library', onPress: pickImage },
       ...(profileImage
-        ? [{ text: 'Remove Photo', onPress: () => setProfileImage(null), style: 'destructive' as const }]
+        ? [{ text: 'Remove Photo', onPress: () => { setProfileImage(null); setImageFailed(false); }, style: 'destructive' as const }]
         : []),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
@@ -113,6 +118,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
         personality: personality.trim(),
         profileImage,
         birthday: birthday.trim(),
+        createdAt: existingPet?.createdAt || Date.now(),
       };
 
       if (isEditing) {
@@ -121,7 +127,9 @@ export function AddEditPetScreen({ navigation, route }: any) {
         await addPet(petData);
       }
 
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save pet.');
     }
@@ -151,7 +159,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: theme.colors.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <Ionicons name="close" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -176,8 +184,12 @@ export function AddEditPetScreen({ navigation, route }: any) {
           onPress={showImageOptions}
           activeOpacity={0.7}
         >
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          {profileImage && !imageFailed ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.profileImage}
+              onError={() => setImageFailed(true)}
+            />
           ) : (
             <View
               style={[
@@ -193,7 +205,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
                   { color: theme.colors.primary },
                 ]}
               >
-                Add Photo
+                {profileImage && imageFailed ? 'Change Photo' : 'Add Photo'}
               </Text>
             </View>
           )}
@@ -369,7 +381,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
           />
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 160 + insets.bottom }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -383,7 +395,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 60,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,

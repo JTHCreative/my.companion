@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { FormInput } from '../components/FormInput';
@@ -21,12 +22,13 @@ interface SignUpScreenProps {
 
 export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
   const { theme } = useTheme();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ userName?: string; email?: string; password?: string; confirmPassword?: string }>({});
 
   const validate = () => {
@@ -49,6 +51,19 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleGoogleSignUp = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      if (error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Google Sign In Failed', 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSignUp = async () => {
@@ -129,8 +144,23 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
             title="Create Account"
             onPress={handleSignUp}
             loading={loading}
-            disabled={loading}
+            disabled={loading || googleLoading}
             style={{ marginTop: 8 }}
+          />
+
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+            <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+          </View>
+
+          <Button
+            title="Continue with Google"
+            onPress={handleGoogleSignUp}
+            variant="secondary"
+            loading={googleLoading}
+            disabled={loading || googleLoading}
+            icon={<Ionicons name="logo-google" size={20} color={theme.colors.primary} />}
           />
 
           <View style={styles.footer}>
@@ -173,6 +203,19 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 14,
   },
   footer: {
     flexDirection: 'row',

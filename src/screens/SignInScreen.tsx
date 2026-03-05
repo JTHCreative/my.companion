@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { FormInput } from '../components/FormInput';
@@ -21,10 +22,11 @@ interface SignInScreenProps {
 
 export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
   const { theme } = useTheme();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {
@@ -39,6 +41,19 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      if (error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Google Sign In Failed', 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSignIn = async () => {
@@ -100,8 +115,23 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
             title="Sign In"
             onPress={handleSignIn}
             loading={loading}
-            disabled={loading}
+            disabled={loading || googleLoading}
             style={{ marginTop: 8 }}
+          />
+
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+            <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+          </View>
+
+          <Button
+            title="Continue with Google"
+            onPress={handleGoogleSignIn}
+            variant="secondary"
+            loading={googleLoading}
+            disabled={loading || googleLoading}
+            icon={<Ionicons name="logo-google" size={20} color={theme.colors.primary} />}
           />
 
           <View style={styles.footer}>
@@ -145,6 +175,19 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 14,
   },
   footer: {
     flexDirection: 'row',

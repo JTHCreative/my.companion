@@ -98,7 +98,7 @@ export async function registerPushToken(userId: string): Promise<string | null> 
 export async function syncScheduledNotifications(
   events: ScheduleEvent[],
   pets: Pet[],
-  reminderMinutesBefore: number,
+  reminderMinutesBefore: number | number[],
 ): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 
@@ -114,6 +114,11 @@ export async function syncScheduledNotifications(
     Sat: 7,
   };
 
+  // Normalize to array for backwards compatibility
+  const reminderTimes = Array.isArray(reminderMinutesBefore)
+    ? reminderMinutesBefore
+    : [reminderMinutesBefore];
+
   for (const event of events) {
     // Skip events with notifications explicitly disabled
     if (event.notificationEnabled === false) continue;
@@ -122,43 +127,49 @@ export async function syncScheduledNotifications(
     if (!pet) continue;
 
     const [hourStr, minuteStr] = event.time.split(':');
-    let hour = parseInt(hourStr, 10);
-    let minute = parseInt(minuteStr, 10) - reminderMinutesBefore;
-
-    // Handle minute underflow
-    while (minute < 0) {
-      minute += 60;
-      hour -= 1;
-    }
-    // Handle hour underflow
-    while (hour < 0) {
-      hour += 24;
-    }
+    const eventHour = parseInt(hourStr, 10);
+    const eventMinute = parseInt(minuteStr, 10);
 
     const title = getEventTitle(event.type);
-    const body = reminderMinutesBefore > 0
-      ? `${event.title} for ${pet.name} in ${reminderMinutesBefore} min`
-      : `Time for ${event.title} — ${pet.name}`;
 
-    for (const day of event.days) {
-      const weekday = dayMap[day];
-      if (!weekday) continue;
+    for (const minsBefore of reminderTimes) {
+      let hour = eventHour;
+      let minute = eventMinute - minsBefore;
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: { eventId: event.id, petId: event.petId },
-          sound: 'default',
-          ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday,
-          hour,
-          minute,
-        },
-      });
+      // Handle minute underflow
+      while (minute < 0) {
+        minute += 60;
+        hour -= 1;
+      }
+      // Handle hour underflow
+      while (hour < 0) {
+        hour += 24;
+      }
+
+      const body = minsBefore > 0
+        ? `${event.title} for ${pet.name} in ${minsBefore} min`
+        : `Time for ${event.title} — ${pet.name}`;
+
+      for (const day of event.days) {
+        const weekday = dayMap[day];
+        if (!weekday) continue;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: { eventId: event.id, petId: event.petId },
+            sound: 'default',
+            ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday,
+            hour,
+            minute,
+          },
+        });
+      }
     }
   }
 }

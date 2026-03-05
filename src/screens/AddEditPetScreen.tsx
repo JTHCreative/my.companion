@@ -54,6 +54,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
   const [profileImage, setProfileImage] = useState<string | null>(
     existingPet?.profileImage || null
   );
+  const [imageFailed, setImageFailed] = useState(false);
   const [birthday, setBirthday] = useState(existingPet?.birthday || '');
 
   const pickImage = async () => {
@@ -66,6 +67,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
 
     if (!result.canceled) {
       setProfileImage(result.assets[0].uri);
+      setImageFailed(false);
     }
   };
 
@@ -84,6 +86,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
 
     if (!result.canceled) {
       setProfileImage(result.assets[0].uri);
+      setImageFailed(false);
     }
   };
 
@@ -92,7 +95,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
       { text: 'Take Photo', onPress: takePhoto },
       { text: 'Choose from Library', onPress: pickImage },
       ...(profileImage
-        ? [{ text: 'Remove Photo', onPress: () => setProfileImage(null), style: 'destructive' as const }]
+        ? [{ text: 'Remove Photo', onPress: () => { setProfileImage(null); setImageFailed(false); }, style: 'destructive' as const }]
         : []),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
@@ -181,8 +184,12 @@ export function AddEditPetScreen({ navigation, route }: any) {
           onPress={showImageOptions}
           activeOpacity={0.7}
         >
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          {profileImage && !imageFailed ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.profileImage}
+              onError={() => setImageFailed(true)}
+            />
           ) : (
             <View
               style={[
@@ -198,7 +205,7 @@ export function AddEditPetScreen({ navigation, route }: any) {
                   { color: theme.colors.primary },
                 ]}
               >
-                Add Photo
+                {profileImage && imageFailed ? 'Change Photo' : 'Add Photo'}
               </Text>
             </View>
           )}

@@ -7,8 +7,10 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { DataProvider } from './src/context/DataContext';
 import { NotificationProvider } from './src/context/NotificationContext';
+import { NetworkProvider } from './src/context/NetworkContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/screens/SplashScreen';
+import { OfflineBanner } from './src/components/OfflineBanner';
 
 // Apply serif font globally to all Text components
 const serifFont = Platform.select({ ios: 'Georgia', default: 'serif' });
@@ -33,14 +35,17 @@ function AppContent() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <AuthProvider>
-          <DataProvider>
-            <NotificationProvider>
-              <AppNavigator />
-              <StatusBar style={isDark ? 'light' : 'dark'} />
-            </NotificationProvider>
-          </DataProvider>
-        </AuthProvider>
+        <NetworkProvider>
+          <AuthProvider>
+            <DataProvider>
+              <NotificationProvider>
+                <AppNavigator />
+                <OfflineBanner />
+                <StatusBar style={isDark ? 'light' : 'dark'} />
+              </NotificationProvider>
+            </DataProvider>
+          </AuthProvider>
+        </NetworkProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

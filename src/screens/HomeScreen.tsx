@@ -1058,6 +1058,9 @@ export function HomeScreen({ navigation }: any) {
           onUpdateGallery={async (images) => {
             await updatePet({ ...galleryPet, galleryImages: images });
           }}
+          onUpdateProfileImage={async (uri) => {
+            await updatePet({ ...galleryPet, profileImage: uri });
+          }}
         />
       )}
     </View>

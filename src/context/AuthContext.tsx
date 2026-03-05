@@ -42,10 +42,7 @@ const AuthContext = createContext<AuthContextValue>({
   updateUserPassword: async () => {},
 });
 
-// TODO: Replace with your web client ID from Firebase Console
-// Enable Google Sign-In provider in Firebase Console, then copy the Web Client ID here.
-// It will look like: 862637928628-xxxxxxxx.apps.googleusercontent.com
-const GOOGLE_WEB_CLIENT_ID = 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com';
 
 GoogleSignin.configure({
   webClientId: GOOGLE_WEB_CLIENT_ID,

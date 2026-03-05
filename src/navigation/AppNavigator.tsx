@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -191,6 +192,20 @@ function MainApp() {
   );
 }
 
+const linking: LinkingOptions<any> = {
+  prefixes: [Linking.createURL('/'), 'mycompanion://'],
+  config: {
+    screens: {
+      Tabs: {
+        screens: {
+          HomeTab: 'home',
+        },
+      },
+      Settings: 'settings',
+    },
+  },
+};
+
 export function AppNavigator() {
   const { theme, isDark } = useTheme();
   const { user, initializing } = useAuth();
@@ -223,7 +238,7 @@ export function AppNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer theme={navigationTheme} linking={user ? linking : undefined}>
       {user ? <MainApp /> : <AuthFlow />}
     </NavigationContainer>
   );

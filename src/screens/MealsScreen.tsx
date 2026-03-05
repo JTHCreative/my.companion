@@ -190,13 +190,15 @@ export function MealsScreen({ navigation }: any) {
           title="Meals"
           onAddPet={() => navigation.navigate('AddPetChoice')}
         />
-        <EmptyState
-          icon="restaurant"
-          title="No Pet Selected"
-          subtitle="Add a pet first to manage their meals and treats."
-          actionLabel="Add Pet"
-          onAction={() => navigation.navigate('AddPetChoice')}
-        />
+        <View style={{ flex: 1, paddingBottom: 80 }}>
+          <EmptyState
+            icon="restaurant"
+            title="No Pet Selected"
+            subtitle="Add a pet first to manage their meals and treats."
+            actionLabel="Add Pet"
+            onAction={() => navigation.navigate('AddPetChoice')}
+          />
+        </View>
       </View>
     );
   }

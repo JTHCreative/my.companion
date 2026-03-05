@@ -286,6 +286,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           isFirstSnapshot = false;
           setLoading(false);
         }
+      }, (error) => {
+        console.warn('Firestore snapshot error:', error);
+        // Still clear loading on error so the UI doesn't hang
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
+          setLoading(false);
+        }
       });
     }
 

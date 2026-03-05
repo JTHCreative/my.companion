@@ -37,6 +37,20 @@
       "googleServicesFile": "./google-services.json",
       "package": "com.mycompanion.app",
       "versionCode": 1,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "mycompanion",
+              "host": "*",
+              "pathPrefix": "/settings"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ],
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

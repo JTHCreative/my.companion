@@ -20,7 +20,7 @@ import { useNotifications } from '../context/NotificationContext';
 export function SettingsScreen({ navigation }: { navigation: any }) {
   const { theme, toggleTheme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { user, displayName, signOut, updateDisplayName, updateUserEmail, updateUserPassword } = useAuth();
+  const { user, displayName, signOut, updateDisplayName, updateUserEmail, updateUserPassword, deleteAccount } = useAuth();
   const { prefs, permissionStatus, updatePrefs, requestPermissions } = useNotifications();
 
   const [accountExpanded, setAccountExpanded] = useState(false);
@@ -180,6 +180,48 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         },
       },
     ]);
+  };
+
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? All your pets, data, and shared links will be removed. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Final Confirmation',
+              'This will permanently delete your account and all associated data. Are you absolutely sure?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeleting(true);
+                    try {
+                      await deleteAccount();
+                    } catch (error: any) {
+                      setDeleting(false);
+                      let message = 'Failed to delete account. Please try again.';
+                      if (error.code === 'auth/requires-recent-login') {
+                        message = 'For security, please sign out and sign back in, then try again.';
+                      }
+                      Alert.alert('Deletion Failed', message);
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
   };
 
   const renderPasswordInput = (
@@ -579,6 +621,24 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
         >
           <Ionicons name="log-out-outline" size={22} color={theme.colors.danger} />
           <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <TouchableOpacity
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+          activeOpacity={0.7}
+          style={[styles.signOutButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.danger }]}
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color={theme.colors.danger} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={22} color={theme.colors.danger} />
+              <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Delete Account</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
       </ScrollView>

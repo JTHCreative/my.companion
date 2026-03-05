@@ -192,7 +192,9 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
     setDeletePasswordModalVisible(false);
     try {
       await deleteAccount(password);
+      // Account deleted — onAuthStateChanged will navigate to login automatically
     } catch (error: any) {
+      // Only update state if component is still mounted (user not navigated away)
       setDeleting(false);
       console.error('Account deletion failed:', error.code, error.message);
       let message = 'Failed to delete account. Please try again.';

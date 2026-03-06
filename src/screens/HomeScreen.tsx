@@ -189,7 +189,7 @@ function formatBirthday(birthday: string): string | null {
 
 function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet: any; navigation: any; onDetailEvent: (id: string) => void; onOpenGallery: () => void }) {
   const { theme } = useTheme();
-  const { scheduleEvents, meals, medications, vetInfo, updatePet, isOwner } = useData();
+  const { scheduleEvents, meals, medications, vetInfo, updatePet, isOwner, deletePet } = useData();
   const [showPetYears, setShowPetYears] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
@@ -574,17 +574,43 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         )}
       </Card>
 
-      {/* Import Pet Link */}
-      <TouchableOpacity
-        style={styles.importLink}
-        onPress={() => navigation.navigate('ImportPet')}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="people-outline" size={16} color={theme.colors.primary} />
-        <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
-          Join a shared pet
-        </Text>
-      </TouchableOpacity>
+      {/* Import Pet Link / Un-join Link */}
+      {!isOwner ? (
+        <TouchableOpacity
+          style={styles.importLink}
+          onPress={() => {
+            Alert.alert(
+              'Un-join from Shared Pet',
+              `Are you sure you want to un-join from ${pet.name}? This will remove the pet from your app.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Un-join',
+                  style: 'destructive',
+                  onPress: () => deletePet(pet.id),
+                },
+              ],
+            );
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person-remove-outline" size={16} color={theme.colors.danger} />
+          <Text style={[styles.importLinkText, { color: theme.colors.danger }]}>
+            Un-join from shared pet
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.importLink}
+          onPress={() => navigation.navigate('ImportPet')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="people-outline" size={16} color={theme.colors.primary} />
+          <Text style={[styles.importLinkText, { color: theme.colors.primary }]}>
+            Join a shared pet
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <View style={{ height: 24 }} />
     </ScrollView>

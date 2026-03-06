@@ -21,9 +21,11 @@ import {
   getDocs,
   deleteDoc,
   updateDoc,
+  setDoc,
   doc,
   arrayRemove,
   writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -69,10 +71,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setDisplayName(firebaseUser?.displayName || '');
       if (initializing) setInitializing(false);
+
+      if (firebaseUser) {
+        try {
+          await setDoc(
+            doc(db, 'users', firebaseUser.uid),
+            {
+              email: firebaseUser.email || null,
+              displayName: firebaseUser.displayName || null,
+              photoURL: firebaseUser.photoURL || null,
+              lastLoginAt: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        } catch (error) {
+          console.warn('Failed to sync user profile to Firestore:', error);
+        }
+      }
     });
     return unsubscribe;
   }, []);
@@ -145,7 +164,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await reauthenticateWithCredential(currentUser, credential);
     }
 
-    // 1. Delete all pet documents owned by this user
+    // 1. Delete user profile document
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (e) {
+      console.warn('Failed to delete user profile:', e);
+    }
+
+    // 2. Delete all pet documents owned by this user
     try {
       const ownedPetsQuery = query(
         collection(db, 'pets'),
@@ -165,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await batch.commit();
       }
 
-      // 2. Remove user from shared pets (where they're a member but not owner)
+      // 3. Remove user from shared pets (where they're a member but not owner)
       const sharedPetsQuery = query(
         collection(db, 'pets'),
         where('members', 'array-contains', uid),
@@ -178,10 +204,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('Firestore cleanup failed, proceeding with account deletion:', firestoreError);
     }
 
-    // 3. Clear local storage
+    // 4. Clear local storage
     await AsyncStorage.clear();
 
-    // 4. Delete the Firebase Auth user
+    // 5. Delete the Firebase Auth user
     await deleteUser(currentUser);
   };
 

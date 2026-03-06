@@ -155,7 +155,7 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
           </View>
 
           <Button
-            title="Continue with Google"
+            title="Join with Google"
             onPress={handleGoogleSignUp}
             variant="secondary"
             loading={googleLoading}

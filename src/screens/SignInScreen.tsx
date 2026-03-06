@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +23,7 @@ interface SignInScreenProps {
 
 export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,7 +82,7 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
       behavior="padding"
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(40, insets.bottom + 24) }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoSection}>

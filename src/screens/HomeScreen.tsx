@@ -580,12 +580,12 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
           style={styles.importLink}
           onPress={() => {
             Alert.alert(
-              'Un-join from Shared Pet',
-              `Are you sure you want to un-join from ${pet.name}? This will remove the pet from your app.`,
+              'Unsubscribe from Shared Pet',
+              `Are you sure you want to unsubscribe from ${pet.name}? This will remove the pet from your app.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'Un-join',
+                  text: 'Unsubscribe',
                   style: 'destructive',
                   onPress: () => deletePet(pet.id),
                 },
@@ -596,7 +596,7 @@ function PetPageContent({ pet, navigation, onDetailEvent, onOpenGallery }: { pet
         >
           <Ionicons name="person-remove-outline" size={16} color={theme.colors.danger} />
           <Text style={[styles.importLinkText, { color: theme.colors.danger }]}>
-            Un-join from shared pet
+            Unsubscribe from shared pet
           </Text>
         </TouchableOpacity>
       ) : (

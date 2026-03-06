@@ -371,7 +371,12 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
                 size={22}
                 color={theme.colors.primary}
               />
-              <Text style={[styles.settingText, { color: theme.colors.text }]}>Notification Settings</Text>
+              <View>
+                <Text style={[styles.settingText, { color: theme.colors.text }]}>Notification Settings</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+                  Enable and manage pet reminders
+                </Text>
+              </View>
             </View>
             <Ionicons
               name={notificationsExpanded ? 'chevron-up' : 'chevron-down'}
@@ -513,7 +518,14 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
           >
             <View style={styles.settingLabel}>
               <Ionicons name="person-outline" size={22} color={theme.colors.primary} />
-              <Text style={[styles.settingText, { color: theme.colors.text }]}>Account Settings</Text>
+              <View>
+                <Text style={[styles.settingText, { color: theme.colors.text }]}>Account Settings</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+                  {isGoogleUser
+                    ? 'Change user name and delete account'
+                    : 'Change user name, login settings, and delete account'}
+                </Text>
+              </View>
             </View>
             <Ionicons
               name={accountExpanded ? 'chevron-up' : 'chevron-down'}
@@ -529,7 +541,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
                 <View style={[styles.providerBadge, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border }]}>
                   <Ionicons name="logo-google" size={16} color={theme.colors.textSecondary} />
                   <Text style={[styles.providerBadgeText, { color: theme.colors.textSecondary }]}>
-                    Signed in with Google
+                    Signed in with Google{user?.email ? ` (${user.email})` : ''}
                   </Text>
                 </View>
               )}
@@ -758,10 +770,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   settingText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  sectionDescription: {
+    fontSize: 12,
+    marginTop: 2,
   },
   toggleContainer: {
     flexDirection: 'row',

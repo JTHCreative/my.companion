@@ -101,7 +101,7 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
           <Logo size={120} iconOnly color={theme.colors.text} />
           <Text style={[styles.title, { color: theme.colors.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            Sign up to get started with Petfolio
+            Sign up to get started with PetPassport
           </Text>
         </View>
 

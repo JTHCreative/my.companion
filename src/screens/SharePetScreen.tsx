@@ -59,7 +59,7 @@ export function SharePetScreen({ navigation }: any) {
     if (!shareCode) return;
     try {
       await Share.share({
-        message: `Join ${selectedPet.name}'s profile on Petfolio! Enter this share code: ${shareCode}`,
+        message: `Join ${selectedPet.name}'s profile on PetPassport! Enter this share code: ${shareCode}`,
       });
     } catch {
       // User cancelled share sheet
@@ -181,7 +181,7 @@ export function SharePetScreen({ navigation }: any) {
                   { color: theme.colors.textSecondary },
                 ]}
               >
-                Share a code that lets another Petfolio user access{' '}
+                Share a code that lets another PetPassport user access{' '}
                 {selectedPet.name}'s full profile in real-time
                 {dataCount > 0
                   ? ` (${dataCount} items including schedule, meals, meds & vet info)`

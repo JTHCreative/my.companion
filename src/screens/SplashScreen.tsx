@@ -51,7 +51,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         <Logo size={240} />
       </Animated.View>
       <Animated.View style={[styles.textWrap, { opacity: titleOpacity }]}>
-        <Text style={styles.title}>Petfolio</Text>
+        <Text style={styles.title}>PetPassport</Text>
         <Text style={styles.tagline}>COMPANION APP</Text>
       </Animated.View>
     </View>

@@ -727,13 +727,13 @@ export function HomeScreen({ navigation }: any) {
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
         <PetAvatarHeader
-          title="Petfolio"
+          title="PetPassport"
           onAddPet={() => navigation.navigate('AddPetChoice')}
         />
         <View style={{ flex: 1, paddingBottom: 80 }}>
           <EmptyState
             icon="paw"
-            title="Welcome to Petfolio"
+            title="Welcome to PetPassport"
             subtitle="Add your first pet to get started tracking their schedule, meals, and medical info."
             actionLabel="Add Your Pet"
             onAction={() => navigation.navigate('AddPetChoice')}
@@ -748,7 +748,7 @@ export function HomeScreen({ navigation }: any) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <PetAvatarHeader
-        title="Petfolio"
+        title="PetPassport"
         onAddPet={() => navigation.navigate('AddPetChoice')}
       />
 

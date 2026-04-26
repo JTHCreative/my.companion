@@ -99,7 +99,7 @@ export function AddPetChoiceScreen({ navigation }: any) {
                   { color: theme.colors.textSecondary },
                 ]}
               >
-                Enter a share code from another Petfolio user to access their
+                Enter a share code from another PetPassport user to access their
                 pet's profile in real-time.
               </Text>
             </View>

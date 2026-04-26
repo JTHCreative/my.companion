@@ -87,7 +87,7 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
       >
         <View style={styles.logoSection}>
           <Logo size={160} color={theme.colors.text} />
-          <Text style={[styles.title, { color: theme.colors.text }]}>Petfolio</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>PetPassport</Text>
           <Text style={[styles.tagline, { color: theme.colors.textSecondary }]}>
             COMPANION APP
           </Text>

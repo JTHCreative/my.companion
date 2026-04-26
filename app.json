@@ -3,7 +3,7 @@
     "appVersionSource": "local"
   },
   "expo": {
-    "name": "Petfolio",
+    "name": "PetPassport",
     "slug": "my-companion",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,8 +21,8 @@
       "bundleIdentifier": "com.mycompanion.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "NSCameraUsageDescription": "Petfolio needs access to your camera to take pet profile photos.",
-        "NSPhotoLibraryUsageDescription": "Petfolio needs access to your photo library to select pet profile photos.",
+        "NSCameraUsageDescription": "PetPassport needs access to your camera to take pet profile photos.",
+        "NSPhotoLibraryUsageDescription": "PetPassport needs access to your photo library to select pet profile photos.",
         "UIBackgroundModes": [
           "remote-notification"
         ]

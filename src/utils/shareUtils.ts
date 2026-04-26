@@ -60,7 +60,7 @@ export function buildProfileSummary(
   }
 
   lines.push('');
-  lines.push('Shared from Petfolio');
+  lines.push('Shared from PetPassport');
 
   return lines.join('\n');
 }
@@ -142,7 +142,7 @@ export async function shareFullPetData(
 ): Promise<void> {
   const code = encodePetData(pet, scheduleEvents, meals, vetInfo, medications);
   await Share.share({
-    message: `Import ${pet.name}'s full profile in Petfolio!\n\n${code}`,
+    message: `Import ${pet.name}'s full profile in PetPassport!\n\n${code}`,
   });
 }
 
@@ -163,6 +163,6 @@ export function generateShareCode(): string {
  */
 export async function shareLink(petName: string, code: string): Promise<void> {
   await Share.share({
-    message: `Join ${petName}'s profile on Petfolio! Enter this share code: ${code}`,
+    message: `Join ${petName}'s profile on PetPassport! Enter this share code: ${code}`,
   });
 }

@@ -157,7 +157,7 @@ export function ImportPetScreen({ navigation }: any) {
                     { color: theme.colors.textSecondary },
                   ]}
                 >
-                  Enter the share code you received from another Petfolio
+                  Enter the share code you received from another PetPassport
                   user to access their pet's profile. Changes will sync in
                   real-time between all members.
                 </Text>

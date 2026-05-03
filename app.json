@@ -1,7 +1,4 @@
 {
-  "cli": {
-    "appVersionSource": "local"
-  },
   "expo": {
     "name": "PetPassport",
     "slug": "my-companion",
@@ -24,8 +21,10 @@
         "NSCameraUsageDescription": "PetPassport needs access to your camera to take pet profile photos.",
         "NSPhotoLibraryUsageDescription": "PetPassport needs access to your photo library to select pet profile photos.",
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -48,7 +47,10 @@
               "pathPrefix": "/settings"
             }
           ],
-          "category": ["DEFAULT", "BROWSABLE"]
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ]
         }
       ],
       "permissions": [

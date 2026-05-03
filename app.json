@@ -1,7 +1,4 @@
 {
-  "cli": {
-    "appVersionSource": "local"
-  },
   "expo": {
     "name": "PetPassport",
     "slug": "my-companion",

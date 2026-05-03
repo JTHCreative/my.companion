@@ -3,26 +3,59 @@ const fs = require('fs');
 const path = require('path');
 
 const MODULAR_HEADERS_MARKER = '# rnfirebase-static-fix:modular_headers';
+const PRE_INSTALL_MARKER = '# rnfirebase-static-fix:pre_install';
 const POST_INSTALL_MARKER = 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES';
 
-function injectModularHeaders(contents) {
+function injectGlobalModularHeaders(contents) {
   if (contents.includes(MODULAR_HEADERS_MARKER)) {
     return contents;
   }
 
-  const useFrameworksRegex = /^([ \t]*)use_frameworks!.*$/m;
-  const m = useFrameworksRegex.exec(contents);
+  const anchorRegex = /^(prepare_react_native_project!.*)$/m;
+  const m = anchorRegex.exec(contents);
   if (!m) {
     throw new Error(
-      'withFirebaseModularHeadersFix: could not find use_frameworks! line in Podfile'
+      'withFirebaseModularHeadersFix: could not find prepare_react_native_project! in Podfile'
     );
   }
 
-  const indent = m[1];
   const insertAt = m.index + m[0].length;
   const snippet =
-    `\n${indent}${MODULAR_HEADERS_MARKER}` +
-    `\n${indent}use_modular_headers!`;
+    `\n\n${MODULAR_HEADERS_MARKER}` +
+    `\nuse_modular_headers!`;
+
+  return contents.slice(0, insertAt) + snippet + contents.slice(insertAt);
+}
+
+function injectPreInstallHook(contents) {
+  if (contents.includes(PRE_INSTALL_MARKER)) {
+    return contents;
+  }
+
+  const anchorRegex = /^(prepare_react_native_project!.*)$/m;
+  const m = anchorRegex.exec(contents);
+  if (!m) {
+    throw new Error(
+      'withFirebaseModularHeadersFix: could not find prepare_react_native_project! in Podfile'
+    );
+  }
+
+  const insertAt = m.index + m[0].length;
+  const snippet =
+    `\n\n${PRE_INSTALL_MARKER}\n` +
+    `pre_install do |installer|\n` +
+    `  installer.pod_targets.each do |pod|\n` +
+    `    next unless pod.name.start_with?('React') || pod.name.start_with?('RCT') ||\n` +
+    `                pod.name.start_with?('RNFB') || pod.name.start_with?('Firebase') ||\n` +
+    `                pod.name.start_with?('Google') || pod.name == 'glog' ||\n` +
+    `                pod.name == 'RCT-Folly' || pod.name == 'fmt' ||\n` +
+    `                pod.name == 'DoubleConversion' || pod.name == 'SocketRocket' ||\n` +
+    `                pod.name == 'hermes-engine' || pod.name == 'boost'\n` +
+    `    pod.specs.each do |spec|\n` +
+    `      spec.attributes_hash['modular_headers'] = true\n` +
+    `    end\n` +
+    `  end\n` +
+    `end\n`;
 
   return contents.slice(0, insertAt) + snippet + contents.slice(insertAt);
 }
@@ -73,6 +106,7 @@ function injectPostInstallSetting(contents) {
     `${callIndent}installer.pods_project.targets.each do |target|\n` +
     `${callIndent}  target.build_configurations.each do |config|\n` +
     `${callIndent}    config.build_settings['${POST_INSTALL_MARKER}'] = 'YES'\n` +
+    `${callIndent}    config.build_settings['DEFINES_MODULE'] = 'YES'\n` +
     `${callIndent}  end\n` +
     `${callIndent}end\n`;
 
@@ -80,7 +114,8 @@ function injectPostInstallSetting(contents) {
 }
 
 function patchPodfile(contents) {
-  let out = injectModularHeaders(contents);
+  let out = injectGlobalModularHeaders(contents);
+  out = injectPreInstallHook(out);
   out = injectPostInstallSetting(out);
   return out;
 }

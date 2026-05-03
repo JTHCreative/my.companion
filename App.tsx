@@ -14,15 +14,15 @@ import { OfflineBanner } from './src/components/OfflineBanner';
 
 // Apply serif font globally to all Text components
 const serifFont = Platform.select({ ios: 'Georgia', default: 'serif' });
-const originalTextRender = (Text as any).render;
-if (originalTextRender) {
-  (Text as any).render = function (props: any, ref: any) {
-    return originalTextRender.call(this, {
-      ...props,
-      style: [{ fontFamily: serifFont }, props.style],
-    }, ref);
-  };
-}
+// const originalTextRender = (Text as any).render;
+// if (originalTextRender) {
+//   (Text as any).render = function (props: any, ref: any) {
+//     return originalTextRender.call(this, {
+//       ...props,
+//       style: [{ fontFamily: serifFont }, props.style],
+//     }, ref);
+//   };
+// }
 
 function AppContent() {
   const { isDark } = useTheme();

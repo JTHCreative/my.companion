@@ -18,14 +18,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mycompanion.app",
+      "bundleIdentifier": "com.justinhui.petpassport",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "PetPassport needs access to your camera to take pet profile photos.",
         "NSPhotoLibraryUsageDescription": "PetPassport needs access to your photo library to select pet profile photos.",
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -35,7 +37,7 @@
       },
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
-      "package": "com.mycompanion.app",
+      "package": "com.justinhui.petpassport",
       "versionCode": 1,
       "intentFilters": [
         {
@@ -48,7 +50,10 @@
               "pathPrefix": "/settings"
             }
           ],
-          "category": ["DEFAULT", "BROWSABLE"]
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ]
         }
       ],
       "permissions": [

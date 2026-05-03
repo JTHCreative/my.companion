@@ -5,6 +5,36 @@ const path = require('path');
 const MODULAR_HEADERS_MARKER = '# rnfirebase-static-fix:modular_headers';
 const PRE_INSTALL_MARKER = '# rnfirebase-static-fix:pre_install';
 const POST_INSTALL_MARKER = 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES';
+const BUILD_FROM_SOURCE_MARKER = '# rnfirebase-static-fix:build_from_source';
+
+function injectBuildFromSource(contents) {
+  if (contents.includes(BUILD_FROM_SOURCE_MARKER)) {
+    return contents;
+  }
+
+  const callIdx = contents.indexOf('use_react_native!(');
+  if (callIdx === -1) {
+    throw new Error(
+      'withFirebaseModularHeadersFix: could not find use_react_native! in Podfile'
+    );
+  }
+
+  let i = callIdx;
+  while (i < contents.length && contents[i] !== '(') i++;
+  const openParen = i;
+  i++;
+
+  const lineStart = contents.lastIndexOf('\n', callIdx) + 1;
+  const callIndent = contents.slice(lineStart, callIdx);
+  const argIndent = callIndent + '  ';
+
+  const insertAt = openParen + 1;
+  const snippet =
+    `\n${argIndent}${BUILD_FROM_SOURCE_MARKER}` +
+    `\n${argIndent}:build_from_source => true,`;
+
+  return contents.slice(0, insertAt) + snippet + contents.slice(insertAt);
+}
 
 function injectGlobalModularHeaders(contents) {
   if (contents.includes(MODULAR_HEADERS_MARKER)) {
@@ -114,7 +144,8 @@ function injectPostInstallSetting(contents) {
 }
 
 function patchPodfile(contents) {
-  let out = injectGlobalModularHeaders(contents);
+  let out = injectBuildFromSource(contents);
+  out = injectGlobalModularHeaders(out);
   out = injectPreInstallHook(out);
   out = injectPostInstallSetting(out);
   return out;

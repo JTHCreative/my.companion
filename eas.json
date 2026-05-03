@@ -8,15 +8,13 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "RCT_USE_PREBUILT_RNCORE": "0",
-        "RCT_USE_RN_DEP": "0"
+        "RCT_BUILD_FROM_SOURCE": "1"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "RCT_USE_PREBUILT_RNCORE": "0",
-        "RCT_USE_RN_DEP": "0"
+        "RCT_BUILD_FROM_SOURCE": "1"
       }
     },
     "production": {
@@ -27,8 +25,7 @@
         "autoIncrement": true
       },
       "env": {
-        "RCT_USE_PREBUILT_RNCORE": "0",
-        "RCT_USE_RN_DEP": "0"
+        "RCT_BUILD_FROM_SOURCE": "1"
       }
     }
   },

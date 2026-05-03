@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>862637928628-n2qe387gc765jrs92ifpidcdhii6s815.apps.googleusercontent.com</string>
+	<string>862637928628-i38mpnmpcct1nhpsantece2vihr1abj3.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.862637928628-n2qe387gc765jrs92ifpidcdhii6s815</string>
+	<string>com.googleusercontent.apps.862637928628-i38mpnmpcct1nhpsantece2vihr1abj3</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>862637928628-1tbjd70dtdivq30on312ljv16lmjvmas.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCialDOvd5AHXmqHIQhhYgkGWGD9nM8Xhk</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.mycompanion.app</string>
+	<string>com.justinhui.petpassport</string>
 	<key>PROJECT_ID</key>
 	<string>petfolio-3806c</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:862637928628:ios:dc8d8749cc727e423be7e1</string>
+	<string>1:862637928628:ios:4092c40873df07e13be7e1</string>
 </dict>
 </plist>

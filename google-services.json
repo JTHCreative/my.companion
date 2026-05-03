@@ -7,6 +7,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:862637928628:android:d396b2c7577b8f453be7e1",
+        "android_client_info": {
+          "package_name": "com.justinhui.petpassport"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbpqd54URJc5CmG5W-xFI0bU_T3f9tztE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "862637928628-n2qe387gc765jrs92ifpidcdhii6s815.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompanion.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:862637928628:android:30048af8d29bb75e3be7e1",
         "android_client_info": {
           "package_name": "com.mycompanion.app"

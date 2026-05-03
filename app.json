@@ -18,7 +18,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mycompanion.app",
+      "bundleIdentifier": "com.justinhui.petpassport",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "PetPassport needs access to your camera to take pet profile photos.",
@@ -35,7 +35,7 @@
       },
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
-      "package": "com.mycompanion.app",
+      "package": "com.justinhui.petpassport",
       "versionCode": 1,
       "intentFilters": [
         {

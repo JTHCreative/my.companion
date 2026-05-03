@@ -2,10 +2,33 @@ const { withDangerousMod } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
-const MARKER = 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES';
+const MODULAR_HEADERS_MARKER = '# rnfirebase-static-fix:modular_headers';
+const POST_INSTALL_MARKER = 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES';
 
-function patchPodfile(contents) {
-  if (contents.includes(MARKER)) {
+function injectModularHeaders(contents) {
+  if (contents.includes(MODULAR_HEADERS_MARKER)) {
+    return contents;
+  }
+
+  const useFrameworksRegex = /^([ \t]*)use_frameworks!.*$/m;
+  const m = useFrameworksRegex.exec(contents);
+  if (!m) {
+    throw new Error(
+      'withFirebaseModularHeadersFix: could not find use_frameworks! line in Podfile'
+    );
+  }
+
+  const indent = m[1];
+  const insertAt = m.index + m[0].length;
+  const snippet =
+    `\n${indent}${MODULAR_HEADERS_MARKER}` +
+    `\n${indent}use_modular_headers!`;
+
+  return contents.slice(0, insertAt) + snippet + contents.slice(insertAt);
+}
+
+function injectPostInstallSetting(contents) {
+  if (contents.includes(POST_INSTALL_MARKER)) {
     return contents;
   }
 
@@ -49,11 +72,17 @@ function patchPodfile(contents) {
     `${callIndent}# @react-native-firebase + use_frameworks :static fix\n` +
     `${callIndent}installer.pods_project.targets.each do |target|\n` +
     `${callIndent}  target.build_configurations.each do |config|\n` +
-    `${callIndent}    config.build_settings['${MARKER}'] = 'YES'\n` +
+    `${callIndent}    config.build_settings['${POST_INSTALL_MARKER}'] = 'YES'\n` +
     `${callIndent}  end\n` +
     `${callIndent}end\n`;
 
   return contents.slice(0, insertAt) + snippet + contents.slice(insertAt);
+}
+
+function patchPodfile(contents) {
+  let out = injectModularHeaders(contents);
+  out = injectPostInstallSetting(out);
+  return out;
 }
 
 module.exports = function withFirebaseModularHeadersFix(config) {
@@ -73,3 +102,5 @@ module.exports = function withFirebaseModularHeadersFix(config) {
     },
   ]);
 };
+
+module.exports.__test = { patchPodfile };

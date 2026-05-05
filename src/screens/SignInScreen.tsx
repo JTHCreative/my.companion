@@ -24,11 +24,12 @@ interface SignInScreenProps {
 export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, signInWithApple } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {
@@ -55,6 +56,19 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
       }
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    try {
+      await signInWithApple();
+    } catch (error: any) {
+      if (error.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Apple Sign In Failed', 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -117,7 +131,7 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
             title="Sign In"
             onPress={handleSignIn}
             loading={loading}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || appleLoading}
             style={{ marginTop: 8 }}
           />
 
@@ -132,9 +146,21 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
             onPress={handleGoogleSignIn}
             variant="secondary"
             loading={googleLoading}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || appleLoading}
             icon={<Ionicons name="logo-google" size={20} color={theme.colors.primary} />}
           />
+
+          {Platform.OS === 'ios' && (
+            <Button
+              title="Continue with Apple"
+              onPress={handleAppleSignIn}
+              variant="secondary"
+              loading={appleLoading}
+              disabled={loading || googleLoading || appleLoading}
+              icon={<Ionicons name="logo-apple" size={20} color={theme.colors.primary} />}
+              style={{ marginTop: 12 }}
+            />
+          )}
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>

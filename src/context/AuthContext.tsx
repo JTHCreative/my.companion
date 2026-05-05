@@ -12,6 +12,7 @@ import {
   updatePassword,
   EmailAuthProvider,
   GoogleAuthProvider,
+  OAuthProvider,
   User,
 } from 'firebase/auth';
 import {
@@ -28,6 +29,9 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../firebase';
 
@@ -37,6 +41,7 @@ interface AuthContextValue {
   displayName: string;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
@@ -51,6 +56,7 @@ const AuthContext = createContext<AuthContextValue>({
   displayName: '',
   signIn: async () => {},
   signInWithGoogle: async () => {},
+  signInWithApple: async () => {},
   signUp: async () => {},
   signOut: async () => {},
   updateDisplayName: async () => {},
@@ -112,6 +118,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithCredential(auth, credential);
   };
 
+  const signInWithAppleHandler = async () => {
+    if (Platform.OS !== 'ios') {
+      throw new Error('Sign in with Apple is only available on iOS.');
+    }
+    const isAvailable = await AppleAuthentication.isAvailableAsync();
+    if (!isAvailable) {
+      throw new Error('Sign in with Apple is not available on this device.');
+    }
+
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      rawNonce,
+    );
+
+    const appleCredential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+
+    if (!appleCredential.identityToken) {
+      throw new Error('Apple Sign-In failed: no identity token returned.');
+    }
+
+    const provider = new OAuthProvider('apple.com');
+    const credential = provider.credential({
+      idToken: appleCredential.identityToken,
+      rawNonce,
+    });
+    const result = await signInWithCredential(auth, credential);
+
+    // Apple only sends fullName on first sign-in; persist it as displayName.
+    const fullName = appleCredential.fullName;
+    const composedName = [fullName?.givenName, fullName?.familyName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (composedName && !result.user.displayName) {
+      await updateProfile(result.user, { displayName: composedName });
+      setDisplayName(composedName);
+    }
+  };
+
   const signUp = async (email: string, password: string, name?: string) => {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     if (name) {
@@ -149,6 +201,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isGoogleUser = currentUser.providerData.some(
       (p) => p.providerId === 'google.com',
     );
+    const isAppleUser = currentUser.providerData.some(
+      (p) => p.providerId === 'apple.com',
+    );
 
     if (isGoogleUser) {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -156,6 +211,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = response.data?.idToken;
       if (!idToken) throw new Error('Google re-authentication failed.');
       const credential = GoogleAuthProvider.credential(idToken);
+      await reauthenticateWithCredential(currentUser, credential);
+    } else if (isAppleUser) {
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+      const appleCredential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        ],
+        nonce: hashedNonce,
+      });
+      if (!appleCredential.identityToken) {
+        throw new Error('Apple re-authentication failed.');
+      }
+      const provider = new OAuthProvider('apple.com');
+      const credential = provider.credential({
+        idToken: appleCredential.identityToken,
+        rawNonce,
+      });
       await reauthenticateWithCredential(currentUser, credential);
     } else {
       if (!password) throw new Error('Password is required to delete account.');
@@ -218,6 +295,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName,
       signIn,
       signInWithGoogle: signInWithGoogleHandler,
+      signInWithApple: signInWithAppleHandler,
       signUp,
       signOut,
       updateDisplayName,

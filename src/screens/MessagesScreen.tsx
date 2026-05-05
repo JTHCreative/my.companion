@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -193,7 +193,7 @@ const MessageBubble = React.memo(function MessageBubble({
 export function MessagesScreen({ navigation }: any) {
   const { theme } = useTheme();
   const { user, displayName } = useAuth();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const {
     selectedPet,
     selectedPetId,
@@ -452,7 +452,7 @@ export function MessagesScreen({ navigation }: any) {
       />
 
       {/* Compose area */}
-      <View style={[styles.composeWrapper, { borderTopColor: theme.colors.border, paddingBottom: keyboardVisible ? 8 : Math.max(insets.bottom, 8) + 56 }]}>
+      <View style={[styles.composeWrapper, { borderTopColor: theme.colors.border, paddingBottom: keyboardVisible ? 8 : tabBarHeight + 8 }]}>
         {replyingTo && (
           <View style={[styles.replyPreview, { backgroundColor: theme.colors.primaryLight, borderLeftColor: theme.colors.primary }]}>
             <View style={styles.replyPreviewContent}>

@@ -14,7 +14,7 @@
       "backgroundColor": "#F5F7F4"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.justinhui.petpassport",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
@@ -87,7 +87,8 @@
           },
           "ios": {
             "useFrameworks": "static",
-            "deploymentTarget": "16.0"
+            "deploymentTarget": "16.0",
+            "buildReactNativeFromSource": true
           }
         }
       ]

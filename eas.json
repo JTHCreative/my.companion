@@ -1,21 +1,15 @@
 {
   "cli": {
     "version": ">= 3.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "RCT_BUILD_FROM_SOURCE": "1"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "RCT_BUILD_FROM_SOURCE": "1"
-      }
+      "distribution": "internal"
     },
     "production": {
       "android": {
@@ -23,9 +17,6 @@
       },
       "ios": {
         "autoIncrement": true
-      },
-      "env": {
-        "RCT_BUILD_FROM_SOURCE": "1"
       }
     }
   },

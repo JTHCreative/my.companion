@@ -5,6 +5,31 @@ const path = require('path');
 const MODULAR_HEADERS_MARKER = '# rnfirebase-static-fix:modular_headers';
 const PRE_INSTALL_MARKER = '# rnfirebase-static-fix:pre_install';
 const POST_INSTALL_MARKER = 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES';
+const ENV_MARKER = '# rnfirebase-static-fix:env';
+
+function injectEnvOverrides(contents) {
+  if (contents.includes(ENV_MARKER)) {
+    return contents;
+  }
+
+  const anchorRegex = /^(prepare_react_native_project!.*)$/m;
+  const m = anchorRegex.exec(contents);
+  if (!m) {
+    throw new Error(
+      'withFirebaseModularHeadersFix: could not find prepare_react_native_project! in Podfile'
+    );
+  }
+  const insertAt = m.index;
+
+  const snippet =
+    `${ENV_MARKER}\n` +
+    `ENV['RCT_USE_PREBUILT_RNCORE'] = '0'\n` +
+    `ENV['RCT_USE_RN_DEP'] = '0'\n` +
+    `ENV['RCT_BUILD_FROM_SOURCE'] = '1'\n` +
+    `ENV['USE_PREBUILT_RNCORE'] = '0'\n\n`;
+
+  return contents.slice(0, insertAt) + snippet + contents.slice(insertAt);
+}
 
 function injectGlobalModularHeaders(contents) {
   if (contents.includes(MODULAR_HEADERS_MARKER)) {
@@ -114,7 +139,8 @@ function injectPostInstallSetting(contents) {
 }
 
 function patchPodfile(contents) {
-  let out = injectGlobalModularHeaders(contents);
+  let out = injectEnvOverrides(contents);
+  out = injectGlobalModularHeaders(out);
   out = injectPreInstallHook(out);
   out = injectPostInstallSetting(out);
   return out;

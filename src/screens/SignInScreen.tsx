@@ -24,7 +24,7 @@ interface SignInScreenProps {
 export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { signIn, signInWithGoogle, signInWithApple } = useAuth();
+  const { signIn, signInWithGoogle, signInWithApple, sendPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,6 +70,42 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
     } finally {
       setAppleLoading(false);
     }
+  };
+
+  const handleForgotPassword = () => {
+    const trimmed = email.trim();
+    if (!trimmed || !/\S+@\S+\.\S+/.test(trimmed)) {
+      setErrors((prev) => ({ ...prev, email: 'Enter your email above to reset your password' }));
+      return;
+    }
+
+    Alert.alert(
+      'Reset Password',
+      `Send a password reset link to ${trimmed}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            try {
+              await sendPasswordReset(trimmed);
+              Alert.alert(
+                'Check Your Email',
+                `If an account exists for ${trimmed}, a password reset link has been sent.`,
+              );
+            } catch (error: any) {
+              let message = 'Could not send reset email. Please try again.';
+              if (error.code === 'auth/invalid-email') {
+                message = 'Please enter a valid email address.';
+              } else if (error.code === 'auth/too-many-requests') {
+                message = 'Too many attempts. Please try again later.';
+              }
+              Alert.alert('Reset Failed', message);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleSignIn = async () => {
@@ -126,6 +162,16 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
             secureTextEntry
             error={errors.password}
           />
+
+          <TouchableOpacity
+            onPress={handleForgotPassword}
+            style={styles.forgotPasswordLink}
+            disabled={loading || googleLoading || appleLoading}
+          >
+            <Text style={[styles.forgotPasswordText, { color: theme.colors.primary }]}>
+              Forgot password?
+            </Text>
+          </TouchableOpacity>
 
           <Button
             title="Sign In"
@@ -228,5 +274,14 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  forgotPasswordLink: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

@@ -10,6 +10,7 @@ import {
   updateProfile,
   updateEmail,
   updatePassword,
+  sendPasswordResetEmail,
   EmailAuthProvider,
   GoogleAuthProvider,
   OAuthProvider,
@@ -44,6 +45,7 @@ interface AuthContextValue {
   signInWithApple: () => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
   updateUserPassword: (newPassword: string) => Promise<void>;
@@ -59,6 +61,7 @@ const AuthContext = createContext<AuthContextValue>({
   signInWithApple: async () => {},
   signUp: async () => {},
   signOut: async () => {},
+  sendPasswordReset: async () => {},
   updateDisplayName: async () => {},
   updateUserEmail: async (_newEmail: string) => {},
   updateUserPassword: async (_newPassword: string) => {},
@@ -174,6 +177,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await firebaseSignOut(auth);
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
   };
 
   const updateDisplayName = async (name: string) => {
@@ -298,6 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithApple: signInWithAppleHandler,
       signUp,
       signOut,
+      sendPasswordReset,
       updateDisplayName,
       updateUserEmail,
       updateUserPassword,

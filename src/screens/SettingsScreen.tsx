@@ -27,8 +27,10 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
   const [accountExpanded, setAccountExpanded] = useState(false);
   const [notificationsExpanded, setNotificationsExpanded] = useState(false);
 
-  // Detect if user signed in via Google
+  // Detect if user signed in via Google or Apple (no password to manage)
   const isGoogleUser = user?.providerData?.some((p) => p.providerId === 'google.com') ?? false;
+  const isAppleUser = user?.providerData?.some((p) => p.providerId === 'apple.com') ?? false;
+  const isSocialUser = isGoogleUser || isAppleUser;
 
   // Editable fields
   const [editName, setEditName] = useState(displayName);
@@ -112,10 +114,10 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
       return;
     }
 
-    const emailChanged = !isGoogleUser && editEmail.trim() !== user?.email;
-    const passwordChanged = !isGoogleUser && newPassword.length > 0;
+    const emailChanged = !isSocialUser && editEmail.trim() !== user?.email;
+    const passwordChanged = !isSocialUser && newPassword.length > 0;
 
-    if (!isGoogleUser) {
+    if (!isSocialUser) {
       if (editEmail.trim() === '' || !/\S+@\S+\.\S+/.test(editEmail.trim())) {
         Alert.alert('Error', 'Please enter a valid email.');
         return;
@@ -219,7 +221,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
           text: 'Delete Account',
           style: 'destructive',
           onPress: () => {
-            if (isGoogleUser) {
+            if (isSocialUser) {
               performDeletion();
             } else {
               setDeletePassword('');
@@ -521,7 +523,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
               <View>
                 <Text style={[styles.settingText, { color: theme.colors.text }]}>Account Settings</Text>
                 <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
-                  {isGoogleUser
+                  {isSocialUser
                     ? 'Change user name and delete account'
                     : 'Change user name, login settings, and delete account'}
                 </Text>
@@ -536,12 +538,17 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
 
           {accountExpanded && (
             <View style={[styles.accountContent, { borderTopColor: theme.colors.border }]}>
-              {/* Google sign-in indicator */}
-              {isGoogleUser && (
+              {/* Social sign-in indicator */}
+              {isSocialUser && (
                 <View style={[styles.providerBadge, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border }]}>
-                  <Ionicons name="logo-google" size={16} color={theme.colors.textSecondary} />
+                  <Ionicons
+                    name={isAppleUser ? 'logo-apple' : 'logo-google'}
+                    size={16}
+                    color={theme.colors.textSecondary}
+                  />
                   <Text style={[styles.providerBadgeText, { color: theme.colors.textSecondary }]}>
-                    Signed in with Google{user?.email ? ` (${user.email})` : ''}
+                    {`Signed in with ${isAppleUser ? 'Apple' : 'Google'}`}
+                    {user?.email ? ` (${user.email})` : ''}
                   </Text>
                 </View>
               )}
@@ -567,7 +574,7 @@ export function SettingsScreen({ navigation }: { navigation: any }) {
               </View>
 
               {/* Email & Password — only for email/password users */}
-              {!isGoogleUser && (
+              {!isSocialUser && (
                 <>
                   {/* Email */}
                   <View style={styles.accountFieldContainer}>

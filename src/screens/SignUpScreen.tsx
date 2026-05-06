@@ -24,13 +24,14 @@ interface SignUpScreenProps {
 export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, signInWithApple } = useAuth();
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [errors, setErrors] = useState<{ userName?: string; email?: string; password?: string; confirmPassword?: string }>({});
 
   const validate = () => {
@@ -65,6 +66,19 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
       }
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignUp = async () => {
+    setAppleLoading(true);
+    try {
+      await signInWithApple();
+    } catch (error: any) {
+      if (error.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Apple Sign In Failed', 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -146,7 +160,7 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
             title="Create Account"
             onPress={handleSignUp}
             loading={loading}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || appleLoading}
             style={{ marginTop: 8 }}
           />
 
@@ -161,9 +175,21 @@ export function SignUpScreen({ onGoToSignIn }: SignUpScreenProps) {
             onPress={handleGoogleSignUp}
             variant="secondary"
             loading={googleLoading}
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || appleLoading}
             icon={<Ionicons name="logo-google" size={20} color={theme.colors.primary} />}
           />
+
+          {Platform.OS === 'ios' && (
+            <Button
+              title="Join with Apple"
+              onPress={handleAppleSignUp}
+              variant="secondary"
+              loading={appleLoading}
+              disabled={loading || googleLoading || appleLoading}
+              icon={<Ionicons name="logo-apple" size={20} color={theme.colors.primary} />}
+              style={{ marginTop: 12 }}
+            />
+          )}
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>

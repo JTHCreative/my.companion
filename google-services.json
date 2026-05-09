@@ -14,47 +14,27 @@
       },
       "oauth_client": [
         {
-          "client_id": "862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBbpqd54URJc5CmG5W-xFI0bU_T3f9tztE"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "862637928628-n2qe387gc765jrs92ifpidcdhii6s815.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.mycompanion.app"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:862637928628:android:30048af8d29bb75e3be7e1",
-        "android_client_info": {
-          "package_name": "com.mycompanion.app"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "862637928628-1tbjd70dtdivq30on312ljv16lmjvmas.apps.googleusercontent.com",
+          "client_id": "862637928628-01v7brsnirg520f0a9sim93mb7ue079i.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.mycompanion.app",
+            "package_name": "com.justinhui.petpassport",
+            "certificate_hash": "0d07732c07d42efb0dc51218ef375b2996a32f52"
+          }
+        },
+        {
+          "client_id": "862637928628-8jvrbmdnf1cj9nc1cpkmd1gnni1utj58.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.justinhui.petpassport",
             "certificate_hash": "dc490ffbabed01baab7e2b2a6c3ccef45de98a91"
+          }
+        },
+        {
+          "client_id": "862637928628-bk2f3257iospmeo4i5u7g9m54oq28u70.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.justinhui.petpassport",
+            "certificate_hash": "3d1bc9f8f0e72cf824c0d3f565efe2cef03cf12c"
           }
         },
         {
@@ -75,10 +55,10 @@
               "client_type": 3
             },
             {
-              "client_id": "862637928628-n2qe387gc765jrs92ifpidcdhii6s815.apps.googleusercontent.com",
+              "client_id": "862637928628-i38mpnmpcct1nhpsantece2vihr1abj3.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.mycompanion.app"
+                "bundle_id": "com.justinhui.petpassport"
               }
             }
           ]

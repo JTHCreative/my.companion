@@ -69,9 +69,11 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 const GOOGLE_WEB_CLIENT_ID = '862637928628-b73q3rk3m8i4uj1vtgisfh237hkd0m4k.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = '862637928628-i38mpnmpcct1nhpsantece2vihr1abj3.apps.googleusercontent.com';
 
 GoogleSignin.configure({
   webClientId: GOOGLE_WEB_CLIENT_ID,
+  iosClientId: GOOGLE_IOS_CLIENT_ID,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

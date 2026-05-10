@@ -51,8 +51,12 @@ export function SignInScreen({ onGoToSignUp }: SignInScreenProps) {
     try {
       await signInWithGoogle();
     } catch (error: any) {
-      if (error.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Google Sign In Failed', 'Something went wrong. Please try again.');
+      if (error.code !== 'SIGN_IN_CANCELLED' && error.code !== '-5') {
+        console.warn('Google Sign-In error:', error);
+        Alert.alert(
+          'Google Sign In Failed',
+          `${error.code ?? 'unknown'}: ${error.message ?? 'Something went wrong.'}`,
+        );
       }
     } finally {
       setGoogleLoading(false);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, Platform } from 'react-native';
+import { Text, TextInput, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -11,6 +11,13 @@ import { NetworkProvider } from './src/context/NetworkContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { OfflineBanner } from './src/components/OfflineBanner';
+
+// Lock text rendering to our designed sizes so iOS Dynamic Type and Android
+// font-scale preferences don't push text larger on one platform than the other.
+(Text as any).defaultProps = (Text as any).defaultProps || {};
+(Text as any).defaultProps.allowFontScaling = false;
+(TextInput as any).defaultProps = (TextInput as any).defaultProps || {};
+(TextInput as any).defaultProps.allowFontScaling = false;
 
 // Apply serif font globally to all Text components
 const serifFont = Platform.select({ ios: 'Georgia', default: 'serif' });
